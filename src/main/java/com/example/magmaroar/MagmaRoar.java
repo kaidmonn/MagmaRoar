@@ -43,7 +43,7 @@ public class MagmaRoar {
             this.strider = (Strider) world.spawnEntity(location, EntityType.STRIDER);
             
             if (this.strider != null) {
-                this.strider.setScale(2.0);
+                // Убрана проблемная строка setScale - страйдер стандартного размера
                 this.strider.setHealth(48);
                 this.strider.setSaddle(true);
                 this.strider.setInvulnerable(false);
@@ -136,13 +136,13 @@ public class MagmaRoar {
 
         lastJumpTime = currentTime;
 
-        strider.setVelocity(strider.getVelocity().add(0, 0.6, 0));
+        strider.setVelocity(strider.getVelocity().add(new Vector(0, 0.6, 0)));
         strider.getWorld().playSound(strider.getLocation(), org.bukkit.Sound.BLOCK_LAVA_EXTINGUISH, 1.0f, 1.0f);
         
         Location jumpLoc = strider.getLocation().subtract(0, 1, 0);
         for (int x = -1; x <= 1; x++) {
             for (int z = -1; z <= 1; z++) {
-                Location fireLoc = jumpLoc.clone().add(x, 0, z);
+                Location fireLoc = jumpLoc.clone().add(new Vector(x, 0, z));
                 if (fireLoc.getBlock().getType() == Material.AIR || 
                     fireLoc.getBlock().getType() == Material.FIRE) {
                     fireLoc.getBlock().setType(Material.FIRE);
@@ -171,7 +171,7 @@ public class MagmaRoar {
         lastAttackTime = currentTime;
 
         World world = strider.getWorld();
-        Location roarHead = strider.getLocation().add(0, 1.5, 0);
+        Location roarHead = strider.getLocation().add(new Vector(0, 1.5, 0));
         Vector direction = owner.getLocation().getDirection().normalize();
         
         TNTPrimed tnt = world.spawn(roarHead, TNTPrimed.class);

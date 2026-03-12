@@ -51,8 +51,8 @@ public class MagmaRoar {
                 // Отключаем ИИ
                 this.strider.setAI(false);
                 
-                // Надеваем седло
-                this.strider.getInventory().setSaddle(new ItemStack(Material.SADDLE));
+                // Надеваем седло (правильный способ для страйдера)
+                this.strider.setSaddle(true);
                 
                 // Атрибуты
                 AttributeInstance scaleAttr = this.strider.getAttribute(Attribute.SCALE);
@@ -84,7 +84,12 @@ public class MagmaRoar {
                 startDespawnTimer();
                 
                 owner.sendMessage("§aМагма Рёв призван! Он исчезнет через 90 секунд.");
+                owner.sendMessage("§eПКМ по Магма Рёву - сесть, Shift - слезть, Пробел - прыжок, ПКМ верхом - атака");
+            } else {
+                owner.sendMessage("§cНе удалось создать Магма Рёва!");
             }
+        } else {
+            owner.sendMessage("§cМир не найден!");
         }
     }
 

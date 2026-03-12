@@ -15,7 +15,7 @@ import java.util.UUID;
 public class DragonEntity {
 
     private final Player owner;
-    private final EnderDragon dragon;
+    private EnderDragon dragon; // Убрали final, чтобы можно было инициализировать позже
     private boolean isSummoned = false;
     private boolean isRiding = false;
     private boolean isHovering = false;
@@ -36,23 +36,28 @@ public class DragonEntity {
 
         World world = location.getWorld();
         if (world != null) {
+            // Создаём дракона
             this.dragon = (EnderDragon) world.spawnEntity(location, EntityType.ENDER_DRAGON);
             
-            // Строка с GENERIC_SCALE УДАЛЕНА — дракон будет стандартного размера
-            
-            this.dragon.setPhase(EnderDragon.Phase.CIRCLING);
-            this.dragon.setGravity(false);
-            this.dragon.setInvulnerable(false);
+            if (this.dragon != null) { // Проверяем, что дракон создался
+                this.dragon.setPhase(EnderDragon.Phase.CIRCLING);
+                this.dragon.setGravity(false);
+                this.dragon.setInvulnerable(false);
 
-            this.isSummoned = true;
-            activeDragons.put(owner.getUniqueId(), this);
-            lastSummonTime.put(owner.getUniqueId(), summonTime);
+                this.isSummoned = true;
+                activeDragons.put(owner.getUniqueId(), this);
+                lastSummonTime.put(owner.getUniqueId(), summonTime);
 
-            startDragonTasks();
-            startDespawnTimer();
-            
-            owner.sendMessage("§aДракон призван! Он исчезнет через 90 секунд.");
-            owner.sendMessage("§eИспользуйте F для зависания/полета, ПКМ для атаки (кулдаун 20 сек)");
+                startDragonTasks();
+                startDespawnTimer();
+                
+                owner.sendMessage("§aДракон призван! Он исчезнет через 90 секунд.");
+                owner.sendMessage("§eИспользуйте F для зависания/полета, ПКМ для атаки (кулдаун 20 сек)");
+            } else {
+                owner.sendMessage("§cНе удалось призвать дракона!");
+            }
+        } else {
+            owner.sendMessage("§cМир не найден!");
         }
     }
 
@@ -88,6 +93,8 @@ public class DragonEntity {
     }
 
     private void handleDragonMovement() {
+        if (dragon == null) return;
+        
         Vector direction = owner.getLocation().getDirection().normalize();
         Vector velocity = direction.multiply(1.2);
 
@@ -143,7 +150,9 @@ public class DragonEntity {
         isHovering = !isHovering;
         if (isHovering) {
             owner.sendMessage("§eРежим зависания активирован. Дракон парит на месте.");
-            dragon.setVelocity(new Vector(0, 0, 0));
+            if (dragon != null) {
+                dragon.setVelocity(new Vector(0, 0, 0));
+            }
         } else {
             owner.sendMessage("§aРежим полета активирован.");
         }

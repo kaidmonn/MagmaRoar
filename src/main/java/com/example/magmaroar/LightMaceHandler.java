@@ -5,7 +5,7 @@ import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.Listener;
 import org.bukkit.event.block.Action;
-import org.bukkit.event.entity.EntityDamageByEntityEvent;
+import org.bukkit.event.entity.EntityDamageEvent;
 import org.bukkit.event.player.PlayerInteractEvent;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.inventory.meta.ItemMeta;
@@ -17,8 +17,8 @@ import java.util.UUID;
 
 public class LightMaceHandler implements Listener {
 
-    private final Map<UUID, Long> lastShieldBreak = new HashMap<>();
-    private static final long SHIELD_COOLDOWN = 20 * 1000; // 20 секунд
+    private final Map<UUID, Long> lastJumpTime = new HashMap<>();
+    private static final long JUMP_COOLDOWN = 2000; // 2 секунды
 
     @EventHandler
     public void onPlayerInteract(PlayerInteractEvent event) {
@@ -28,6 +28,20 @@ public class LightMaceHandler implements Listener {
         if (!isLightMace(item)) return;
 
         if (event.getAction() == Action.RIGHT_CLICK_AIR || event.getAction() == Action.RIGHT_CLICK_BLOCK) {
+            
+            // Проверка кулдауна
+            long currentTime = System.currentTimeMillis();
+            Long lastJump = lastJumpTime.get(player.getUniqueId());
+            
+            if (lastJump != null && currentTime - lastJump < JUMP_COOLDOWN) {
+                long secondsLeft = (JUMP_COOLDOWN - (currentTime - lastJump)) / 1000;
+                player.sendMessage("§cПрыжок перезаряжается! Осталось: " + secondsLeft + " сек.");
+                event.setCancelled(true);
+                return;
+            }
+            
+            lastJumpTime.put(player.getUniqueId(), currentTime);
+            
             // Подбрасываем вверх на 15 блоков
             player.setVelocity(player.getVelocity().add(new Vector(0, 1.5, 0)));
             player.sendMessage("§aПрыжок! Готовь булаву!");
@@ -36,23 +50,20 @@ public class LightMaceHandler implements Listener {
     }
 
     @EventHandler
-    public void onEntityDamage(EntityDamageByEntityEvent event) {
-        if (!(event.getDamager() instanceof Player)) return;
+    public void onEntityDamage(EntityDamageEvent event) {
+        if (!(event.getEntity() instanceof Player)) return;
         
-        Player player = (Player) event.getDamager();
-        ItemStack item = player.getInventory().getItemInMainHand();
-
-        if (!isLightMace(item)) return;
-
-        // Проверка кулдауна на снос щита
-        long currentTime = System.currentTimeMillis();
-        Long lastBreak = lastShieldBreak.get(player.getUniqueId());
+        Player player = (Player) event.getEntity();
         
-        if (lastBreak == null || currentTime - lastBreak >= SHIELD_COOLDOWN) {
-            // Сносим щит (топор делает это автоматически)
-            // Булава с плотностью 4 уже имеет эту механику
-            lastShieldBreak.put(player.getUniqueId(), currentTime);
-            player.sendMessage("§eЩитолом готов! Следующий через 20 сек.");
+        // Иммунитет к урону от падения, если в руке булава
+        if (event.getCause() == EntityDamageEvent.DamageCause.FALL) {
+            ItemStack mainHand = player.getInventory().getItemInMainHand();
+            ItemStack offHand = player.getInventory().getItemInOffHand();
+            
+            if (isLightMace(mainHand) || isLightMace(offHand)) {
+                event.setCancelled(true);
+                player.sendMessage("§aЛегкая Булава смягчила падение!");
+            }
         }
     }
 

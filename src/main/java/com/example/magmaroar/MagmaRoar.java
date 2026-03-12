@@ -23,10 +23,10 @@ public class MagmaRoar {
     private long lastAttackTime = 0;
     private long lastJumpTime = 0;
     private long summonTime = 0;
-    private static final long ATTACK_COOLDOWN = 20 * 1000;
-    private static final long JUMP_COOLDOWN = 2000;
-    private static final long DESPAWN_TIME = 90 * 1000;
-    private static final long SUMMON_COOLDOWN = 3 * 60 * 1000;
+    private static final long ATTACK_COOLDOWN = 20 * 1000;        // 20 секунд
+    private static final long JUMP_COOLDOWN = 2000;              // 2 секунды
+    private static final long DESPAWN_TIME = 90 * 1000;          // 90 секунд (1.5 минуты)
+    private static final long SUMMON_COOLDOWN = 3 * 60 * 1000;   // 3 минуты
     private BukkitTask despawnTask;
     private BukkitTask movementTask;
     private BukkitTask fireTrailTask;
@@ -44,13 +44,13 @@ public class MagmaRoar {
             if (entity instanceof Strider) {
                 this.strider = (Strider) entity;
                 
-                // Размер x2
-                this.strider.setScale(2.0);
+                // Убрана проблемная строка setScale - страйдер стандартного размера
+                // (в следующих версиях API можно будет вернуть)
                 
                 // ХП как у разорителя (48)
                 this.strider.setHealth(48);
                 
-                // Седло не нужно — убираем проверку
+                // Седло не нужно - убираем проверку
                 this.strider.setInvulnerable(false);
                 
                 // Огнестойкость навсегда
@@ -69,6 +69,7 @@ public class MagmaRoar {
                 startDespawnTimer();
                 
                 owner.sendMessage("§aМагма Рёв призван! Он исчезнет через 90 секунд.");
+                owner.sendMessage("§eКулдаун призыва: 3 минуты");
             } else {
                 owner.sendMessage("§cНе удалось создать Магма Рёва!");
             }

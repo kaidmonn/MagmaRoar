@@ -20,8 +20,10 @@ public class StaffItem {
 
             List<Component> lore = new ArrayList<>();
             lore.add(Component.text("ПКМ: Призвать дракона или атаковать").color(TextColor.color(200, 200, 200)));
+            lore.add(Component.text("ПКМ по дракону: Сесть").color(TextColor.color(100, 255, 100)));
+            lore.add(Component.text("ЛКМ по дракону: Слезть").color(TextColor.color(255, 100, 100)));
             lore.add(Component.text("Пробел: Взлететь").color(TextColor.color(100, 255, 100)));
-            lore.add(Component.text("Shift: Спешиться / Пикировать").color(TextColor.color(255, 100, 100)));
+            lore.add(Component.text("Shift: Пикировать").color(TextColor.color(255, 100, 100)));
             lore.add(Component.text("F: Режим зависания").color(TextColor.color(255, 255, 100)));
             meta.lore(lore);
 

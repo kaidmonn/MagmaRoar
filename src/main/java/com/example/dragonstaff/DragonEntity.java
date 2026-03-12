@@ -15,7 +15,7 @@ import java.util.UUID;
 public class DragonEntity {
 
     private final Player owner;
-    private EnderDragon dragon; // Убрали final, чтобы можно было инициализировать позже
+    private EnderDragon dragon;
     private boolean isSummoned = false;
     private boolean isRiding = false;
     private boolean isHovering = false;
@@ -26,6 +26,7 @@ public class DragonEntity {
     private static final long SUMMON_COOLDOWN = 3 * 60 * 1000;
     private BukkitTask despawnTask;
     private BukkitTask movementTask;
+    private TNTPrimed tntProjectile; // Для отслеживания снаряда
 
     public static final Map<UUID, DragonEntity> activeDragons = new HashMap<>();
     public static final Map<UUID, Long> lastSummonTime = new HashMap<>();
@@ -36,10 +37,13 @@ public class DragonEntity {
 
         World world = location.getWorld();
         if (world != null) {
-            // Создаём дракона
+            // Спавним дракона
             this.dragon = (EnderDragon) world.spawnEntity(location, EntityType.ENDER_DRAGON);
             
-            if (this.dragon != null) { // Проверяем, что дракон создался
+            if (this.dragon != null) {
+                // Уменьшаем размер в 3 раза
+                this.dragon.setScale(0.33);
+                
                 this.dragon.setPhase(EnderDragon.Phase.CIRCLING);
                 this.dragon.setGravity(false);
                 this.dragon.setInvulnerable(false);
@@ -52,7 +56,8 @@ public class DragonEntity {
                 startDespawnTimer();
                 
                 owner.sendMessage("§aДракон призван! Он исчезнет через 90 секунд.");
-                owner.sendMessage("§eИспользуйте F для зависания/полета, ПКМ для атаки (кулдаун 20 сек)");
+                owner.sendMessage("§eПКМ по дракону - сесть, ЛКМ по дракону - слезть");
+                owner.sendMessage("§eF - зависание, ПКМ на посох - атака");
             } else {
                 owner.sendMessage("§cНе удалось призвать дракона!");
             }
@@ -70,18 +75,21 @@ public class DragonEntity {
                     return;
                 }
 
+                // Если игрок сидит на драконе
                 if (isRiding && owner.isOnline() && owner.getVehicle() != null && 
                     owner.getVehicle().equals(dragon)) {
                     
                     if (!isHovering) {
                         handleDragonMovement();
                     } else {
+                        // Режим зависания - полная остановка
                         dragon.setVelocity(new Vector(0, 0, 0));
                     }
                 }
 
-                if (isSummoned && !isRiding) {
-                    if (owner.isOnline() && owner.getLocation().distance(dragon.getLocation()) > 10) {
+                // Следование за игроком если не в седле
+                if (isSummoned && !isRiding && owner.isOnline()) {
+                    if (owner.getLocation().distance(dragon.getLocation()) > 10) {
                         Vector toPlayer = owner.getLocation().toVector().subtract(dragon.getLocation().toVector());
                         dragon.setVelocity(toPlayer.normalize().multiply(0.5));
                     } else {
@@ -179,37 +187,56 @@ public class DragonEntity {
         Location dragonHead = dragon.getLocation().add(0, 2.5, 0);
         Vector direction = owner.getLocation().getDirection().normalize();
         
-        FallingBlock projectile = world.spawnFallingBlock(dragonHead, Material.DRAGON_EGG.createBlockData());
-        projectile.setVelocity(direction.multiply(2.5));
-        projectile.setDropItem(false);
-        projectile.setHurtEntities(true);
-        projectile.setGlowing(true);
+        // Спавним вагонетку с динамитом
+        TNTPrimed tnt = world.spawn(dragonHead, TNTPrimed.class);
+        tnt.setFuseTicks(100); // Долгий запал, взорвётся при ударе
+        tnt.setVelocity(direction.multiply(2.5));
+        tnt.setYield(4.0f); // Сила взрыва
+        tnt.setIsIncendiary(false); // Без огня
+        tnt.setGlowing(true); // Свечение как у яйца дракона
+        
+        // Сохраняем снаряд для отслеживания
+        this.tntProjectile = tnt;
         
         world.playSound(dragonHead, org.bukkit.Sound.ENTITY_ENDER_DRAGON_SHOOT, 1.0f, 1.0f);
 
+        // Задача для проверки столкновения
         new BukkitRunnable() {
             @Override
             public void run() {
-                if (projectile.isDead() || projectile.isOnGround() || !projectile.isValid()) {
-                    if (!projectile.isDead()) {
-                        world.createExplosion(projectile.getLocation(), 4.0f, false, true, owner);
-                        world.playSound(projectile.getLocation(), org.bukkit.Sound.ENTITY_GENERIC_EXPLODE, 1.0f, 1.0f);
-                        projectile.remove();
+                if (tnt == null || tnt.isDead()) {
+                    this.cancel();
+                    return;
+                }
+                
+                // Проверяем, не врезалась ли вагонетка в сущность
+                for (Entity entity : tnt.getNearbyEntities(1.0, 1.0, 1.0)) {
+                    if (entity instanceof LivingEntity && !entity.equals(owner) && !entity.equals(dragon)) {
+                        tnt.remove();
+                        world.createExplosion(tnt.getLocation(), 4.0f, false, false, owner);
+                        world.playSound(tnt.getLocation(), org.bukkit.Sound.ENTITY_GENERIC_EXPLODE, 1.0f, 1.0f);
+                        this.cancel();
+                        return;
                     }
+                }
+                
+                // Если вагонетка коснулась земли или блока
+                if (tnt.isOnGround()) {
+                    tnt.remove();
+                    world.createExplosion(tnt.getLocation(), 4.0f, false, false, owner);
+                    world.playSound(tnt.getLocation(), org.bukkit.Sound.ENTITY_GENERIC_EXPLODE, 1.0f, 1.0f);
                     this.cancel();
                 }
                 
-                if (projectile.getTicksLived() > 100) {
-                    if (!projectile.isDead()) {
-                        world.createExplosion(projectile.getLocation(), 4.0f, false, true, owner);
-                        projectile.remove();
-                    }
+                // Если вагонетка улетела слишком далеко (5 секунд)
+                if (tnt.getTicksLived() > 100) {
+                    tnt.remove();
                     this.cancel();
                 }
             }
         }.runTaskTimer(DragonStaff.getInstance(), 0L, 1L);
         
-        owner.sendMessage("§aДракон выстрелил огненным шаром!");
+        owner.sendMessage("§aДракон выстрелил динамитной вагонеткой!");
     }
 
     public void mountDragon() {
@@ -217,7 +244,7 @@ public class DragonEntity {
             dragon.addPassenger(owner);
             this.isRiding = true;
             dragon.setGravity(false);
-            owner.sendMessage("§aВы оседлали дракона! WASD - движение, Пробел - вверх, Shift - вниз, F - зависание, ПКМ - атака");
+            owner.sendMessage("§aВы оседлали дракона!");
         }
     }
 

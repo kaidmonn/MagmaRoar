@@ -39,7 +39,6 @@ public class DragonEntity {
             this.dragon = (EnderDragon) world.spawnEntity(location, EntityType.ENDER_DRAGON);
             
             if (this.dragon != null) {
-                // Метод setScale удалён - дракон стандартного размера
                 this.dragon.setPhase(EnderDragon.Phase.CIRCLING);
                 this.dragon.setGravity(false);
                 this.dragon.setInvulnerable(false);
@@ -52,8 +51,8 @@ public class DragonEntity {
                 startDespawnTimer();
                 
                 owner.sendMessage("§aДракон призван! Он исчезнет через 90 секунд.");
-                owner.sendMessage("§eПКМ по дракону - сесть, ЛКМ по дракону - слезть");
-                owner.sendMessage("§eF - зависание, ПКМ на посох - атака");
+                owner.sendMessage("§eПКМ по дракону - сесть, F - зависание, ПКМ на посох - атака");
+                owner.sendMessage("§eСиний дракон будет стандартного размера (совместимость)");
             } else {
                 owner.sendMessage("§cНе удалось призвать дракона!");
             }
@@ -180,7 +179,7 @@ public class DragonEntity {
         Location dragonHead = dragon.getLocation().add(0, 2.5, 0);
         Vector direction = owner.getLocation().getDirection().normalize();
         
-        // Используем стрелу вместо TNT для совместимости
+        // Используем стрелу как снаряд (совместимо со всеми версиями)
         Arrow projectile = world.spawnArrow(dragonHead, direction, 2.5f, 0);
         projectile.setGlowing(true);
         projectile.setFireTicks(100);

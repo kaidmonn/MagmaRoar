@@ -16,15 +16,17 @@ public class StaffItem {
         ItemMeta meta = staff.getItemMeta();
 
         if (meta != null) {
-            meta.displayName(Component.text("Посох Дракона").color(TextColor.color(255, 215, 0)));
+            meta.displayName(Component.text("§6Посох Дракона"));
 
             List<Component> lore = new ArrayList<>();
-            lore.add(Component.text("ПКМ: Призвать дракона или атаковать").color(TextColor.color(200, 200, 200)));
-            lore.add(Component.text("ПКМ по дракону: Сесть").color(TextColor.color(100, 255, 100)));
-            lore.add(Component.text("ЛКМ по дракону: Слезть").color(TextColor.color(255, 100, 100)));
-            lore.add(Component.text("Пробел: Взлететь").color(TextColor.color(100, 255, 100)));
-            lore.add(Component.text("Shift: Пикировать").color(TextColor.color(255, 100, 100)));
-            lore.add(Component.text("F: Режим зависания").color(TextColor.color(255, 255, 100)));
+            lore.add(Component.text("§7ПКМ: Призвать дракона или атаковать"));
+            lore.add(Component.text("§aПКМ по дракону: Сесть"));
+            lore.add(Component.text("§cЛКМ по дракону: Слезть"));
+            lore.add(Component.text("§aПробел: Взлететь"));
+            lore.add(Component.text("§cShift: Пикировать"));
+            lore.add(Component.text("§eF: Режим зависания"));
+            lore.add(Component.text("§7Кулдаун призыва: 3 минуты"));
+            lore.add(Component.text("§7Дракон исчезает через 90 секунд"));
             meta.lore(lore);
 
             staff.setItemMeta(meta);

@@ -3,11 +3,10 @@ package com.example.dragonstaff;
 import org.bukkit.Material;
 import org.bukkit.entity.Player;
 import org.bukkit.entity.EnderDragon;
-import org.bukkit.entity.TNTPrimed;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.Listener;
 import org.bukkit.event.block.Action;
-import org.bukkit.event.entity.EntityExplodeEvent;
+import org.bukkit.event.player.PlayerInteractEntityEvent;
 import org.bukkit.event.player.PlayerInteractEvent;
 import org.bukkit.event.player.PlayerSwapHandItemsEvent;
 import org.bukkit.inventory.ItemStack;
@@ -20,7 +19,6 @@ public class StaffEvents implements Listener {
         Player player = event.getPlayer();
         ItemStack item = event.getItem();
 
-        // Обработка посоха
         if (isDragonStaff(item)) {
             if (event.getAction() == Action.RIGHT_CLICK_AIR || event.getAction() == Action.RIGHT_CLICK_BLOCK) {
                 DragonEntity dragon = DragonEntity.activeDragons.get(player.getUniqueId());
@@ -38,34 +36,22 @@ public class StaffEvents implements Listener {
                 event.setCancelled(true);
             }
         }
+    }
+
+    @EventHandler
+    public void onPlayerInteractEntity(PlayerInteractEntityEvent event) {
+        Player player = event.getPlayer();
         
         // ПКМ по дракону - сесть
-        if (event.getAction() == Action.RIGHT_CLICK_AIR || event.getAction() == Action.RIGHT_CLICK_BLOCK) {
-            if (event.getClickedBlock() == null && event.getPlayer().getTargetEntity(5) instanceof EnderDragon) {
-                EnderDragon dragon = (EnderDragon) event.getPlayer().getTargetEntity(5);
-                DragonEntity dragonEntity = DragonEntity.activeDragons.values().stream()
-                    .filter(de -> de.getDragon() != null && de.getDragon().equals(dragon))
-                    .findFirst().orElse(null);
-                
-                if (dragonEntity != null && !dragonEntity.isRiding()) {
-                    dragonEntity.mountDragon();
-                    event.setCancelled(true);
-                }
-            }
-        }
-        
-        // ЛКМ по дракону - слезть
-        if (event.getAction() == Action.LEFT_CLICK_AIR || event.getAction() == Action.LEFT_CLICK_BLOCK) {
-            if (event.getClickedBlock() == null && event.getPlayer().getTargetEntity(5) instanceof EnderDragon) {
-                EnderDragon dragon = (EnderDragon) event.getPlayer().getTargetEntity(5);
-                DragonEntity dragonEntity = DragonEntity.activeDragons.values().stream()
-                    .filter(de -> de.getDragon() != null && de.getDragon().equals(dragon))
-                    .findFirst().orElse(null);
-                
-                if (dragonEntity != null && dragonEntity.isRiding()) {
-                    dragonEntity.dismountDragon();
-                    event.setCancelled(true);
-                }
+        if (event.getRightClicked() instanceof EnderDragon) {
+            EnderDragon dragon = (EnderDragon) event.getRightClicked();
+            DragonEntity dragonEntity = DragonEntity.activeDragons.values().stream()
+                .filter(de -> de.getDragon() != null && de.getDragon().equals(dragon))
+                .findFirst().orElse(null);
+            
+            if (dragonEntity != null && !dragonEntity.isRiding()) {
+                dragonEntity.mountDragon();
+                event.setCancelled(true);
             }
         }
     }
@@ -78,13 +64,6 @@ public class StaffEvents implements Listener {
         if (dragon != null && dragon.isSummoned() && dragon.isRiding()) {
             dragon.toggleHover();
             event.setCancelled(true);
-        }
-    }
-
-    @EventHandler
-    public void onEntityExplode(EntityExplodeEvent event) {
-        if (event.getEntity() instanceof TNTPrimed) {
-            event.blockList().clear();
         }
     }
 

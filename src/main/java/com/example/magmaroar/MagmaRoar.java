@@ -17,7 +17,7 @@ import java.util.UUID;
 public class MagmaRoar {
 
     private final Player owner;
-    private final Strider strider;
+    private Strider strider; // Убрали final
     private boolean isSummoned = false;
     private boolean isRiding = false;
     private long lastAttackTime = 0;
@@ -40,10 +40,10 @@ public class MagmaRoar {
 
         World world = location.getWorld();
         if (world != null) {
-            this.strider = (Strider) world.spawnEntity(location, EntityType.STRIDER);
-            
-            if (this.strider != null) {
-                // Убрана проблемная строка setScale - страйдер стандартного размера
+            Entity entity = world.spawnEntity(location, EntityType.STRIDER);
+            if (entity instanceof Strider) {
+                this.strider = (Strider) entity;
+                
                 this.strider.setHealth(48);
                 this.strider.setSaddle(true);
                 this.strider.setInvulnerable(false);
@@ -61,11 +61,17 @@ public class MagmaRoar {
                 startDespawnTimer();
                 
                 owner.sendMessage("§aМагма Рёв призван! Он исчезнет через 90 секунд.");
+            } else {
+                owner.sendMessage("§cНе удалось создать Магма Рёва!");
             }
+        } else {
+            owner.sendMessage("§cМир не найден!");
         }
     }
 
     private void startTasks() {
+        if (strider == null) return; // Защита от null
+        
         fireTrailTask = new BukkitRunnable() {
             @Override
             public void run() {

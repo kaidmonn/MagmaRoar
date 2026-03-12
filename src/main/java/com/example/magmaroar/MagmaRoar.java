@@ -3,7 +3,10 @@ package com.example.magmaroar;
 import org.bukkit.Location;
 import org.bukkit.Material;
 import org.bukkit.World;
+import org.bukkit.attribute.Attribute;
+import org.bukkit.attribute.AttributeInstance;
 import org.bukkit.entity.*;
+import org.bukkit.inventory.ItemStack;
 import org.bukkit.potion.PotionEffect;
 import org.bukkit.potion.PotionEffectType;
 import org.bukkit.scheduler.BukkitRunnable;
@@ -23,13 +26,14 @@ public class MagmaRoar {
     private long lastAttackTime = 0;
     private long lastJumpTime = 0;
     private long summonTime = 0;
-    private static final long ATTACK_COOLDOWN = 20 * 1000;        // 20 секунд
-    private static final long JUMP_COOLDOWN = 2000;              // 2 секунды
-    private static final long DESPAWN_TIME = 90 * 1000;          // 90 секунд (1.5 минуты)
-    private static final long SUMMON_COOLDOWN = 3 * 60 * 1000;   // 3 минуты
+    private static final long ATTACK_COOLDOWN = 20 * 1000;
+    private static final long JUMP_COOLDOWN = 2000;
+    private static final long DESPAWN_TIME = 90 * 1000;
+    private static final long SUMMON_COOLDOWN = 3 * 60 * 1000;
     private BukkitTask despawnTask;
     private BukkitTask movementTask;
     private BukkitTask fireTrailTask;
+    private BukkitTask passengerCheckTask;
 
     public static final Map<UUID, MagmaRoar> activeMagmaRoars = new HashMap<>();
     public static final Map<UUID, Long> lastSummonTime = new HashMap<>();
@@ -44,20 +48,31 @@ public class MagmaRoar {
             if (entity instanceof Strider) {
                 this.strider = (Strider) entity;
                 
-                // Убрана проблемная строка setScale - страйдер стандартного размера
-                // (в следующих версиях API можно будет вернуть)
+                // Отключаем ИИ
+                this.strider.setAI(false);
                 
-                // ХП как у разорителя (48)
-                this.strider.setHealth(48);
+                // Надеваем седло
+                this.strider.getInventory().setSaddle(new ItemStack(Material.SADDLE));
                 
-                // Седло не нужно - убираем проверку
-                this.strider.setInvulnerable(false);
+                // Атрибуты
+                AttributeInstance scaleAttr = this.strider.getAttribute(Attribute.SCALE);
+                if (scaleAttr != null) scaleAttr.setBaseValue(2.0);
                 
-                // Огнестойкость навсегда
+                AttributeInstance speedAttr = this.strider.getAttribute(Attribute.MOVEMENT_SPEED);
+                if (speedAttr != null) speedAttr.setBaseValue(0.5);
+                
+                AttributeInstance healthAttr = this.strider.getAttribute(Attribute.MAX_HEALTH);
+                if (healthAttr != null) {
+                    healthAttr.setBaseValue(48);
+                    this.strider.setHealth(48);
+                }
+                
+                AttributeInstance knockbackAttr = this.strider.getAttribute(Attribute.KNOCKBACK_RESISTANCE);
+                if (knockbackAttr != null) knockbackAttr.setBaseValue(1.0);
+                
+                // Эффекты
                 this.strider.addPotionEffect(new PotionEffect(PotionEffectType.FIRE_RESISTANCE, Integer.MAX_VALUE, 0, false, false));
-                
-                // Скорость IV (очень быстрый)
-                this.strider.addPotionEffect(new PotionEffect(PotionEffectType.SPEED, Integer.MAX_VALUE, 3, false, false));
+                this.strider.addPotionEffect(new PotionEffect(PotionEffectType.SPEED, Integer.MAX_VALUE, 5, false, false));
 
                 this.isSummoned = true;
                 activeMagmaRoars.put(owner.getUniqueId(), this);
@@ -69,12 +84,7 @@ public class MagmaRoar {
                 startDespawnTimer();
                 
                 owner.sendMessage("§aМагма Рёв призван! Он исчезнет через 90 секунд.");
-                owner.sendMessage("§eКулдаун призыва: 3 минуты");
-            } else {
-                owner.sendMessage("§cНе удалось создать Магма Рёва!");
             }
-        } else {
-            owner.sendMessage("§cМир не найден!");
         }
     }
 
@@ -89,7 +99,6 @@ public class MagmaRoar {
                     return;
                 }
 
-                // Огненный след при ходьбе
                 if (strider.isOnGround()) {
                     Location footLoc = strider.getLocation().subtract(0, 1, 0);
                     if (footLoc.getBlock().getType() == Material.AIR || 
@@ -97,22 +106,9 @@ public class MagmaRoar {
                         footLoc.getBlock().setType(Material.FIRE);
                     }
                 }
-
-                // Проверка, кто на страйдере
-                if (!strider.getPassengers().isEmpty() && strider.getPassengers().get(0) instanceof Player) {
-                    Player rider = (Player) strider.getPassengers().get(0);
-                    
-                    if (!rider.equals(owner)) {
-                        strider.removePassenger(rider);
-                        rider.sendMessage("§cВы не можете сесть на чужого Магма Рёва!");
-                    } else {
-                        // Огнестойкость всаднику
-                        rider.addPotionEffect(new PotionEffect(PotionEffectType.FIRE_RESISTANCE, 100, 0, false, false));
-                        isRiding = true;
-                    }
-                } else {
-                    isRiding = false;
-                }
+                
+                strider.getWorld().spawnParticle(org.bukkit.Particle.FLAME, 
+                    strider.getLocation().add(0, 1, 0), 3, 0.5, 0.5, 0.5, 0.01);
             }
         }.runTaskTimer(MagmaRoarPlugin.getInstance(), 0L, 5L);
 
@@ -124,32 +120,52 @@ public class MagmaRoar {
                     return;
                 }
 
-                // Управление без удочки
                 if (isRiding && owner.isOnline() && owner.getVehicle() != null && 
                     owner.getVehicle().equals(strider)) {
                     
                     Vector direction = owner.getLocation().getDirection().normalize();
-                    Vector velocity = direction.multiply(0.5);
-                    velocity.setY(strider.getVelocity().getY());
+                    Vector velocity = new Vector(direction.getX() * 0.8, 0, direction.getZ() * 0.8);
                     strider.setVelocity(velocity);
                     
-                    // Автоматически поворачиваем страйдера в сторону движения
                     Location loc = strider.getLocation();
-                    loc.setDirection(direction);
+                    loc.setYaw(owner.getLocation().getYaw());
+                    loc.setPitch(0);
                     strider.teleport(loc);
                 }
 
-                // Следование за игроком если не в седле
                 if (isSummoned && !isRiding && owner.isOnline()) {
                     if (owner.getLocation().distance(strider.getLocation()) > 10) {
                         Vector toPlayer = owner.getLocation().toVector().subtract(strider.getLocation().toVector());
                         strider.setVelocity(toPlayer.normalize().multiply(0.5));
-                    } else {
+                    } else if (owner.getLocation().distance(strider.getLocation()) < 3) {
                         strider.setVelocity(new Vector(0, 0, 0));
                     }
                 }
             }
         }.runTaskTimer(MagmaRoarPlugin.getInstance(), 0L, 1L);
+
+        passengerCheckTask = new BukkitRunnable() {
+            @Override
+            public void run() {
+                if (!isSummoned || strider == null || strider.isDead()) {
+                    return;
+                }
+
+                if (!strider.getPassengers().isEmpty() && strider.getPassengers().get(0) instanceof Player) {
+                    Player rider = (Player) strider.getPassengers().get(0);
+                    
+                    if (!rider.equals(owner)) {
+                        strider.removePassenger(rider);
+                        rider.sendMessage("§cВы не можете сесть на чужого Магма Рёва!");
+                    } else {
+                        isRiding = true;
+                        rider.addPotionEffect(new PotionEffect(PotionEffectType.FIRE_RESISTANCE, 100, 0, false, false));
+                    }
+                } else {
+                    isRiding = false;
+                }
+            }
+        }.runTaskTimer(MagmaRoarPlugin.getInstance(), 0L, 10L);
     }
 
     public void jump() {
@@ -164,11 +180,9 @@ public class MagmaRoar {
 
         lastJumpTime = currentTime;
 
-        // Прыжок
         strider.setVelocity(strider.getVelocity().add(new Vector(0, 0.8, 0)));
         strider.getWorld().playSound(strider.getLocation(), org.bukkit.Sound.BLOCK_LAVA_EXTINGUISH, 1.0f, 1.0f);
         
-        // Огненный взрыв 3x3
         Location jumpLoc = strider.getLocation().subtract(0, 1, 0);
         for (int x = -1; x <= 1; x++) {
             for (int z = -1; z <= 1; z++) {
@@ -180,8 +194,8 @@ public class MagmaRoar {
             }
         }
         
-        // Частицы
         strider.getWorld().spawnParticle(org.bukkit.Particle.FLAME, strider.getLocation(), 50, 1.5, 0.5, 1.5, 0.1);
+        strider.getWorld().spawnParticle(org.bukkit.Particle.LAVA, strider.getLocation(), 20, 1.0, 0.5, 1.0, 0);
     }
 
     public void attack() {
@@ -202,37 +216,51 @@ public class MagmaRoar {
         lastAttackTime = currentTime;
 
         World world = strider.getWorld();
-        Location roarHead = strider.getLocation().add(new Vector(0, 1.5, 0));
+        Location spawnLoc = strider.getLocation().add(new Vector(0, 1.5, 0));
         Vector direction = owner.getLocation().getDirection().normalize();
         
-        // TNT снаряд
-        TNTPrimed tnt = world.spawn(roarHead, TNTPrimed.class);
-        tnt.setFuseTicks(100);
-        tnt.setVelocity(direction.multiply(2.0));
-        tnt.setYield(4.0f);
-        tnt.setIsIncendiary(false);
-        tnt.setGlowing(true);
+        Snowball projectile = world.spawn(spawnLoc, Snowball.class);
+        projectile.setVelocity(direction.multiply(2.5));
+        projectile.setGlowing(true);
+        projectile.setCustomNameVisible(false);
+        projectile.setShooter(owner);
         
-        world.playSound(roarHead, org.bukkit.Sound.ENTITY_BLAZE_SHOOT, 1.0f, 1.0f);
+        world.playSound(spawnLoc, org.bukkit.Sound.ENTITY_BLAZE_SHOOT, 1.0f, 1.0f);
 
         new BukkitRunnable() {
             @Override
             public void run() {
-                if (tnt == null || tnt.isDead()) {
+                if (projectile == null || projectile.isDead() || projectile.isOnGround() || !projectile.isValid()) {
+                    
+                    if (projectile != null && !projectile.isDead()) {
+                        Location hitLoc = projectile.getLocation();
+                        
+                        world.createExplosion(hitLoc, 4.0f, false, false, strider);
+                        world.playSound(hitLoc, org.bukkit.Sound.ENTITY_GENERIC_EXPLODE, 1.0f, 1.0f);
+                        
+                        world.spawnParticle(org.bukkit.Particle.SONIC_BOOM, 
+                            hitLoc, 30, 2.0, 1.0, 2.0, 0);
+                        world.spawnParticle(org.bukkit.Particle.FLAME, 
+                            hitLoc, 50, 2.0, 1.0, 2.0, 0.1);
+                        world.spawnParticle(org.bukkit.Particle.LAVA, 
+                            hitLoc, 30, 1.5, 1.0, 1.5, 0);
+                        
+                        projectile.remove();
+                    }
+                    
                     this.cancel();
-                    return;
                 }
                 
-                if (tnt.isOnGround() || tnt.getTicksLived() > 100) {
-                    world.createExplosion(tnt.getLocation(), 4.0f, false, false, owner);
-                    world.playSound(tnt.getLocation(), org.bukkit.Sound.ENTITY_GENERIC_EXPLODE, 1.0f, 1.0f);
-                    tnt.remove();
+                if (projectile != null && projectile.getTicksLived() > 100) {
+                    if (!projectile.isDead()) {
+                        projectile.remove();
+                    }
                     this.cancel();
                 }
             }
         }.runTaskTimer(MagmaRoarPlugin.getInstance(), 0L, 1L);
         
-        owner.sendMessage("§aМагма Рёв выстрелил TNT!");
+        owner.sendMessage("§aМагма Рёв выстрелил снежком-булавой!");
     }
 
     public void mount(Player player) {
@@ -275,6 +303,7 @@ public class MagmaRoar {
         }
         if (movementTask != null) movementTask.cancel();
         if (fireTrailTask != null) fireTrailTask.cancel();
+        if (passengerCheckTask != null) passengerCheckTask.cancel();
         if (despawnTask != null) despawnTask.cancel();
         activeMagmaRoars.remove(owner.getUniqueId());
         isSummoned = false;

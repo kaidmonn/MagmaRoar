@@ -3,6 +3,7 @@ package com.example.magmaroar;
 import org.bukkit.Material;
 import org.bukkit.entity.Player;
 import org.bukkit.entity.Strider;
+import org.bukkit.entity.Snowball;
 import org.bukkit.entity.TNTPrimed;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.Listener;
@@ -24,19 +25,31 @@ public class StaffEvents implements Listener {
 
         if (isMagmaHorn(item)) {
             if (event.getAction() == Action.RIGHT_CLICK_AIR || event.getAction() == Action.RIGHT_CLICK_BLOCK) {
-                MagmaRoar roar = MagmaRoar.activeMagmaRoars.get(player.getUniqueId());
+                MagmaRoar existing = MagmaRoar.activeMagmaRoars.get(player.getUniqueId());
+                
+                if (existing != null && existing.isSummoned()) {
+                    player.sendMessage("§cУ вас уже есть активный Магма Рёв! Дождитесь его исчезновения.");
+                    event.setCancelled(true);
+                    return;
+                }
 
-                if (roar == null || !roar.isSummoned()) {
-                    if (MagmaRoar.canSummon(player)) {
-                        new MagmaRoar(player, player.getLocation());
-                    } else {
-                        long cooldown = MagmaRoar.getRemainingCooldown(player);
-                        player.sendMessage("§cВы сможете призвать нового Магма Рёва через " + cooldown + " сек.");
-                    }
+                if (MagmaRoar.canSummon(player)) {
+                    new MagmaRoar(player, player.getLocation());
                 } else {
-                    roar.attack();
+                    long cooldown = MagmaRoar.getRemainingCooldown(player);
+                    player.sendMessage("§cВы сможете призвать нового Магма Рёва через " + cooldown + " сек.");
                 }
                 event.setCancelled(true);
+            }
+        }
+        
+        if (player.getVehicle() instanceof Strider) {
+            MagmaRoar roar = MagmaRoar.activeMagmaRoars.get(player.getUniqueId());
+            if (roar != null && roar.isRiding()) {
+                if (event.getAction() == Action.RIGHT_CLICK_AIR || event.getAction() == Action.RIGHT_CLICK_BLOCK) {
+                    roar.attack();
+                    event.setCancelled(true);
+                }
             }
         }
     }
@@ -76,8 +89,9 @@ public class StaffEvents implements Listener {
             event.getCause() == EntityDamageEvent.DamageCause.ENTITY_EXPLOSION) {
             
             if (event.getEntity() instanceof Strider) {
+                Strider strider = (Strider) event.getEntity();
                 MagmaRoar roar = MagmaRoar.activeMagmaRoars.values().stream()
-                    .filter(r -> r.getStrider() != null && r.getStrider().equals(event.getEntity()))
+                    .filter(r -> r.getStrider() != null && r.getStrider().equals(strider))
                     .findFirst().orElse(null);
                 if (roar != null) {
                     event.setCancelled(true);
@@ -98,7 +112,7 @@ public class StaffEvents implements Listener {
 
     @EventHandler
     public void onEntityExplode(EntityExplodeEvent event) {
-        if (event.getEntity() instanceof TNTPrimed) {
+        if (event.getEntity() instanceof TNTPrimed || event.getEntity() instanceof Snowball) {
             event.blockList().clear();
         }
     }

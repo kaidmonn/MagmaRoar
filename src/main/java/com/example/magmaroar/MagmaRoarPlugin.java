@@ -19,11 +19,6 @@ public class MagmaRoarPlugin extends JavaPlugin {
         getLogger().info("MagmaRoarPlugin включён!");
     }
 
-    @Override
-    public void onDisable() {
-        getLogger().info("MagmaRoarPlugin выключен.");
-    }
-
     public static MagmaRoarPlugin getInstance() {
         return instance;
     }

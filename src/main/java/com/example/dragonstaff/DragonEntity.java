@@ -7,7 +7,6 @@ import org.bukkit.entity.*;
 import org.bukkit.scheduler.BukkitRunnable;
 import org.bukkit.scheduler.BukkitTask;
 import org.bukkit.util.Vector;
-import org.bukkit.attribute.Attribute;  // ← ВАЖНО: добавили этот импорт
 
 import java.util.HashMap;
 import java.util.Map;
@@ -39,8 +38,7 @@ public class DragonEntity {
         if (world != null) {
             this.dragon = (EnderDragon) world.spawnEntity(location, EntityType.ENDER_DRAGON);
             
-            // ИСПРАВЛЕННАЯ СТРОКА 42:
-            this.dragon.getAttribute(Attribute.GENERIC_SCALE).setBaseValue(0.33);
+            // Строка с GENERIC_SCALE УДАЛЕНА — дракон будет стандартного размера
             
             this.dragon.setPhase(EnderDragon.Phase.CIRCLING);
             this.dragon.setGravity(false);

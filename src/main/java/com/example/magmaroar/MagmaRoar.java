@@ -17,7 +17,7 @@ import java.util.UUID;
 public class MagmaRoar {
 
     private final Player owner;
-    private Strider strider; // Убрали final
+    private Strider strider;
     private boolean isSummoned = false;
     private boolean isRiding = false;
     private long lastAttackTime = 0;
@@ -44,11 +44,19 @@ public class MagmaRoar {
             if (entity instanceof Strider) {
                 this.strider = (Strider) entity;
                 
+                // Размер x2
+                this.strider.setScale(2.0);
+                
+                // ХП как у разорителя (48)
                 this.strider.setHealth(48);
-                this.strider.setSaddle(true);
+                
+                // Седло не нужно — убираем проверку
                 this.strider.setInvulnerable(false);
                 
+                // Огнестойкость навсегда
                 this.strider.addPotionEffect(new PotionEffect(PotionEffectType.FIRE_RESISTANCE, Integer.MAX_VALUE, 0, false, false));
+                
+                // Скорость IV (очень быстрый)
                 this.strider.addPotionEffect(new PotionEffect(PotionEffectType.SPEED, Integer.MAX_VALUE, 3, false, false));
 
                 this.isSummoned = true;
@@ -70,7 +78,7 @@ public class MagmaRoar {
     }
 
     private void startTasks() {
-        if (strider == null) return; // Защита от null
+        if (strider == null) return;
         
         fireTrailTask = new BukkitRunnable() {
             @Override
@@ -80,6 +88,7 @@ public class MagmaRoar {
                     return;
                 }
 
+                // Огненный след при ходьбе
                 if (strider.isOnGround()) {
                     Location footLoc = strider.getLocation().subtract(0, 1, 0);
                     if (footLoc.getBlock().getType() == Material.AIR || 
@@ -88,6 +97,7 @@ public class MagmaRoar {
                     }
                 }
 
+                // Проверка, кто на страйдере
                 if (!strider.getPassengers().isEmpty() && strider.getPassengers().get(0) instanceof Player) {
                     Player rider = (Player) strider.getPassengers().get(0);
                     
@@ -95,6 +105,7 @@ public class MagmaRoar {
                         strider.removePassenger(rider);
                         rider.sendMessage("§cВы не можете сесть на чужого Магма Рёва!");
                     } else {
+                        // Огнестойкость всаднику
                         rider.addPotionEffect(new PotionEffect(PotionEffectType.FIRE_RESISTANCE, 100, 0, false, false));
                         isRiding = true;
                     }
@@ -112,6 +123,7 @@ public class MagmaRoar {
                     return;
                 }
 
+                // Управление без удочки
                 if (isRiding && owner.isOnline() && owner.getVehicle() != null && 
                     owner.getVehicle().equals(strider)) {
                     
@@ -119,8 +131,14 @@ public class MagmaRoar {
                     Vector velocity = direction.multiply(0.5);
                     velocity.setY(strider.getVelocity().getY());
                     strider.setVelocity(velocity);
+                    
+                    // Автоматически поворачиваем страйдера в сторону движения
+                    Location loc = strider.getLocation();
+                    loc.setDirection(direction);
+                    strider.teleport(loc);
                 }
 
+                // Следование за игроком если не в седле
                 if (isSummoned && !isRiding && owner.isOnline()) {
                     if (owner.getLocation().distance(strider.getLocation()) > 10) {
                         Vector toPlayer = owner.getLocation().toVector().subtract(strider.getLocation().toVector());
@@ -135,16 +153,21 @@ public class MagmaRoar {
 
     public void jump() {
         if (strider == null || strider.isDead()) return;
-        if (!isRiding) return;
+        if (!isRiding) {
+            owner.sendMessage("§cВы должны сидеть на Магма Рёве, чтобы прыгать!");
+            return;
+        }
 
         long currentTime = System.currentTimeMillis();
         if (currentTime - lastJumpTime < JUMP_COOLDOWN) return;
 
         lastJumpTime = currentTime;
 
-        strider.setVelocity(strider.getVelocity().add(new Vector(0, 0.6, 0)));
+        // Прыжок
+        strider.setVelocity(strider.getVelocity().add(new Vector(0, 0.8, 0)));
         strider.getWorld().playSound(strider.getLocation(), org.bukkit.Sound.BLOCK_LAVA_EXTINGUISH, 1.0f, 1.0f);
         
+        // Огненный взрыв 3x3
         Location jumpLoc = strider.getLocation().subtract(0, 1, 0);
         for (int x = -1; x <= 1; x++) {
             for (int z = -1; z <= 1; z++) {
@@ -156,7 +179,8 @@ public class MagmaRoar {
             }
         }
         
-        strider.getWorld().spawnParticle(org.bukkit.Particle.FLAME, strider.getLocation(), 30, 1, 0.5, 1, 0.1);
+        // Частицы
+        strider.getWorld().spawnParticle(org.bukkit.Particle.FLAME, strider.getLocation(), 50, 1.5, 0.5, 1.5, 0.1);
     }
 
     public void attack() {
@@ -180,6 +204,7 @@ public class MagmaRoar {
         Location roarHead = strider.getLocation().add(new Vector(0, 1.5, 0));
         Vector direction = owner.getLocation().getDirection().normalize();
         
+        // TNT снаряд
         TNTPrimed tnt = world.spawn(roarHead, TNTPrimed.class);
         tnt.setFuseTicks(100);
         tnt.setVelocity(direction.multiply(2.0));

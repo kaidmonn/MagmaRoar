@@ -22,11 +22,11 @@ public class LightMaceItem {
             meta.setUnbreakable(true);
             
             // Зачарования
-            meta.addEnchant(Enchantment.DENSITY, 4, true);      // Плотность 4
-            meta.addEnchant(Enchantment.WIND_BURST, 2, true);  // Порыв ветра 2
+            meta.addEnchant(Enchantment.DENSITY, 4, true);
+            meta.addEnchant(Enchantment.WIND_BURST, 2, true);
 
             List<Component> lore = new ArrayList<>();
-            lore.add(Component.text("§7ПКМ: Подбрасывает вверх (кулдаун 2 сек)"));
+            lore.add(Component.text("§7ПКМ: Подбрасывает вверх (кулдаун 15 сек)"));
             lore.add(Component.text("§7Держа в руках: иммунитет к падению"));
             lore.add(Component.text("§7Плотность 4, Порыв ветра 2"));
             meta.lore(lore);

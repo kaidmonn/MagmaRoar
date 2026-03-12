@@ -18,7 +18,8 @@ import java.util.UUID;
 public class LightMaceHandler implements Listener {
 
     private final Map<UUID, Long> lastJumpTime = new HashMap<>();
-    private static final long JUMP_COOLDOWN = 2000; // 2 секунды
+    private static final long JUMP_COOLDOWN = 15 * 1000; // 15 секунд
+    private static final double JUMP_HEIGHT = 1.2; // 20 блоков (примерно)
 
     @EventHandler
     public void onPlayerInteract(PlayerInteractEvent event) {
@@ -42,8 +43,8 @@ public class LightMaceHandler implements Listener {
             
             lastJumpTime.put(player.getUniqueId(), currentTime);
             
-            // Подбрасываем вверх на 15 блоков
-            player.setVelocity(player.getVelocity().add(new Vector(0, 1.5, 0)));
+            // Подбрасываем вверх на 20 блоков
+            player.setVelocity(player.getVelocity().add(new Vector(0, JUMP_HEIGHT, 0)));
             player.sendMessage("§aПрыжок! Готовь булаву!");
             event.setCancelled(true);
         }
@@ -62,7 +63,6 @@ public class LightMaceHandler implements Listener {
             
             if (isLightMace(mainHand) || isLightMace(offHand)) {
                 event.setCancelled(true);
-                player.sendMessage("§aЛегкая Булава смягчила падение!");
             }
         }
     }

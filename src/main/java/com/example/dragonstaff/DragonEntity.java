@@ -38,7 +38,9 @@ public class DragonEntity {
         if (world != null) {
             this.dragon = (EnderDragon) world.spawnEntity(location, EntityType.ENDER_DRAGON);
             
-            this.dragon.getAttribute(org.bukkit.attribute.Attribute.GENERIC_SCALE).setBaseValue(0.33);
+            // Исправленная строка 41:
+            this.dragon.setScale(0.33);
+            
             this.dragon.setPhase(EnderDragon.Phase.CIRCLING);
             this.dragon.setGravity(false);
             this.dragon.setInvulnerable(false);

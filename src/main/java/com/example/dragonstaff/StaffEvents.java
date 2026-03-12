@@ -3,14 +3,13 @@ package com.example.dragonstaff;
 import org.bukkit.Material;
 import org.bukkit.entity.Player;
 import org.bukkit.entity.EnderDragon;
+import org.bukkit.entity.TNTPrimed;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.Listener;
 import org.bukkit.event.block.Action;
 import org.bukkit.event.entity.EntityExplodeEvent;
 import org.bukkit.event.player.PlayerInteractEvent;
-import org.bukkit.event.player.PlayerToggleSneakEvent;
 import org.bukkit.event.player.PlayerSwapHandItemsEvent;
-import org.bukkit.event.vehicle.VehicleExitEvent;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.inventory.meta.ItemMeta;
 
@@ -21,13 +20,12 @@ public class StaffEvents implements Listener {
         Player player = event.getPlayer();
         ItemStack item = event.getItem();
 
-        // Обработка посоха (ПКМ с посохом)
+        // Обработка посоха
         if (isDragonStaff(item)) {
             if (event.getAction() == Action.RIGHT_CLICK_AIR || event.getAction() == Action.RIGHT_CLICK_BLOCK) {
                 DragonEntity dragon = DragonEntity.activeDragons.get(player.getUniqueId());
 
                 if (dragon == null || !dragon.isSummoned()) {
-                    // Призыв дракона
                     if (DragonEntity.canSummon(player)) {
                         new DragonEntity(player, player.getLocation());
                     } else {
@@ -35,16 +33,14 @@ public class StaffEvents implements Listener {
                         player.sendMessage("§cВы сможете призвать нового дракона через " + cooldown + " сек.");
                     }
                 } else {
-                    // Атака дракона
                     dragon.attack();
                 }
                 event.setCancelled(true);
             }
         }
         
-        // Обработка взаимодействия с драконом
+        // ПКМ по дракону - сесть
         if (event.getAction() == Action.RIGHT_CLICK_AIR || event.getAction() == Action.RIGHT_CLICK_BLOCK) {
-            // ПКМ по дракону - сесть
             if (event.getClickedBlock() == null && event.getPlayer().getTargetEntity(5) instanceof EnderDragon) {
                 EnderDragon dragon = (EnderDragon) event.getPlayer().getTargetEntity(5);
                 DragonEntity dragonEntity = DragonEntity.activeDragons.values().stream()
@@ -87,7 +83,6 @@ public class StaffEvents implements Listener {
 
     @EventHandler
     public void onEntityExplode(EntityExplodeEvent event) {
-        // Запрещаем разрушение блоков от взрывов нашей вагонетки
         if (event.getEntity() instanceof TNTPrimed) {
             event.blockList().clear();
         }

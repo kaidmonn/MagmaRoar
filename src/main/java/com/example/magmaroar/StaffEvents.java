@@ -3,8 +3,7 @@ package com.example.magmaroar;
 import org.bukkit.Material;
 import org.bukkit.entity.Player;
 import org.bukkit.entity.Strider;
-import org.bukkit.entity.Snowball;
-import org.bukkit.entity.TNTPrimed;
+import org.bukkit.entity.Fireball;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.Listener;
 import org.bukkit.event.block.Action;
@@ -24,13 +23,13 @@ public class StaffEvents implements Listener {
         Player player = event.getPlayer();
         ItemStack item = event.getItem();
 
-        // Призыв Магма Рёва по рогу
+        // Призыв Магма Рёва
         if (isMagmaHorn(item)) {
             if (event.getAction() == Action.RIGHT_CLICK_AIR || event.getAction() == Action.RIGHT_CLICK_BLOCK) {
                 MagmaRoar existing = MagmaRoar.activeMagmaRoars.get(player.getUniqueId());
                 
                 if (existing != null && existing.isSummoned()) {
-                    player.sendMessage("§cУ вас уже есть активный Магма Рёв! Дождитесь его исчезновения.");
+                    player.sendMessage("§cУ вас уже есть активный Магма Рёв!");
                     event.setCancelled(true);
                     return;
                 }
@@ -39,14 +38,14 @@ public class StaffEvents implements Listener {
                     new MagmaRoar(player, player.getLocation());
                 } else {
                     long cooldown = MagmaRoar.getRemainingCooldown(player);
-                    player.sendMessage("§cВы сможете призвать нового Магма Рёва через " + cooldown + " сек.");
+                    player.sendMessage("§cПодождите " + cooldown + " сек.");
                 }
                 event.setCancelled(true);
                 return;
             }
         }
         
-        // Атака ПКМ верхом (ЛЮБОЙ ПРЕДМЕТ)
+        // Атака ПКМ верхом (ЛЮБАЯ РУКА, ЛЮБОЙ ПРЕДМЕТ)
         if (player.getVehicle() instanceof Strider) {
             MagmaRoar roar = MagmaRoar.activeMagmaRoars.get(player.getUniqueId());
             if (roar != null && roar.isRiding()) {
@@ -100,8 +99,7 @@ public class StaffEvents implements Listener {
 
     @EventHandler
     public void onEntityDamage(EntityDamageEvent event) {
-        if (event.getCause() == EntityDamageEvent.DamageCause.BLOCK_EXPLOSION ||
-            event.getCause() == EntityDamageEvent.DamageCause.ENTITY_EXPLOSION) {
+        if (event.getCause() == EntityDamageEvent.DamageCause.ENTITY_EXPLOSION) {
             
             if (event.getEntity() instanceof Strider) {
                 Strider strider = (Strider) event.getEntity();
@@ -127,8 +125,7 @@ public class StaffEvents implements Listener {
 
     @EventHandler
     public void onEntityExplode(EntityExplodeEvent event) {
-        // Снежки не разрушают блоки (но взрыв остаётся)
-        if (event.getEntity() instanceof Snowball) {
+        if (event.getEntity() instanceof Fireball) {
             event.blockList().clear();
         }
     }

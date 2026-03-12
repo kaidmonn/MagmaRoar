@@ -26,7 +26,8 @@ public class MagmaRoar {
     private long lastJumpTime = 0;
     private long summonTime = 0;
     private static final long ATTACK_COOLDOWN = 20 * 1000;
-    private static final long JUMP_COOLDOWN = 2000;
+    private static final long JUMP_COOLDOWN = 1000; // 1 секунда
+    private static final double JUMP_HEIGHT = 0.45; // 3 блока
     private static final long DESPAWN_TIME = 90 * 1000;
     private static final long SUMMON_COOLDOWN = 3 * 60 * 1000;
     private BukkitTask despawnTask;
@@ -102,18 +103,24 @@ public class MagmaRoar {
                     return;
                 }
 
-                if (strider.isOnGround()) {
-                    Location footLoc = strider.getLocation().subtract(0, 1, 0);
-                    if (footLoc.getBlock().getType() == Material.AIR || 
-                        footLoc.getBlock().getType() == Material.FIRE) {
-                        footLoc.getBlock().setType(Material.FIRE);
+                // Поджигаем блок под каждым блоком страйдера (все 4 ноги)
+                for (int x = -1; x <= 1; x++) {
+                    for (int z = -1; z <= 1; z++) {
+                        if (Math.abs(x) + Math.abs(z) <= 1) { // Только соседние блоки (крест)
+                            Location footLoc = strider.getLocation().add(x, -1, z);
+                            if (footLoc.getBlock().getType() == Material.AIR || 
+                                footLoc.getBlock().getType() == Material.FIRE) {
+                                footLoc.getBlock().setType(Material.FIRE);
+                            }
+                        }
                     }
                 }
                 
+                // Частицы
                 strider.getWorld().spawnParticle(org.bukkit.Particle.FLAME, 
-                    strider.getLocation().add(0, 1, 0), 3, 0.5, 0.5, 0.5, 0.01);
+                    strider.getLocation().add(0, 1, 0), 5, 0.8, 0.5, 0.8, 0.02);
             }
-        }.runTaskTimer(MagmaRoarPlugin.getInstance(), 0L, 5L);
+        }.runTaskTimer(MagmaRoarPlugin.getInstance(), 0L, 3L); // Чаще, для лучшего эффекта
 
         movementTask = new BukkitRunnable() {
             @Override
@@ -126,18 +133,27 @@ public class MagmaRoar {
                 if (isRiding && owner.isOnline() && owner.getVehicle() != null && 
                     owner.getVehicle().equals(strider)) {
                     
+                    // УПРАВЛЕНИЕ БЕЗ УДОЧКИ
+                    // Получаем направление взгляда игрока
                     Vector direction = owner.getLocation().getDirection().normalize();
                     
-                    // Сохраняем вертикальную скорость (гравитация)
+                    // Сохраняем текущую вертикальную скорость
                     double currentY = strider.getVelocity().getY();
                     
+                    // Горизонтальное движение (всегда активно)
                     Vector velocity = new Vector(direction.getX() * 0.8, currentY, direction.getZ() * 0.8);
                     strider.setVelocity(velocity);
                     
+                    // Поворот страйдера
                     Location loc = strider.getLocation();
                     loc.setYaw(owner.getLocation().getYaw());
                     loc.setPitch(0);
                     strider.teleport(loc);
+                    
+                    // Если игрок нажимает Shift - замедляем падение
+                    if (owner.isSneaking() && currentY < -0.1) {
+                        strider.setVelocity(new Vector(velocity.getX(), currentY * 0.5, velocity.getZ()));
+                    }
                 }
 
                 if (isSummoned && !isRiding && owner.isOnline()) {
@@ -147,8 +163,6 @@ public class MagmaRoar {
                         Vector velocity = toPlayer.normalize().multiply(0.5);
                         velocity.setY(currentY);
                         strider.setVelocity(velocity);
-                    } else if (owner.getLocation().distance(strider.getLocation()) < 3) {
-                        strider.setVelocity(new Vector(0, strider.getVelocity().getY(), 0));
                     }
                 }
             }
@@ -170,6 +184,9 @@ public class MagmaRoar {
                     } else {
                         isRiding = true;
                         rider.addPotionEffect(new PotionEffect(PotionEffectType.FIRE_RESISTANCE, 100, 0, false, false));
+                        // Отключаем ванильный полёт
+                        rider.setAllowFlight(false);
+                        rider.setFlying(false);
                     }
                 } else {
                     isRiding = false;
@@ -190,13 +207,18 @@ public class MagmaRoar {
 
         lastJumpTime = currentTime;
 
+        // Прыжок на 3 блока
         Vector currentVel = strider.getVelocity();
-        strider.setVelocity(currentVel.add(new Vector(0, 0.8, 0)));
-        strider.getWorld().playSound(strider.getLocation(), org.bukkit.Sound.BLOCK_LAVA_EXTINGUISH, 1.0f, 1.0f);
+        strider.setVelocity(currentVel.add(new Vector(0, JUMP_HEIGHT, 0)));
         
+        // Звук
+        strider.getWorld().playSound(strider.getLocation(), org.bukkit.Sound.ENTITY_HORSE_JUMP, 1.0f, 1.0f);
+        
+        // Поджигаем ВСЕ блоки под страйдером (3x3)
         Location jumpLoc = strider.getLocation().subtract(0, 1, 0);
-        for (int x = -1; x <= 1; x++) {
-            for (int z = -1; z <= 1; z++) {
+        for (int x = -2; x <= 2; x++) {
+            for (int z = -2; z <= 2; z++) {
+                if (Math.abs(x) <= 1 && Math.abs(z) <= 1) continue; // Пропускаем центр (уже горит)
                 Location fireLoc = jumpLoc.clone().add(x, 0, z);
                 if (fireLoc.getBlock().getType() == Material.AIR || 
                     fireLoc.getBlock().getType() == Material.FIRE) {
@@ -205,7 +227,9 @@ public class MagmaRoar {
             }
         }
         
-        strider.getWorld().spawnParticle(org.bukkit.Particle.FLAME, strider.getLocation(), 50, 1.5, 0.5, 1.5, 0.1);
+        // Частицы
+        strider.getWorld().spawnParticle(org.bukkit.Particle.FLAME, strider.getLocation(), 100, 2.5, 1.0, 2.5, 0.1);
+        strider.getWorld().spawnParticle(org.bukkit.Particle.LAVA, strider.getLocation(), 50, 2.0, 0.5, 2.0, 0);
     }
 
     public void attack() {
@@ -229,31 +253,32 @@ public class MagmaRoar {
         Location spawnLoc = strider.getLocation().add(0, 1.5, 0);
         Vector direction = owner.getLocation().getDirection().normalize();
         
-        // Создаём снежок
-        Snowball projectile = world.spawn(spawnLoc, Snowball.class);
-        projectile.setVelocity(direction.multiply(2.5));
-        projectile.setGlowing(true);
-        projectile.setCustomNameVisible(false);
+        // ИСПОЛЬЗУЕМ ФАЙЕРБОЛЛ (работает стабильно)
+        Fireball projectile = world.spawn(spawnLoc, Fireball.class);
+        projectile.setVelocity(direction.multiply(2.0));
+        projectile.setYield(4.0f); // Сила взрыва
+        projectile.setIsIncendiary(false); // Не поджигает блоки
         projectile.setShooter(owner);
+        projectile.setDirection(direction);
+        
+        // Делаем файерболл меньше и быстрее
+        projectile.setVisualFire(false);
         
         world.playSound(spawnLoc, org.bukkit.Sound.ENTITY_BLAZE_SHOOT, 1.0f, 1.0f);
 
-        // Отслеживаем попадание
+        // Отслеживаем взрыв
         new BukkitRunnable() {
             @Override
             public void run() {
-                if (projectile == null || projectile.isDead() || projectile.isOnGround() || !projectile.isValid()) {
+                if (projectile == null || projectile.isDead() || projectile.isOnGround()) {
                     
                     if (projectile != null && !projectile.isDead()) {
                         Location hitLoc = projectile.getLocation();
                         
-                        // ВЗРЫВ! 4.0f сила, false - не поджигать, false - не разрушать блоки
-                        world.createExplosion(hitLoc, 4.0f, false, false, strider);
-                        
                         // Звук взрыва
                         world.playSound(hitLoc, org.bukkit.Sound.ENTITY_GENERIC_EXPLODE, 1.0f, 1.0f);
                         
-                        // Частицы
+                        // Частицы удара булавы
                         world.spawnParticle(org.bukkit.Particle.SONIC_BOOM, hitLoc, 30, 2.0, 1.0, 2.0, 0);
                         world.spawnParticle(org.bukkit.Particle.FLAME, hitLoc, 50, 2.0, 1.0, 2.0, 0.1);
                         world.spawnParticle(org.bukkit.Particle.LAVA, hitLoc, 30, 1.5, 1.0, 1.5, 0);
@@ -273,7 +298,7 @@ public class MagmaRoar {
             }
         }.runTaskTimer(MagmaRoarPlugin.getInstance(), 0L, 1L);
         
-        owner.sendMessage("§aМагма Рёв выстрелил снежком-булавой!");
+        owner.sendMessage("§aМагма Рёв выстрелил файерболлом!");
     }
 
     public void mount(Player player) {
@@ -285,6 +310,8 @@ public class MagmaRoar {
         if (isSummoned && strider != null && !strider.isDead() && !isRiding) {
             strider.addPassenger(owner);
             isRiding = true;
+            owner.setAllowFlight(false);
+            owner.setFlying(false);
             owner.sendMessage("§aВы оседлали Магма Рёва!");
         }
     }

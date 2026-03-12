@@ -13,6 +13,7 @@ import org.bukkit.event.entity.EntityExplodeEvent;
 import org.bukkit.event.player.PlayerInteractEntityEvent;
 import org.bukkit.event.player.PlayerInteractEvent;
 import org.bukkit.event.player.PlayerToggleSneakEvent;
+import org.bukkit.event.player.PlayerToggleFlightEvent;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.inventory.meta.ItemMeta;
 
@@ -23,6 +24,7 @@ public class StaffEvents implements Listener {
         Player player = event.getPlayer();
         ItemStack item = event.getItem();
 
+        // Призыв Магма Рёва по рогу
         if (isMagmaHorn(item)) {
             if (event.getAction() == Action.RIGHT_CLICK_AIR || event.getAction() == Action.RIGHT_CLICK_BLOCK) {
                 MagmaRoar existing = MagmaRoar.activeMagmaRoars.get(player.getUniqueId());
@@ -40,9 +42,11 @@ public class StaffEvents implements Listener {
                     player.sendMessage("§cВы сможете призвать нового Магма Рёва через " + cooldown + " сек.");
                 }
                 event.setCancelled(true);
+                return;
             }
         }
         
+        // Атака ПКМ верхом (ЛЮБОЙ ПРЕДМЕТ)
         if (player.getVehicle() instanceof Strider) {
             MagmaRoar roar = MagmaRoar.activeMagmaRoars.get(player.getUniqueId());
             if (roar != null && roar.isRiding()) {
@@ -51,6 +55,17 @@ public class StaffEvents implements Listener {
                     event.setCancelled(true);
                 }
             }
+        }
+    }
+
+    @EventHandler
+    public void onPlayerToggleFlight(PlayerToggleFlightEvent event) {
+        Player player = event.getPlayer();
+        MagmaRoar roar = MagmaRoar.activeMagmaRoars.get(player.getUniqueId());
+        
+        if (roar != null && roar.isRiding()) {
+            roar.jump();
+            event.setCancelled(true);
         }
     }
 
@@ -112,7 +127,8 @@ public class StaffEvents implements Listener {
 
     @EventHandler
     public void onEntityExplode(EntityExplodeEvent event) {
-        if (event.getEntity() instanceof TNTPrimed || event.getEntity() instanceof Snowball) {
+        // Снежки не разрушают блоки (но взрыв остаётся)
+        if (event.getEntity() instanceof Snowball) {
             event.blockList().clear();
         }
     }

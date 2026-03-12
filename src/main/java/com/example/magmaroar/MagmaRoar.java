@@ -6,7 +6,6 @@ import org.bukkit.World;
 import org.bukkit.attribute.Attribute;
 import org.bukkit.attribute.AttributeInstance;
 import org.bukkit.entity.*;
-import org.bukkit.inventory.ItemStack;
 import org.bukkit.potion.PotionEffect;
 import org.bukkit.potion.PotionEffectType;
 import org.bukkit.scheduler.BukkitRunnable;
@@ -51,7 +50,7 @@ public class MagmaRoar {
                 // Отключаем ИИ
                 this.strider.setAI(false);
                 
-                // Надеваем седло (правильный способ для страйдера)
+                // Надеваем седло
                 this.strider.setSaddle(true);
                 
                 // Атрибуты
@@ -84,7 +83,6 @@ public class MagmaRoar {
                 startDespawnTimer();
                 
                 owner.sendMessage("§aМагма Рёв призван! Он исчезнет через 90 секунд.");
-                owner.sendMessage("§eПКМ по Магма Рёву - сесть, Shift - слезть, Пробел - прыжок, ПКМ верхом - атака");
             } else {
                 owner.sendMessage("§cНе удалось создать Магма Рёва!");
             }
@@ -129,7 +127,11 @@ public class MagmaRoar {
                     owner.getVehicle().equals(strider)) {
                     
                     Vector direction = owner.getLocation().getDirection().normalize();
-                    Vector velocity = new Vector(direction.getX() * 0.8, 0, direction.getZ() * 0.8);
+                    
+                    // Сохраняем вертикальную скорость (гравитация)
+                    double currentY = strider.getVelocity().getY();
+                    
+                    Vector velocity = new Vector(direction.getX() * 0.8, currentY, direction.getZ() * 0.8);
                     strider.setVelocity(velocity);
                     
                     Location loc = strider.getLocation();
@@ -141,9 +143,12 @@ public class MagmaRoar {
                 if (isSummoned && !isRiding && owner.isOnline()) {
                     if (owner.getLocation().distance(strider.getLocation()) > 10) {
                         Vector toPlayer = owner.getLocation().toVector().subtract(strider.getLocation().toVector());
-                        strider.setVelocity(toPlayer.normalize().multiply(0.5));
+                        double currentY = strider.getVelocity().getY();
+                        Vector velocity = toPlayer.normalize().multiply(0.5);
+                        velocity.setY(currentY);
+                        strider.setVelocity(velocity);
                     } else if (owner.getLocation().distance(strider.getLocation()) < 3) {
-                        strider.setVelocity(new Vector(0, 0, 0));
+                        strider.setVelocity(new Vector(0, strider.getVelocity().getY(), 0));
                     }
                 }
             }
@@ -185,13 +190,14 @@ public class MagmaRoar {
 
         lastJumpTime = currentTime;
 
-        strider.setVelocity(strider.getVelocity().add(new Vector(0, 0.8, 0)));
+        Vector currentVel = strider.getVelocity();
+        strider.setVelocity(currentVel.add(new Vector(0, 0.8, 0)));
         strider.getWorld().playSound(strider.getLocation(), org.bukkit.Sound.BLOCK_LAVA_EXTINGUISH, 1.0f, 1.0f);
         
         Location jumpLoc = strider.getLocation().subtract(0, 1, 0);
         for (int x = -1; x <= 1; x++) {
             for (int z = -1; z <= 1; z++) {
-                Location fireLoc = jumpLoc.clone().add(new Vector(x, 0, z));
+                Location fireLoc = jumpLoc.clone().add(x, 0, z);
                 if (fireLoc.getBlock().getType() == Material.AIR || 
                     fireLoc.getBlock().getType() == Material.FIRE) {
                     fireLoc.getBlock().setType(Material.FIRE);
@@ -200,7 +206,6 @@ public class MagmaRoar {
         }
         
         strider.getWorld().spawnParticle(org.bukkit.Particle.FLAME, strider.getLocation(), 50, 1.5, 0.5, 1.5, 0.1);
-        strider.getWorld().spawnParticle(org.bukkit.Particle.LAVA, strider.getLocation(), 20, 1.0, 0.5, 1.0, 0);
     }
 
     public void attack() {
@@ -221,9 +226,10 @@ public class MagmaRoar {
         lastAttackTime = currentTime;
 
         World world = strider.getWorld();
-        Location spawnLoc = strider.getLocation().add(new Vector(0, 1.5, 0));
+        Location spawnLoc = strider.getLocation().add(0, 1.5, 0);
         Vector direction = owner.getLocation().getDirection().normalize();
         
+        // Создаём снежок
         Snowball projectile = world.spawn(spawnLoc, Snowball.class);
         projectile.setVelocity(direction.multiply(2.5));
         projectile.setGlowing(true);
@@ -232,6 +238,7 @@ public class MagmaRoar {
         
         world.playSound(spawnLoc, org.bukkit.Sound.ENTITY_BLAZE_SHOOT, 1.0f, 1.0f);
 
+        // Отслеживаем попадание
         new BukkitRunnable() {
             @Override
             public void run() {
@@ -240,15 +247,16 @@ public class MagmaRoar {
                     if (projectile != null && !projectile.isDead()) {
                         Location hitLoc = projectile.getLocation();
                         
+                        // ВЗРЫВ! 4.0f сила, false - не поджигать, false - не разрушать блоки
                         world.createExplosion(hitLoc, 4.0f, false, false, strider);
+                        
+                        // Звук взрыва
                         world.playSound(hitLoc, org.bukkit.Sound.ENTITY_GENERIC_EXPLODE, 1.0f, 1.0f);
                         
-                        world.spawnParticle(org.bukkit.Particle.SONIC_BOOM, 
-                            hitLoc, 30, 2.0, 1.0, 2.0, 0);
-                        world.spawnParticle(org.bukkit.Particle.FLAME, 
-                            hitLoc, 50, 2.0, 1.0, 2.0, 0.1);
-                        world.spawnParticle(org.bukkit.Particle.LAVA, 
-                            hitLoc, 30, 1.5, 1.0, 1.5, 0);
+                        // Частицы
+                        world.spawnParticle(org.bukkit.Particle.SONIC_BOOM, hitLoc, 30, 2.0, 1.0, 2.0, 0);
+                        world.spawnParticle(org.bukkit.Particle.FLAME, hitLoc, 50, 2.0, 1.0, 2.0, 0.1);
+                        world.spawnParticle(org.bukkit.Particle.LAVA, hitLoc, 30, 1.5, 1.0, 1.5, 0);
                         
                         projectile.remove();
                     }

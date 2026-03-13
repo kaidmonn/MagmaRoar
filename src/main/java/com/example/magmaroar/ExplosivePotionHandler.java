@@ -51,12 +51,14 @@ public class ExplosivePotionHandler implements Listener {
             }
         }
         
-        // Частицы (исправленные)
-        snowball.getWorld().spawnParticle(Particle.SPELL_MOB, 
-            snowball.getLocation(), 50, 1, 1, 1, 1);
-        
-        // Дополнительные фиолетовые частицы
+        // Частицы (рабочие варианты)
         snowball.getWorld().spawnParticle(Particle.END_ROD, 
+            snowball.getLocation(), 50, 1, 1, 1, 0.1);
+        
+        snowball.getWorld().spawnParticle(Particle.PORTAL, 
+            snowball.getLocation(), 100, 1, 1, 1, 0.5);
+        
+        snowball.getWorld().spawnParticle(Particle.DRAGON_BREATH, 
             snowball.getLocation(), 30, 1, 1, 1, 0.1);
     }
 

@@ -21,9 +21,6 @@ public class SpiderBladeItem {
         if (meta != null) {
             meta.displayName(Component.text("§2Паучий клинок"));
             
-            // Устанавливаем урон 14 (как у незеритового меча + дополнительный урон)
-            // В ванильном незерит меч имеет урон 8, нам нужно 14
-            
             // Добавляем атрибут скорости +40%
             AttributeModifier speedModifier = new AttributeModifier(
                 UUID.randomUUID(),
@@ -32,7 +29,7 @@ public class SpiderBladeItem {
                 AttributeModifier.Operation.MULTIPLY_SCALAR_1,
                 EquipmentSlot.HAND
             );
-            meta.addAttributeModifier(Attribute.GENERIC_MOVEMENT_SPEED, speedModifier);
+            meta.addAttributeModifier(Attribute.MOVEMENT_SPEED, speedModifier);
             
             // Нерушимость
             meta.setUnbreakable(true);

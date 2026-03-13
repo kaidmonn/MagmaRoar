@@ -60,8 +60,8 @@ public class VillagerStaffHandler implements Listener {
                     // МОЩНЫЙ ВЗРЫВ УРОВНЯ 20 (как 3 энд-кристалла)
                     world.createExplosion(targetLoc, 20.0f, false, false, player);
                     
-                    // ЭПИЧНЫЕ ЧАСТИЦЫ ВЗРЫВА
-                    world.spawnParticle(Particle.EXPLOSION_HUGE, targetLoc, 5, 3, 2, 3, 0);
+                    // ЭПИЧНЫЕ ЧАСТИЦЫ ВЗРЫВА (исправленные названия)
+                    world.spawnParticle(Particle.EXPLOSION, targetLoc, 5, 3, 2, 3, 0); // Вместо EXPLOSION_HUGE
                     world.spawnParticle(Particle.FLASH, targetLoc, 10, 2, 1, 2, 0);
                     world.spawnParticle(Particle.SONIC_BOOM, targetLoc, 50, 4, 3, 4, 0);
                     world.spawnParticle(Particle.END_ROD, targetLoc, 200, 5, 3, 5, 0.2);
@@ -75,7 +75,7 @@ public class VillagerStaffHandler implements Listener {
                     // Ставим кулдаун
                     cooldowns.put(player.getUniqueId(), now);
                 }
-            }.runTaskLater(MagmaRoarPlugin.getInstance(), 40L); // 2 секунды (20 тиков = 1 сек)
+            }.runTaskLater(MagmaRoarPlugin.getInstance(), 40L); // 2 секунды
             
             event.setCancelled(true);
         }

@@ -56,8 +56,8 @@ public class DeathScytheHandler implements Listener {
             target.setHealth(newHealth);
         }
         
-        // Лечим владельца
-        double playerMaxHealth = player.getAttribute(Attribute.GENERIC_MAX_HEALTH).getValue();
+        // Лечим владельца (исправленный путь к атрибуту)
+        double playerMaxHealth = player.getAttribute(Attribute.MAX_HEALTH).getValue();
         double playerNewHealth = Math.min(player.getHealth() + DAMAGE, playerMaxHealth);
         player.setHealth(playerNewHealth);
         

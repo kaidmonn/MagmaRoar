@@ -30,7 +30,7 @@ public class OrbitalCannonHandler implements Listener {
 
         if (!isOrbitalCannon(item)) return;
 
-        // ПКМ - обычный режим
+        // ПКМ - обычный режим (5 взрывов по взгляду)
         if (event.getAction() == Action.RIGHT_CLICK_AIR || event.getAction() == Action.RIGHT_CLICK_BLOCK) {
             if (!player.isSneaking()) {
                 handleNormalMode(player);
@@ -38,7 +38,7 @@ public class OrbitalCannonHandler implements Listener {
             }
         }
         
-        // Shift+ЛКМ - кольцевой режим
+        // Shift+ЛКМ - кольцевой режим (300 ТНТ вокруг игрока)
         if (event.getAction() == Action.LEFT_CLICK_AIR || event.getAction() == Action.LEFT_CLICK_BLOCK) {
             if (player.isSneaking()) {
                 handleRingMode(player);
@@ -78,44 +78,56 @@ public class OrbitalCannonHandler implements Listener {
             return;
         }
         
-        Location targetLoc = player.getTargetBlock(null, 200).getLocation().add(0.5, 0, 0.5);
+        Location center = player.getLocation().clone().add(0, 0, 0);
         World world = player.getWorld();
+        double height = 35.0; // Высота спавна
         
-        // ИДЕАЛЬНЫЕ КОЛЬЦА
+        // РАСЧЕТ ИДЕАЛЬНЫХ КОЛЕЦ
         int rings = 5; // 5 колец
-        int tntPerRing = 36; // Больше ТНТ для идеального круга
-        double baseRadius = 10.0; // Первое кольцо на 10 блоках
-        double radiusIncrease = 8.0; // Шаг между кольцами
-        double height = 30.0; // Высота спавна
+        double[] radii = {15.0, 21.0, 27.0, 33.0, 39.0}; // Радиусы с шагом 6 блоков
+        int[] tntPerRing = {48, 60, 72, 84, 96}; // Всего 360 ТНТ
         
-        player.sendMessage("§5§lКОЛЬЦЕВОЙ РЕЖИМ! 180+ ТНТ ПАДАЕТ С НЕБА!");
+        int totalTNT = 0;
+        for (int count : tntPerRing) totalTNT += count;
+        
+        player.sendMessage("§5§lКОЛЬЦЕВОЙ РЕЖИМ! " + totalTNT + " ТНТ ПАДАЕТ С НЕБА!");
+        player.sendMessage("§7Радиусы колец: 15, 21, 27, 33, 39 блоков");
+        player.sendMessage("§7ТНТ в 3 блоках друг от друга");
         
         for (int ring = 0; ring < rings; ring++) {
-            double radius = baseRadius + (ring * radiusIncrease);
+            double radius = radii[ring];
+            int count = tntPerRing[ring];
             
-            for (int i = 0; i < tntPerRing; i++) {
-                // Идеальный круг через синус/косинус
-                double angle = 2 * Math.PI * i / tntPerRing;
-                double x = targetLoc.getX() + radius * Math.cos(angle);
-                double z = targetLoc.getZ() + radius * Math.sin(angle);
+            for (int i = 0; i < count; i++) {
+                // Идеальный круг
+                double angle = 2 * Math.PI * i / count;
+                double x = center.getX() + radius * Math.cos(angle);
+                double z = center.getZ() + radius * Math.sin(angle);
                 
-                Location tntLoc = new Location(world, x, targetLoc.getY() + height, z);
+                // Небольшое смещение по высоте для красоты
+                double yOffset = (Math.random() - 0.5) * 2;
+                
+                Location tntLoc = new Location(world, x, center.getY() + height + yOffset, z);
                 TNTPrimed tnt = world.spawn(tntLoc, TNTPrimed.class);
                 tnt.setFuseTicks(40 + ring * 5);
                 tnt.setYield(4.0f);
                 tnt.setIsIncendiary(false);
                 tnt.setGlowing(true);
                 
-                // Вертикальная скорость для падения
-                tnt.setVelocity(new org.bukkit.util.Vector(0, -0.3, 0));
+                // Вертикальная скорость с небольшим разбросом
+                tnt.setVelocity(new org.bukkit.util.Vector(
+                    (Math.random() - 0.5) * 0.1,
+                    -0.4 + (Math.random() * 0.1),
+                    (Math.random() - 0.5) * 0.1
+                ));
             }
         }
         
-        // Центральный мощный ТНТ
-        Location centerLoc = new Location(world, targetLoc.getX(), targetLoc.getY() + height + 5, targetLoc.getZ());
+        // Центральный мощный ТНТ (опционально)
+        Location centerLoc = new Location(world, center.getX(), center.getY() + height + 5, center.getZ());
         TNTPrimed centerTNT = world.spawn(centerLoc, TNTPrimed.class);
         centerTNT.setFuseTicks(50);
-        centerTNT.setYield(6.0f);
+        centerTNT.setYield(8.0f);
         centerTNT.setIsIncendiary(false);
         centerTNT.setGlowing(true);
         

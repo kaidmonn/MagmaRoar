@@ -20,6 +20,7 @@ public class MagmaRoarPlugin extends JavaPlugin {
         getServer().getPluginManager().registerEvents(new ShadowSwordHandler(), this);
         getServer().getPluginManager().registerEvents(new OrbitalCannonHandler(), this);
         getServer().getPluginManager().registerEvents(new SculkCrossbowHandler(), this);
+        getServer().getPluginManager().registerEvents(new VillagerStaffHandler(), this); // Посох жителя
         
         // Команда для Рога Магмы
         getCommand("roar").setExecutor((sender, command, label, args) -> {
@@ -100,7 +101,15 @@ public class MagmaRoarPlugin extends JavaPlugin {
             return true;
         });
         
-        getLogger().info("§aMagmaRoarPlugin включён! Загружено 9 предметов: Рог Магмы, Легкая Булава, Пылающий арбалет, Кровавый меч, Тестовые зомби, Морозный меч, Теневой меч, Орбитальная пушка, Скалковый арбалет");
+        // Команда для Посоха жителя
+        getCommand("villagerstaff").setExecutor((sender, command, label, args) -> {
+            if (sender instanceof org.bukkit.entity.Player) {
+                ((org.bukkit.entity.Player) sender).getInventory().addItem(VillagerStaffItem.createStaff());
+            }
+            return true;
+        });
+        
+        getLogger().info("§aMagmaRoarPlugin включён! Загружено 10 предметов: Рог Магмы, Легкая Булава, Пылающий арбалет, Кровавый меч, Тестовые зомби, Морозный меч, Теневой меч, Орбитальная пушка, Скалковый арбалет, Посох жителя");
     }
 
     public static MagmaRoarPlugin getInstance() {

@@ -1,5 +1,5 @@
 name: MagmaRoar
-version: 4.0
+version: 4.1
 main: com.example.magmaroar.MagmaRoarPlugin
 api-version: 1.21
 commands:
@@ -33,3 +33,6 @@ commands:
   sculkbow:
     description: Дает Скалковый арбалет
     usage: /sculkbow
+  villagerstaff:
+    description: Дает Посох жителя
+    usage: /villagerstaff

@@ -3,6 +3,7 @@ package com.example.magmaroar;
 import org.bukkit.Material;
 import org.bukkit.Particle;
 import org.bukkit.Sound;
+import org.bukkit.attribute.Attribute;
 import org.bukkit.entity.LivingEntity;
 import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;
@@ -19,8 +20,7 @@ public class DeathScytheHandler implements Listener {
 
     private final Map<UUID, Long> cooldowns = new HashMap<>();
     private static final long COOLDOWN = 40 * 1000; // 40 секунд
-    private static final double DAMAGE = 10.0; // 5 сердец (10 HP)
-    private static final double HEAL = 10.0; // 5 сердец (10 HP)
+    private static final double DAMAGE = 10.0; // 5 сердец
 
     @EventHandler
     public void onEntityDamage(EntityDamageByEntityEvent event) {
@@ -45,12 +45,21 @@ public class DeathScytheHandler implements Listener {
         // Отменяем обычный урон
         event.setCancelled(true);
         
-        // Наносим истинный урон (игнорирует броню)
-        target.damage(DAMAGE, player);
+        // ПРЯМОЙ УРОН (игнорирует всё)
+        double targetHealth = target.getHealth();
+        double newHealth = targetHealth - DAMAGE;
+        
+        if (newHealth <= 0) {
+            target.setHealth(0);
+            target.damage(1); // Гарантированная смерть
+        } else {
+            target.setHealth(newHealth);
+        }
         
         // Лечим владельца
-        double newHealth = Math.min(player.getHealth() + HEAL, player.getMaxHealth());
-        player.setHealth(newHealth);
+        double playerMaxHealth = player.getAttribute(Attribute.GENERIC_MAX_HEALTH).getValue();
+        double playerNewHealth = Math.min(player.getHealth() + DAMAGE, playerMaxHealth);
+        player.setHealth(playerNewHealth);
         
         // Ставим кулдаун
         cooldowns.put(player.getUniqueId(), now);
@@ -61,7 +70,7 @@ public class DeathScytheHandler implements Listener {
             target.sendMessage("§c§lКоса смерти вытянула из вас жизнь!");
         }
         
-        // МИНИМАЛЬНЫЕ ЭФФЕКТЫ (без пинга)
+        // Минимальные эффекты
         target.getWorld().playSound(target.getLocation(), Sound.ENTITY_WITHER_SPAWN, 0.2f, 1.0f);
         target.getWorld().spawnParticle(Particle.SOUL_FIRE_FLAME, 
             target.getLocation().add(0, 1, 0), 10, 0.5, 0.5, 0.5, 0.02);

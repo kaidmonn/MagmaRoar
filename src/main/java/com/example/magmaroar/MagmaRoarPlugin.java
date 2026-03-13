@@ -21,6 +21,7 @@ public class MagmaRoarPlugin extends JavaPlugin {
         getServer().getPluginManager().registerEvents(new OrbitalCannonHandler(), this);
         getServer().getPluginManager().registerEvents(new SculkCrossbowHandler(), this);
         getServer().getPluginManager().registerEvents(new VillagerStaffHandler(), this);
+        getServer().getPluginManager().registerEvents(new ExplosivePotionHandler(), this); // Взрывные зелья
         
         // Команда для Рога Магмы
         getCommand("roar").setExecutor((sender, command, label, args) -> {

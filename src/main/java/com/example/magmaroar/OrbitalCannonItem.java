@@ -19,7 +19,8 @@ public class OrbitalCannonItem {
 
             List<Component> lore = new ArrayList<>();
             lore.add(Component.text("§7ПКМ: 5 мгновенных взрывов"));
-            lore.add(Component.text("§7ЛКМ: Кольцевой режим (100+ ТНТ падает с неба)"));
+            lore.add(Component.text("§7Shift+ЛКМ: Кольцевой режим (180+ ТНТ)"));
+            lore.add(Component.text("§7Кольца радиусом: 10, 18, 26, 34, 42 блока"));
             lore.add(Component.text("§7Взрывы не ломают блоки"));
             lore.add(Component.text("§7ПКМ кулдаун: 25 сек"));
             lore.add(Component.text("§7ЛКМ кулдаун: 3 минуты"));

@@ -11,7 +11,6 @@ import org.bukkit.event.block.Action;
 import org.bukkit.event.player.PlayerInteractEvent;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.inventory.meta.ItemMeta;
-import org.bukkit.scheduler.BukkitRunnable;
 
 import java.util.HashMap;
 import java.util.Map;
@@ -21,8 +20,8 @@ public class OrbitalCannonHandler implements Listener {
 
     private final Map<UUID, Long> lastUseTimeNormal = new HashMap<>();
     private final Map<UUID, Long> lastUseTimeRing = new HashMap<>();
-    private static final long COOLDOWN_NORMAL = 25 * 1000; // 25 секунд
-    private static final long COOLDOWN_RING = 3 * 60 * 1000; // 3 минуты
+    private static final long COOLDOWN_NORMAL = 25 * 1000;
+    private static final long COOLDOWN_RING = 3 * 60 * 1000;
 
     @EventHandler
     public void onPlayerInteract(PlayerInteractEvent event) {
@@ -31,16 +30,20 @@ public class OrbitalCannonHandler implements Listener {
 
         if (!isOrbitalCannon(item)) return;
 
-        // ПКМ - обычный режим (5 мгновенных взрывов)
+        // ПКМ - обычный режим
         if (event.getAction() == Action.RIGHT_CLICK_AIR || event.getAction() == Action.RIGHT_CLICK_BLOCK) {
-            handleNormalMode(player);
-            event.setCancelled(true);
+            if (!player.isSneaking()) {
+                handleNormalMode(player);
+                event.setCancelled(true);
+            }
         }
         
-        // ЛКМ - кольцевой режим (спавн ТНТ как в OSC)
+        // Shift+ЛКМ - кольцевой режим
         if (event.getAction() == Action.LEFT_CLICK_AIR || event.getAction() == Action.LEFT_CLICK_BLOCK) {
-            handleRingMode(player);
-            event.setCancelled(true);
+            if (player.isSneaking()) {
+                handleRingMode(player);
+                event.setCancelled(true);
+            }
         }
     }
 
@@ -56,7 +59,6 @@ public class OrbitalCannonHandler implements Listener {
         
         Location targetLoc = player.getTargetBlock(null, 200).getLocation().add(0.5, 1, 0.5);
         
-        // Мгновенные взрывы (без спавна ТНТ)
         for (int i = 0; i < 5; i++) {
             player.getWorld().createExplosion(targetLoc, 4.0f, false, false, player);
         }
@@ -79,57 +81,43 @@ public class OrbitalCannonHandler implements Listener {
         Location targetLoc = player.getTargetBlock(null, 200).getLocation().add(0.5, 0, 0.5);
         World world = player.getWorld();
         
-        // Параметры как в Orbital Strike Cannon [citation:1][citation:5]
-        int rings = 5;
-        double baseRadius = 3.0;
-        double radiusIncrease = 4.0;
-        double height = 25.0; // Высота спавна ТНТ
-        int fuseTicks = 40; // 2 секунды до взрыва
+        // ИДЕАЛЬНЫЕ КОЛЬЦА
+        int rings = 5; // 5 колец
+        int tntPerRing = 36; // Больше ТНТ для идеального круга
+        double baseRadius = 10.0; // Первое кольцо на 10 блоках
+        double radiusIncrease = 8.0; // Шаг между кольцами
+        double height = 30.0; // Высота спавна
         
-        player.sendMessage("§5§lКОЛЬЦЕВОЙ РЕЖИМ! 100+ ТНТ ПАДАЕТ С НЕБА!");
+        player.sendMessage("§5§lКОЛЬЦЕВОЙ РЕЖИМ! 180+ ТНТ ПАДАЕТ С НЕБА!");
         
         for (int ring = 0; ring < rings; ring++) {
             double radius = baseRadius + (ring * radiusIncrease);
-            int tntCount = 20 + (ring * 8); // Больше ТНТ в дальних кольцах
             
-            for (int i = 0; i < tntCount; i++) {
-                double angle = 2 * Math.PI * i / tntCount;
+            for (int i = 0; i < tntPerRing; i++) {
+                // Идеальный круг через синус/косинус
+                double angle = 2 * Math.PI * i / tntPerRing;
                 double x = targetLoc.getX() + radius * Math.cos(angle);
                 double z = targetLoc.getZ() + radius * Math.sin(angle);
                 
-                // Спавним ТНТ высоко в небе
                 Location tntLoc = new Location(world, x, targetLoc.getY() + height, z);
                 TNTPrimed tnt = world.spawn(tntLoc, TNTPrimed.class);
-                tnt.setFuseTicks(fuseTicks + ring * 5); // Разная задержка
+                tnt.setFuseTicks(40 + ring * 5);
                 tnt.setYield(4.0f);
-                tnt.setIsIncendiary(false); // Не поджигает блоки
+                tnt.setIsIncendiary(false);
                 tnt.setGlowing(true);
                 
-                // Добавляем небольшую случайность в падении
-                tnt.setVelocity(new org.bukkit.util.Vector(
-                    (Math.random() - 0.5) * 0.2,
-                    -0.3,
-                    (Math.random() - 0.5) * 0.2
-                ));
+                // Вертикальная скорость для падения
+                tnt.setVelocity(new org.bukkit.util.Vector(0, -0.3, 0));
             }
         }
         
         // Центральный мощный ТНТ
         Location centerLoc = new Location(world, targetLoc.getX(), targetLoc.getY() + height + 5, targetLoc.getZ());
         TNTPrimed centerTNT = world.spawn(centerLoc, TNTPrimed.class);
-        centerTNT.setFuseTicks(fuseTicks + 10);
+        centerTNT.setFuseTicks(50);
         centerTNT.setYield(6.0f);
         centerTNT.setIsIncendiary(false);
         centerTNT.setGlowing(true);
-        
-        // Запускаем таймер для создания дополнительных взрывов без разрушения блоков
-        new BukkitRunnable() {
-            @Override
-            public void run() {
-                // Создаём безопасные взрывы в центре (без разрушения блоков)
-                world.createExplosion(targetLoc, 4.0f, false, false, player);
-            }
-        }.runTaskLater(MagmaRoarPlugin.getInstance(), fuseTicks + 10);
         
         lastUseTimeRing.put(player.getUniqueId(), now);
     }

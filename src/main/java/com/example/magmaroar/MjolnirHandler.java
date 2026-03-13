@@ -13,7 +13,6 @@ import org.bukkit.event.entity.ProjectileHitEvent;
 import org.bukkit.event.player.PlayerInteractEvent;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.inventory.meta.ItemMeta;
-import org.bukkit.scheduler.BukkitRunnable;
 import org.bukkit.util.Vector;
 
 import java.util.*;
@@ -53,15 +52,14 @@ public class MjolnirHandler implements Listener {
             Location eyeLoc = player.getEyeLocation();
             Vector direction = player.getLocation().getDirection().normalize();
             
-            // Используем трезубец вместо снежка
-            Trident trident = world.spawn(eyeLoc, Trident.class);
-            trident.setVelocity(direction.multiply(2.0));
-            trident.setShooter(player);
-            trident.setPickupStatus(Trident.PickupStatus.DISALLOWED);
-            trident.setGlowing(true);
+            // Используем снежок (он лучше летит)
+            Snowball projectile = world.spawn(eyeLoc, Snowball.class);
+            projectile.setVelocity(direction.multiply(2.5));
+            projectile.setGlowing(true);
+            projectile.setShooter(player);
             
             // Сохраняем связь
-            thrownWeapons.put(trident.getUniqueId(), thrownItem);
+            thrownWeapons.put(projectile.getUniqueId(), thrownItem);
             
             cooldowns.put(player.getUniqueId(), now);
             player.sendMessage("§bМьёльнир брошен!");
@@ -71,48 +69,59 @@ public class MjolnirHandler implements Listener {
 
     @EventHandler
     public void onProjectileHit(ProjectileHitEvent event) {
-        if (!(event.getEntity() instanceof Trident)) return;
+        if (!(event.getEntity() instanceof Snowball)) return;
         
-        Trident trident = (Trident) event.getEntity();
-        if (!(trident.getShooter() instanceof Player)) return;
+        Snowball snowball = (Snowball) event.getEntity();
+        if (!(snowball.getShooter() instanceof Player)) return;
         
-        Player player = (Player) trident.getShooter();
-        UUID tridentId = trident.getUniqueId();
+        Player player = (Player) snowball.getShooter();
+        UUID projectileId = snowball.getUniqueId();
         
-        if (!thrownWeapons.containsKey(tridentId)) return;
+        if (!thrownWeapons.containsKey(projectileId)) return;
         
-        Location hitLoc = trident.getLocation();
+        Location hitLoc = snowball.getLocation();
         World world = hitLoc.getWorld();
         
-        // МОЛНИЯ (без разрушения блоков)
-        world.strikeLightningEffect(hitLoc);
-        world.playSound(hitLoc, Sound.ENTITY_LIGHTNING_BOLT_THUNDER, 1.0f, 1.0f);
+        // ГРОМКИЙ ЗВУК МОЛНИИ
+        world.playSound(hitLoc, Sound.ENTITY_LIGHTNING_BOLT_THUNDER, 2.0f, 1.0f);
+        world.playSound(hitLoc, Sound.ENTITY_LIGHTNING_BOLT_IMPACT, 2.0f, 1.0f);
         
-        // УРОН 3 СЕРДЦА
-        for (Entity e : world.getNearbyEntities(hitLoc, 3, 2, 3)) {
+        // ВИЗУАЛ МОЛНИИ (без разрушения блоков)
+        world.strikeLightningEffect(hitLoc);
+        
+        // УРОН 3 СЕРДЦА (6 HP) + ЧАСТИЦЫ
+        for (Entity e : world.getNearbyEntities(hitLoc, 4, 4, 4)) {
             if (e instanceof LivingEntity && !e.equals(player)) {
                 LivingEntity target = (LivingEntity) e;
+                
+                // Истинный урон (игнорирует броню)
                 target.damage(6, player);
+                
+                // Частицы молнии на цели
                 target.getWorld().spawnParticle(Particle.ELECTRIC_SPARK, 
-                    target.getLocation().add(0, 1, 0), 20, 0.5, 1, 0.5, 0.1);
+                    target.getLocation().add(0, 1, 0), 30, 0.5, 1, 0.5, 0.1);
+                
+                // Поджигаем цель? (для эффектности)
+                target.setFireTicks(40); // 2 секунды огня
             }
         }
         
-        // Эффекты
-        world.spawnParticle(Particle.ELECTRIC_SPARK, hitLoc, 50, 2, 1, 2, 0.1);
-        world.spawnParticle(Particle.FLASH, hitLoc, 10, 1, 1, 1, 0);
+        // Эффекты взрыва
+        world.spawnParticle(Particle.ELECTRIC_SPARK, hitLoc, 100, 3, 2, 3, 0.2);
+        world.spawnParticle(Particle.FLASH, hitLoc, 20, 2, 2, 2, 0);
+        world.spawnParticle(Particle.SONIC_BOOM, hitLoc, 30, 2, 1, 2, 0);
         
         // ВОЗВРАТ МОЛОТА
-        ItemStack returningItem = thrownWeapons.remove(tridentId);
+        ItemStack returningItem = thrownWeapons.remove(projectileId);
         if (returningItem != null) {
             HashMap<Integer, ItemStack> leftover = player.getInventory().addItem(returningItem);
             if (!leftover.isEmpty()) {
                 world.dropItemNaturally(player.getLocation(), returningItem);
             }
-            player.sendMessage("§bМьёльнир вернулся!");
+            player.sendMessage("§b⚡ Мьёльнир вернулся! ⚡");
         }
         
-        trident.remove();
+        snowball.remove();
     }
 
     private boolean isMjolnir(ItemStack item) {

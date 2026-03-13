@@ -35,17 +35,25 @@ public class MjolnirHandler implements Listener {
         
         if (!isMjolnir(item)) return;
         
-        // Устанавливаем урон 2.5 сердца
-        event.setDamage(MELEE_DAMAGE);
+        // Отменяем обычный урон
+        event.setCancelled(true);
         
-        // Эффекты молнии при ударе (шанс 30%)
-        if (Math.random() < 0.3) {
-            Location targetLoc = event.getEntity().getLocation();
-            player.getWorld().strikeLightningEffect(targetLoc);
-            player.getWorld().playSound(targetLoc, Sound.ENTITY_LIGHTNING_BOLT_IMPACT, 0.5f, 1.0f);
+        // Прямой урон через setHealth
+        if (event.getEntity() instanceof LivingEntity) {
+            LivingEntity target = (LivingEntity) event.getEntity();
+            double newHealth = target.getHealth() - MELEE_DAMAGE;
             
-            player.getWorld().spawnParticle(Particle.ELECTRIC_SPARK, 
-                targetLoc.add(0, 1, 0), 20, 0.5, 0.5, 0.5, 0.1);
+            if (newHealth <= 0) {
+                target.setHealth(0);
+                target.damage(1);
+            } else {
+                target.setHealth(newHealth);
+            }
+            
+            // Эффекты
+            target.getWorld().playSound(target.getLocation(), Sound.ENTITY_PLAYER_ATTACK_SWEEP, 1.0f, 1.0f);
+            target.getWorld().spawnParticle(Particle.ELECTRIC_SPARK, 
+                target.getLocation().add(0, 1, 0), 20, 0.5, 0.5, 0.5, 0.1);
         }
     }
 
@@ -68,25 +76,19 @@ public class MjolnirHandler implements Listener {
                 return;
             }
             
-            // Сохраняем копию предмета
             ItemStack thrownItem = item.clone();
-            
-            // Удаляем предмет из руки
             player.getInventory().setItemInMainHand(null);
             
             World world = player.getWorld();
             Location eyeLoc = player.getEyeLocation();
             Vector direction = player.getLocation().getDirection().normalize();
             
-            // Снежок как снаряд
             Snowball projectile = world.spawn(eyeLoc, Snowball.class);
             projectile.setVelocity(direction.multiply(2.5));
             projectile.setGlowing(true);
             projectile.setShooter(player);
             
-            // Сохраняем связь
             thrownWeapons.put(projectile.getUniqueId(), thrownItem);
-            
             cooldowns.put(player.getUniqueId(), now);
             player.sendMessage("§bМьёльнир брошен!");
             event.setCancelled(true);
@@ -108,33 +110,32 @@ public class MjolnirHandler implements Listener {
         Location hitLoc = snowball.getLocation();
         World world = hitLoc.getWorld();
         
-        // МОЛНИЯ
+        // Молния
         world.strikeLightningEffect(hitLoc);
         world.playSound(hitLoc, Sound.ENTITY_LIGHTNING_BOLT_THUNDER, 1.0f, 1.0f);
-        world.playSound(hitLoc, Sound.ENTITY_LIGHTNING_BOLT_IMPACT, 1.0f, 1.0f);
         
-        // УРОН 3 СЕРДЦА ВСЕМ В РАДИУСЕ
+        // Урон по области
         for (Entity e : world.getNearbyEntities(hitLoc, 4, 2, 4)) {
             if (e instanceof LivingEntity && !e.equals(player)) {
                 LivingEntity target = (LivingEntity) e;
-                target.damage(THROW_DAMAGE, player);
+                double newHealth = target.getHealth() - THROW_DAMAGE;
+                
+                if (newHealth <= 0) {
+                    target.setHealth(0);
+                    target.damage(1);
+                } else {
+                    target.setHealth(newHealth);
+                }
                 
                 target.getWorld().spawnParticle(Particle.ELECTRIC_SPARK, 
                     target.getLocation().add(0, 1, 0), 20, 0.5, 0.5, 0.5, 0.1);
             }
         }
         
-        // Эффекты
-        world.spawnParticle(Particle.ELECTRIC_SPARK, hitLoc, 50, 2, 1, 2, 0.1);
-        world.spawnParticle(Particle.FLASH, hitLoc, 10, 1, 1, 1, 0);
-        
-        // ВОЗВРАТ МОЛОТА
+        // Возврат
         ItemStack returningItem = thrownWeapons.remove(projectileId);
         if (returningItem != null) {
-            HashMap<Integer, ItemStack> leftover = player.getInventory().addItem(returningItem);
-            if (!leftover.isEmpty()) {
-                world.dropItemNaturally(player.getLocation(), returningItem);
-            }
+            player.getInventory().addItem(returningItem);
             player.sendMessage("§b⚡ Мьёльнир вернулся! ⚡");
         }
         

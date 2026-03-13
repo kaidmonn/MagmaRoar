@@ -21,7 +21,8 @@ public class MagmaRoarPlugin extends JavaPlugin {
         getServer().getPluginManager().registerEvents(new OrbitalCannonHandler(), this);
         getServer().getPluginManager().registerEvents(new SculkCrossbowHandler(), this);
         getServer().getPluginManager().registerEvents(new VillagerStaffHandler(), this);
-        getServer().getPluginManager().registerEvents(new ExplosivePotionHandler(), this); // Взрывные зелья
+        getServer().getPluginManager().registerEvents(new ExplosivePotionHandler(), this);
+        getServer().getPluginManager().registerEvents(new SpiderBladeHandler(), this); // Паучий клинок
         
         // Команда для Рога Магмы
         getCommand("roar").setExecutor((sender, command, label, args) -> {
@@ -118,7 +119,15 @@ public class MagmaRoarPlugin extends JavaPlugin {
             return true;
         });
         
-        getLogger().info("§aMagmaRoarPlugin включён! Загружено 11 предметов + взрывные зелья");
+        // Команда для Паучьего клинка
+        getCommand("spider").setExecutor((sender, command, label, args) -> {
+            if (sender instanceof org.bukkit.entity.Player) {
+                ((org.bukkit.entity.Player) sender).getInventory().addItem(SpiderBladeItem.createBlade());
+            }
+            return true;
+        });
+        
+        getLogger().info("§aMagmaRoarPlugin включён! Загружено 12 предметов + взрывные зелья");
     }
 
     public static MagmaRoarPlugin getInstance() {

@@ -1,5 +1,5 @@
 name: MagmaRoar
-version: 4.4
+version: 4.5
 main: com.example.magmaroar.MagmaRoarPlugin
 api-version: 1.21
 commands:
@@ -42,3 +42,6 @@ commands:
   spider:
     description: Дает Паучий клинок
     usage: /spider
+  mjolnir:
+    description: Дает Мьёльнир
+    usage: /mjolnir

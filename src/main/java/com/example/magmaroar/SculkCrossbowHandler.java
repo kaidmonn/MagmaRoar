@@ -9,6 +9,7 @@ import org.bukkit.entity.*;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.Listener;
 import org.bukkit.event.entity.ProjectileHitEvent;
+import org.bukkit.event.entity.ProjectileLaunchEvent;
 import org.bukkit.event.player.PlayerInteractEvent;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.inventory.meta.ItemMeta;
@@ -24,12 +25,18 @@ public class SculkCrossbowHandler implements Listener {
     private final List<Arrow> trackedArrows = new ArrayList<>();
 
     @EventHandler
-    public void onPlayerInteract(PlayerInteractEvent event) {
-        Player player = event.getPlayer();
-        ItemStack item = event.getItem();
-
+    public void onProjectileLaunch(ProjectileLaunchEvent event) {
+        if (!(event.getEntity() instanceof Arrow)) return;
+        if (!(event.getEntity().getShooter() instanceof Player)) return;
+        
+        Arrow arrow = (Arrow) event.getEntity();
+        Player player = (Player) arrow.getShooter();
+        
+        // Проверяем, что игрок держит скалковый арбалет
+        ItemStack item = player.getInventory().getItemInMainHand();
+        if (item.getType() != Material.CROSSBOW) return;
         if (!isSculkCrossbow(item)) return;
-
+        
         // Проверка кулдауна
         long now = System.currentTimeMillis();
         Long lastUse = cooldowns.get(player.getUniqueId());
@@ -40,51 +47,55 @@ public class SculkCrossbowHandler implements Listener {
             event.setCancelled(true);
             return;
         }
-
-        // Запускаем 3 стрелы с задержкой
-        player.sendMessage("§3Скалковый арбалет заряжается...");
         
-        new BukkitRunnable() {
-            int arrowsShot = 0;
-            
-            @Override
-            public void run() {
-                if (arrowsShot >= 3) {
-                    this.cancel();
-                    cooldowns.put(player.getUniqueId(), now);
-                    player.sendMessage("§3Скалковый арбалет выпустил 3 стрелы! Кулдаун 2 минуты.");
-                    return;
-                }
-                
-                // Спавним стрелу
-                Location eyeLoc = player.getEyeLocation();
-                Vector direction = player.getLocation().getDirection().normalize();
-                
-                // Добавляем небольшой разброс для третьей стрелы
-                if (arrowsShot == 1) {
-                    direction = direction.clone().add(new Vector(0.1, 0, 0.1)).normalize();
-                } else if (arrowsShot == 2) {
-                    direction = direction.clone().add(new Vector(-0.1, 0, -0.1)).normalize();
-                }
-                
-                Arrow arrow = player.getWorld().spawn(eyeLoc, Arrow.class);
-                arrow.setVelocity(direction.multiply(4.0)); // Очень быстро
-                arrow.setShooter(player);
-                arrow.setGlowing(true);
-                arrow.setCritical(true);
-                
-                // Добавляем частицы скалка
-                arrow.getWorld().spawnParticle(Particle.SCULK_SOUL, arrow.getLocation(), 10, 0.2, 0.2, 0.2, 0.02);
-                
-                trackedArrows.add(arrow);
-                arrowsShot++;
-                
-                // Звук выстрела (исправленный)
-                player.getWorld().playSound(player.getLocation(), Sound.ENTITY_ARROW_SHOOT, 1.0f, 0.5f);
-            }
-        }.runTaskTimer(MagmaRoarPlugin.getInstance(), 0L, 5L);
-        
+        // Отменяем оригинальную стрелу
         event.setCancelled(true);
+        arrow.remove();
+        
+        // Спавним 3 стрелы
+        Location eyeLoc = player.getEyeLocation();
+        
+        for (int i = 0; i < 3; i++) {
+            Vector direction = player.getLocation().getDirection().normalize();
+            
+            // Добавляем небольшой разброс для стрел (как тройной выстрел)
+            if (i == 0) {
+                // Центральная стрела - прямо
+                direction = direction.clone();
+            } else if (i == 1) {
+                // Левая стрела
+                direction = rotateVector(direction.clone(), -0.1);
+            } else if (i == 2) {
+                // Правая стрела
+                direction = rotateVector(direction.clone(), 0.1);
+            }
+            
+            Arrow newArrow = player.getWorld().spawn(eyeLoc, Arrow.class);
+            newArrow.setVelocity(direction.multiply(3.0));
+            newArrow.setShooter(player);
+            newArrow.setGlowing(true);
+            newArrow.setCritical(true);
+            
+            // Добавляем частицы скалка
+            newArrow.getWorld().spawnParticle(Particle.SCULK_SOUL, newArrow.getLocation(), 5, 0.1, 0.1, 0.1, 0.02);
+            
+            trackedArrows.add(newArrow);
+        }
+        
+        // Звук выстрела
+        player.getWorld().playSound(player.getLocation(), Sound.ENTITY_ARROW_SHOOT, 1.0f, 0.5f);
+        
+        // Ставим кулдаун
+        cooldowns.put(player.getUniqueId(), now);
+        player.sendMessage("§3Скалковый арбалет выпустил 3 стрелы! Кулдаун 2 минуты.");
+    }
+
+    private Vector rotateVector(Vector v, double angle) {
+        double cos = Math.cos(angle);
+        double sin = Math.sin(angle);
+        double x = v.getX() * cos - v.getZ() * sin;
+        double z = v.getX() * sin + v.getZ() * cos;
+        return new Vector(x, v.getY(), z);
     }
 
     @EventHandler

@@ -11,7 +11,7 @@ import java.util.List;
 public class TestZombieItem {
 
     public static ItemStack createZombieEgg(boolean withTotems) {
-        ItemStack egg = new ItemStack.Material.ZOMBIE_SPAWN_EGG);
+        ItemStack egg = new ItemStack(Material.ZOMBIE_SPAWN_EGG); // ← ИСПРАВЛЕНО (убрана лишняя )
         ItemMeta meta = egg.getItemMeta();
 
         if (meta != null) {

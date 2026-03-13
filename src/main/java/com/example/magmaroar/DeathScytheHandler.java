@@ -1,10 +1,8 @@
 package com.example.magmaroar;
 
-import org.bukkit.Location;
 import org.bukkit.Material;
 import org.bukkit.Particle;
 import org.bukkit.Sound;
-import org.bukkit.World;
 import org.bukkit.entity.LivingEntity;
 import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;
@@ -12,7 +10,6 @@ import org.bukkit.event.Listener;
 import org.bukkit.event.entity.EntityDamageByEntityEvent;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.inventory.meta.ItemMeta;
-import org.bukkit.scheduler.BukkitRunnable;
 
 import java.util.HashMap;
 import java.util.Map;
@@ -40,9 +37,8 @@ public class DeathScytheHandler implements Listener {
         Long lastUse = cooldowns.get(player.getUniqueId());
 
         if (lastUse != null && now - lastUse < COOLDOWN) {
-            // Если кулдаун не прошёл, обычный урон мотыги (1)
+            // Обычный урон мотыги
             event.setDamage(1.0);
-            player.sendMessage("§cКоса смерти перезаряжается! Осталось: " + ((COOLDOWN - (now - lastUse)) / 1000) + " сек.");
             return;
         }
 
@@ -65,44 +61,12 @@ public class DeathScytheHandler implements Listener {
             target.sendMessage("§c§lКоса смерти вытянула из вас жизнь!");
         }
         
-        // Эффекты на жертве
-        World world = target.getWorld();
-        Location loc = target.getLocation().add(0, 1, 0);
-        
-        // Звук визера (тихий)
-        world.playSound(loc, Sound.ENTITY_WITHER_SPAWN, 0.3f, 1.0f);
-        
-        // Частицы ходьбы по песку душ (круговые)
-        new BukkitRunnable() {
-            int ticks = 0;
-            @Override
-            public void run() {
-                if (ticks >= 40) { // 2 секунды
-                    this.cancel();
-                    return;
-                }
-                
-                // Круговые частицы душ
-                for (int i = 0; i < 360; i += 30) {
-                    double angle = Math.toRadians(i);
-                    double x = Math.cos(angle) * 1.5;
-                    double z = Math.sin(angle) * 1.5;
-                    world.spawnParticle(Particle.SOUL_FIRE_FLAME, 
-                        loc.clone().add(x, 1 + Math.sin(ticks * 0.3) * 0.5, z), 
-                        1, 0, 0, 0, 0);
-                }
-                
-                // Красные частицы урона
-                world.spawnParticle(Particle.DAMAGE_INDICATOR, 
-                    loc, 5, 0.5, 0.5, 0.5, 0.1);
-                
-                ticks++;
-            }
-        }.runTaskTimer(MagmaRoarPlugin.getInstance(), 0L, 1L);
-        
-        // Частицы на владельце (исцеление)
+        // МИНИМАЛЬНЫЕ ЭФФЕКТЫ (без пинга)
+        target.getWorld().playSound(target.getLocation(), Sound.ENTITY_WITHER_SPAWN, 0.2f, 1.0f);
+        target.getWorld().spawnParticle(Particle.SOUL_FIRE_FLAME, 
+            target.getLocation().add(0, 1, 0), 10, 0.5, 0.5, 0.5, 0.02);
         player.getWorld().spawnParticle(Particle.HEART, 
-            player.getLocation().add(0, 1, 0), 10, 0.5, 0.5, 0.5, 0);
+            player.getLocation().add(0, 1, 0), 5, 0.3, 0.3, 0.3, 0);
     }
 
     private boolean isDeathScythe(ItemStack item) {

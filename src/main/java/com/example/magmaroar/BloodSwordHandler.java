@@ -5,6 +5,7 @@ import org.bukkit.entity.*;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.Listener;
 import org.bukkit.event.player.PlayerInteractEvent;
+import org.bukkit.event.entity.ProjectileHitEvent;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.inventory.meta.ItemMeta;
 
@@ -63,26 +64,35 @@ public class BloodSwordHandler implements Listener {
                     return;
                 }
                 
-                // Бросаем трезубец
-                ThrownTrident trident = player.launchProjectile(ThrownTrident.class);
-                trident.setVelocity(player.getLocation().getDirection().multiply(2.5));
+                // Создаём и бросаем трезубец
+                Trident trident = player.launchProjectile(Trident.class);
+                trident.setVelocity(player.getLocation().getDirection().multiply(2.0));
                 trident.setShooter(player);
-                trident.setPickupStatus(ThrownTrident.PickupStatus.DISALLOWED);
+                trident.setPickupStatus(Trident.PickupStatus.DISALLOWED);
+                trident.setGlowing(true);
                 
                 lastThrowTime.put(player.getUniqueId(), now);
                 player.sendMessage("§aКровавый трезубец брошен!");
+                
+                // Удаляем исходный трезубец из руки
+                if (item.getAmount() > 1) {
+                    item.setAmount(item.getAmount() - 1);
+                } else {
+                    player.getInventory().setItemInMainHand(null);
+                }
+                
                 event.setCancelled(true);
             }
         }
     }
 
     @EventHandler
-    public void onProjectileHit(org.bukkit.event.entity.ProjectileHitEvent event) {
-        if (!(event.getEntity() instanceof ThrownTrident)) return;
+    public void onProjectileHit(ProjectileHitEvent event) {
+        if (!(event.getEntity() instanceof Trident)) return;
         if (!(event.getEntity().getShooter() instanceof Player)) return;
         
         Player shooter = (Player) event.getEntity().getShooter();
-        ThrownTrident trident = (ThrownTrident) event.getEntity();
+        Trident trident = (Trident) event.getEntity();
         
         // Притягиваем цель к игроку
         if (event.getHitEntity() != null) {
@@ -93,6 +103,7 @@ public class BloodSwordHandler implements Listener {
             
             // Эффекты
             shooter.getWorld().spawnParticle(org.bukkit.Particle.ASH, target.getLocation(), 30, 0.5, 0.5, 0.5, 0.1);
+            shooter.getWorld().spawnParticle(org.bukkit.Particle.CRIMSON_SPORE, target.getLocation(), 20, 0.5, 0.5, 0.5, 0);
             shooter.getWorld().playSound(target.getLocation(), org.bukkit.Sound.ENTITY_PLAYER_ATTACK_SWEEP, 1.0f, 1.0f);
             
             shooter.sendMessage("§cЦель притянута!");

@@ -17,7 +17,8 @@ public class MagmaRoarPlugin extends JavaPlugin {
         getServer().getPluginManager().registerEvents(new BloodSwordHandler(), this);
         getServer().getPluginManager().registerEvents(new TestZombieHandler(), this);
         getServer().getPluginManager().registerEvents(new FrostSwordHandler(), this);
-        getServer().getPluginManager().registerEvents(new ShadowSwordHandler(), this); // Теневой меч
+        getServer().getPluginManager().registerEvents(new ShadowSwordHandler(), this);
+        getServer().getPluginManager().registerEvents(new OrbitalCannonHandler(), this); // Орбитальная пушка
         
         // Команда для Рога Магмы
         getCommand("roar").setExecutor((sender, command, label, args) -> {
@@ -82,7 +83,15 @@ public class MagmaRoarPlugin extends JavaPlugin {
             return true;
         });
         
-        getLogger().info("§aMagmaRoarPlugin включён! Предметы: Рог Магмы, Легкая Булава, Пылающий арбалет, Кровавый меч, Тестовые зомби, Морозный меч, Теневой меч");
+        // Команда для Орбитальной пушки
+        getCommand("orbital").setExecutor((sender, command, label, args) -> {
+            if (sender instanceof org.bukkit.entity.Player) {
+                ((org.bukkit.entity.Player) sender).getInventory().addItem(OrbitalCannonItem.createCannon());
+            }
+            return true;
+        });
+        
+        getLogger().info("§aMagmaRoarPlugin включён! Предметы: Рог Магмы, Легкая Булава, Пылающий арбалет, Кровавый меч, Тестовые зомби, Морозный меч, Теневой меч, Орбитальная пушка");
     }
 
     public static MagmaRoarPlugin getInstance() {

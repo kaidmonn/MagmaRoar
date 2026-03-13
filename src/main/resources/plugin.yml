@@ -1,5 +1,5 @@
 name: MagmaRoar
-version: 3.1
+version: 3.2
 main: com.example.magmaroar.MagmaRoarPlugin
 api-version: 1.21
 commands:
@@ -27,3 +27,6 @@ commands:
   shadow:
     description: Дает Теневой меч
     usage: /shadow
+  orbital:
+    description: Дает Орбитальную пушку
+    usage: /orbital

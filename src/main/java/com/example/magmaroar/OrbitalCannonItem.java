@@ -19,10 +19,10 @@ public class OrbitalCannonItem {
 
             List<Component> lore = new ArrayList<>();
             lore.add(Component.text("§7ПКМ: 5 ТНТ в одной точке"));
-            lore.add(Component.text("§7Shift+ПКМ: Кольцевой динамит (как у Wembu)"));
+            lore.add(Component.text("§7ЛКМ: Кольцевой режим (100+ ТНТ)"));
             lore.add(Component.text("§7Взрывы не ломают блоки"));
-            lore.add(Component.text("§7Мгновенный взрыв"));
-            lore.add(Component.text("§7Кулдаун: 25 секунд"));
+            lore.add(Component.text("§7ПКМ кулдаун: 25 сек"));
+            lore.add(Component.text("§7ЛКМ кулдаун: 3 минуты"));
             lore.add(Component.text("§7Нерушимая"));
             meta.lore(lore);
 

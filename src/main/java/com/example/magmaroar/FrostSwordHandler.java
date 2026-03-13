@@ -19,9 +19,9 @@ import java.util.UUID;
 
 public class FrostSwordHandler implements Listener {
 
-    private final Map<UUID, Integer> hitCounters = new HashMap<>(); // Сколько раз ударили цель
-    private final Map<UUID, Long> frozenUntil = new HashMap<>(); // До какого времени цель заморожена
-    private final Map<UUID, Location> frozenLocation = new HashMap<>(); // Где заморожена цель
+    private final Map<UUID, Integer> hitCounters = new HashMap<>();
+    private final Map<UUID, Long> frozenUntil = new HashMap<>();
+    private final Map<UUID, Location> frozenLocation = new HashMap<>();
 
     @EventHandler
     public void onEntityDamage(EntityDamageByEntityEvent event) {
@@ -41,7 +41,7 @@ public class FrostSwordHandler implements Listener {
             return;
         }
 
-        // Звук удара (ломающийся лёд)
+        // Звук удара
         target.getWorld().playSound(target.getLocation(), org.bukkit.Sound.BLOCK_GLASS_BREAK, 0.5f, 1.5f);
         
         // Замедление I на 3 секунды
@@ -66,16 +66,23 @@ public class FrostSwordHandler implements Listener {
         UUID targetId = target.getUniqueId();
         
         // Запоминаем позицию заморозки
-        frozenLocation.put(targetId, target.getLocation());
+        Location center = target.getLocation();
+        frozenLocation.put(targetId, center);
         frozenUntil.put(targetId, System.currentTimeMillis() + 4000); // 4 секунды
         
-        // Создаём лёд вокруг цели (3x3)
-        Location center = target.getLocation();
-        for (int x = -1; x <= 1; x++) {
-            for (int z = -1; z <= 1; z++) {
-                Location iceLoc = center.clone().add(x, 0, z);
-                if (iceLoc.getBlock().getType() == Material.AIR) {
-                    iceLoc.getBlock().setType(Material.FROSTED_ICE);
+        // Создаём лёд ВОКРУГ цели (1х1х2, цель внутри)
+        for (int y = 0; y < 2; y++) {
+            for (int x = -1; x <= 1; x++) {
+                for (int z = -1; z <= 1; z++) {
+                    // Пропускаем центр (где стоит цель)
+                    if (x == 0 && z == 0 && y == 0) continue;
+                    if (x == 0 && z == 0 && y == 1) continue;
+                    
+                    Location iceLoc = center.clone().add(x, y, z);
+                    if (iceLoc.getBlock().getType() == Material.AIR || 
+                        iceLoc.getBlock().getType() == Material.WATER) {
+                        iceLoc.getBlock().setType(Material.PACKED_ICE); // Упакованный лёд не тает в воду
+                    }
                 }
             }
         }
@@ -84,9 +91,9 @@ public class FrostSwordHandler implements Listener {
         target.getWorld().spawnParticle(org.bukkit.Particle.SNOWFLAKE, target.getLocation(), 50, 1, 1, 1, 0);
         target.getWorld().spawnParticle(org.bukkit.Particle.ITEM_SNOWBALL, target.getLocation(), 30, 0.5, 1, 0.5, 0);
         
-        // Добавляем эффекты цели
-        target.addPotionEffect(new PotionEffect(PotionEffectType.SLOWNESS, 80, 254, false, false, false)); // Полная остановка
-        target.addPotionEffect(new PotionEffect(PotionEffectType.JUMP_BOOST, 80, 128, false, false, false)); // Не может прыгать
+        // Добавляем эффекты цели (полная остановка)
+        target.addPotionEffect(new PotionEffect(PotionEffectType.SLOWNESS, 80, 254, false, false, false));
+        target.addPotionEffect(new PotionEffect(PotionEffectType.JUMP_BOOST, 80, 128, false, false, false));
         target.setFreezeTicks(80); // Визуальная заморозка
         
         // Запускаем таймер на удаление льда
@@ -94,18 +101,24 @@ public class FrostSwordHandler implements Listener {
             @Override
             public void run() {
                 // Убираем лёд
-                Location center = target.getLocation();
-                for (int x = -1; x <= 1; x++) {
-                    for (int z = -1; z <= 1; z++) {
-                        Location iceLoc = center.clone().add(x, 0, z);
-                        if (iceLoc.getBlock().getType() == Material.FROSTED_ICE) {
-                            iceLoc.getBlock().setType(Material.AIR);
+                for (int y = 0; y < 2; y++) {
+                    for (int x = -1; x <= 1; x++) {
+                        for (int z = -1; z <= 1; z++) {
+                            Location iceLoc = center.clone().add(x, y, z);
+                            if (iceLoc.getBlock().getType() == Material.PACKED_ICE) {
+                                iceLoc.getBlock().setType(Material.AIR);
+                            }
                         }
                     }
                 }
                 // Очищаем данные
                 frozenUntil.remove(targetId);
                 frozenLocation.remove(targetId);
+                
+                // Убираем эффекты с цели
+                target.removePotionEffect(PotionEffectType.SLOWNESS);
+                target.removePotionEffect(PotionEffectType.JUMP_BOOST);
+                target.setFreezeTicks(0);
             }
         }.runTaskLater(MagmaRoarPlugin.getInstance(), 80L); // 4 секунды
     }

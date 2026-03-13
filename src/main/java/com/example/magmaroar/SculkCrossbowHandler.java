@@ -2,6 +2,8 @@ package com.example.magmaroar;
 
 import org.bukkit.Location;
 import org.bukkit.Material;
+import org.bukkit.Particle;
+import org.bukkit.Sound;
 import org.bukkit.World;
 import org.bukkit.entity.*;
 import org.bukkit.event.EventHandler;
@@ -69,7 +71,9 @@ public class SculkCrossbowHandler implements Listener {
                 arrow.setVelocity(direction.multiply(4.0)); // Очень быстро
                 arrow.setShooter(player);
                 arrow.setGlowing(true);
-                arrow.setPierce(1); // Пробивает 1 цель
+                
+                // Вместо setPierce используем setCritical
+                arrow.setCritical(true);
                 
                 // Добавляем частицы скалка
                 arrow.getWorld().spawnParticle(Particle.SCULK_SOUL, arrow.getLocation(), 10, 0.2, 0.2, 0.2, 0.02);

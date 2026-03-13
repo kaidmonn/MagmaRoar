@@ -12,3 +12,12 @@ commands:
   flamingbow:
     description: Дает Пылающий арбалет
     usage: /flamingbow
+  blood:
+    description: Дает Кровавый меч (3 в 1)
+    usage: /blood
+  zombietotem:
+    description: Дает яйцо зомби с тотемами
+    usage: /zombietotem
+  zombieshield:
+    description: Дает яйцо зомби со щитом
+    usage: /zombieshield

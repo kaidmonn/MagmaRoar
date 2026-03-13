@@ -13,7 +13,9 @@ public class MagmaRoarPlugin extends JavaPlugin {
         // Регистрация обработчиков
         getServer().getPluginManager().registerEvents(new StaffEvents(), this);
         getServer().getPluginManager().registerEvents(new LightMaceHandler(), this);
-        getServer().getPluginManager().registerEvents(new FlamingCrossbowHandler(), this); // НОВОЕ
+        getServer().getPluginManager().registerEvents(new FlamingCrossbowHandler(), this);
+        getServer().getPluginManager().registerEvents(new BloodSwordHandler(), this);
+        getServer().getPluginManager().registerEvents(new TestZombieHandler(), this); // Тестовые зомби
         
         // Команда для Рога Магмы
         getCommand("roar").setExecutor((sender, command, label, args) -> {
@@ -31,7 +33,7 @@ public class MagmaRoarPlugin extends JavaPlugin {
             return true;
         });
         
-        // НОВАЯ КОМАНДА для Пылающего арбалета
+        // Команда для Пылающего арбалета
         getCommand("flamingbow").setExecutor((sender, command, label, args) -> {
             if (sender instanceof org.bukkit.entity.Player) {
                 ((org.bukkit.entity.Player) sender).getInventory().addItem(FlamingCrossbowItem.createCrossbow());
@@ -39,7 +41,30 @@ public class MagmaRoarPlugin extends JavaPlugin {
             return true;
         });
         
-        getLogger().info("§aMagmaRoarPlugin включён! Легкая Булава и Пылающий арбалет добавлены.");
+        // Команда для Кровавого меча
+        getCommand("blood").setExecutor((sender, command, label, args) -> {
+            if (sender instanceof org.bukkit.entity.Player) {
+                ((org.bukkit.entity.Player) sender).getInventory().addItem(BloodSwordItem.createBloodSword());
+            }
+            return true;
+        });
+        
+        // Команды для тестовых зомби
+        getCommand("zombietotem").setExecutor((sender, command, label, args) -> {
+            if (sender instanceof org.bukkit.entity.Player) {
+                ((org.bukkit.entity.Player) sender).getInventory().addItem(TestZombieItem.createZombieEgg(true));
+            }
+            return true;
+        });
+        
+        getCommand("zombieshield").setExecutor((sender, command, label, args) -> {
+            if (sender instanceof org.bukkit.entity.Player) {
+                ((org.bukkit.entity.Player) sender).getInventory().addItem(TestZombieItem.createZombieEgg(false));
+            }
+            return true;
+        });
+        
+        getLogger().info("§aMagmaRoarPlugin включён! Предметы: Рог Магмы, Легкая Булава, Пылающий арбалет, Кровавый меч, Тестовые зомби");
     }
 
     public static MagmaRoarPlugin getInstance() {

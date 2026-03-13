@@ -4,14 +4,12 @@ import org.bukkit.Location;
 import org.bukkit.Material;
 import org.bukkit.World;
 import org.bukkit.entity.Player;
-import org.bukkit.entity.TNTPrimed;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.Listener;
 import org.bukkit.event.block.Action;
 import org.bukkit.event.player.PlayerInteractEvent;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.inventory.meta.ItemMeta;
-import org.bukkit.scheduler.BukkitRunnable;
 
 import java.util.HashMap;
 import java.util.Map;
@@ -21,8 +19,8 @@ public class OrbitalCannonHandler implements Listener {
 
     private final Map<UUID, Long> lastUseTimeNormal = new HashMap<>();
     private final Map<UUID, Long> lastUseTimeRing = new HashMap<>();
-    private static final long COOLDOWN_NORMAL = 25 * 1000; // 25 секунд
-    private static final long COOLDOWN_RING = 3 * 60 * 1000; // 3 минуты
+    private static final long COOLDOWN_NORMAL = 25 * 1000;
+    private static final long COOLDOWN_RING = 3 * 60 * 1000;
 
     @EventHandler
     public void onPlayerInteract(PlayerInteractEvent event) {
@@ -52,9 +50,14 @@ public class OrbitalCannonHandler implements Listener {
             return;
         }
         
-        Location targetLoc = player.getTargetBlock(null, 200).getLocation().add(0.5, 0, 0.5);
-        spawnInstantTNT(player, targetLoc);
-        player.sendMessage("§5Орбитальная пушка: 5 ТНТ сброшены!");
+        Location targetLoc = player.getTargetBlock(null, 200).getLocation().add(0.5, 1, 0.5);
+        
+        // МГНОВЕННЫЙ ВЗРЫВ (5 ТНТ сразу)
+        for (int i = 0; i < 5; i++) {
+            player.getWorld().createExplosion(targetLoc, 4.0f, false, false, player);
+        }
+        
+        player.sendMessage("§5Орбитальная пушка: 5 мгновенных взрывов!");
         lastUseTimeNormal.put(player.getUniqueId(), now);
     }
 
@@ -70,80 +73,33 @@ public class OrbitalCannonHandler implements Listener {
         }
         
         Location targetLoc = player.getTargetBlock(null, 200).getLocation().add(0.5, 0, 0.5);
-        spawnWembuRingTNT(player, targetLoc);
-        player.sendMessage("§5§lКОЛЬЦЕВОЙ РЕЖИМ АКТИВИРОВАН! 100+ ТНТ СБРОШЕНЫ!");
-        lastUseTimeRing.put(player.getUniqueId(), now);
-    }
-
-    private void spawnInstantTNT(Player player, Location center) {
-        for (int i = 0; i < 5; i++) {
-            Location spawnLoc = center.clone().add(0, 5 + i, 0);
-            TNTPrimed tnt = player.getWorld().spawn(spawnLoc, TNTPrimed.class);
-            tnt.setFuseTicks(40);
-            tnt.setYield(4.0f);
-            tnt.setIsIncendiary(false);
-            tnt.setGlowing(true);
-            tnt.setVelocity(new org.bukkit.util.Vector(0, -0.5, 0));
-        }
-    }
-
-    private void spawnWembuRingTNT(Player player, Location center) {
         World world = player.getWorld();
         
+        // Кольцевой режим как у Wembu
         int rings = 5;
-        int tntPerRing = 24;
         double baseRadius = 3.0;
-        double radiusIncrease = 3.0;
-        double heightBase = 20.0;
-        double heightDecrease = 3.0;
+        double radiusIncrease = 4.0;
+        
+        player.sendMessage("§5§lКОЛЬЦЕВОЙ РЕЖИМ! 100+ ВЗРЫВОВ!");
         
         for (int ring = 0; ring < rings; ring++) {
             double radius = baseRadius + (ring * radiusIncrease);
-            double height = heightBase - (ring * heightDecrease);
-            int tntCount = tntPerRing + (ring * 4);
+            int tntCount = 20 + (ring * 8); // Больше ТНТ в дальних кольцах
             
             for (int i = 0; i < tntCount; i++) {
                 double angle = 2 * Math.PI * i / tntCount;
-                double x = center.getX() + radius * Math.cos(angle);
-                double z = center.getZ() + radius * Math.sin(angle);
+                double x = targetLoc.getX() + radius * Math.cos(angle);
+                double z = targetLoc.getZ() + radius * Math.sin(angle);
                 
-                Location tntLoc = new Location(world, x, center.getY() + height, z);
-                TNTPrimed tnt = world.spawn(tntLoc, TNTPrimed.class);
-                tnt.setFuseTicks(40 + ring * 5);
-                tnt.setYield(4.0f);
-                tnt.setIsIncendiary(false);
-                tnt.setGlowing(true);
-                tnt.setVelocity(new org.bukkit.util.Vector(
-                    (Math.random() - 0.5) * 0.2,
-                    -0.3,
-                    (Math.random() - 0.5) * 0.2
-                ));
+                Location explodeLoc = new Location(world, x, targetLoc.getY(), z);
+                world.createExplosion(explodeLoc, 4.0f, false, false, player);
             }
         }
         
-        TNTPrimed centerTNT = world.spawn(center.clone().add(0, 25, 0), TNTPrimed.class);
-        centerTNT.setFuseTicks(50);
-        centerTNT.setYield(6.0f);
-        centerTNT.setIsIncendiary(false);
-        centerTNT.setGlowing(true);
+        // Центральный мощный взрыв
+        world.createExplosion(targetLoc, 6.0f, false, false, player);
         
-        new BukkitRunnable() {
-            @Override
-            public void run() {
-                world.createExplosion(center, 4.0f, false, false, player);
-                for (int ring = 0; ring < rings; ring++) {
-                    double radius = baseRadius + (ring * radiusIncrease);
-                    int tntCount = tntPerRing + (ring * 4);
-                    for (int i = 0; i < tntCount; i++) {
-                        double angle = 2 * Math.PI * i / tntCount;
-                        double x = center.getX() + radius * Math.cos(angle);
-                        double z = center.getZ() + radius * Math.sin(angle);
-                        Location explodeLoc = new Location(world, x, center.getY(), z);
-                        world.createExplosion(explodeLoc, 4.0f, false, false, player);
-                    }
-                }
-            }
-        }.runTaskLater(MagmaRoarPlugin.getInstance(), 45L);
+        lastUseTimeRing.put(player.getUniqueId(), now);
     }
 
     private boolean isOrbitalCannon(ItemStack item) {

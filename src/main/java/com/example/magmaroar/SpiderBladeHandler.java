@@ -27,7 +27,7 @@ public class SpiderBladeHandler implements Listener {
     private final Map<UUID, Set<Location>> placedWebs = new HashMap<>();
     private static final long WEB_COOLDOWN = 20 * 1000; // 20 секунд
     private static final double POISON_CHANCE = 0.07; // 7% шанс
-    private static final int WEB_DURATION = 20 * 1000; // 20 секунд (для удаления)
+    private static final int WEB_DURATION = 20 * 1000; // 20 секунд
 
     @EventHandler
     public void onPlayerInteract(PlayerInteractEvent event) {
@@ -51,22 +51,27 @@ public class SpiderBladeHandler implements Listener {
             // ГРОМКИЙ ЗВУК УБИЙСТВА ПАУКА
             player.getWorld().playSound(player.getLocation(), Sound.ENTITY_SPIDER_DEATH, 2.0f, 1.0f);
             
-            // Создаём круг паутины 5×5 В НОГАХ ИГРОКА (один слой)
+            // Создаём круг паутины 5×5 НА ПОВЕРХНОСТИ
             Location center = player.getLocation().clone();
             Set<Location> newWebs = new HashSet<>();
             
             for (int x = -2; x <= 2; x++) {
                 for (int z = -2; z <= 2; z++) {
-                    // Проверяем расстояние до центра для круга
                     double distance = Math.sqrt(x*x + z*z);
-                    if (distance <= 2.5) { // Радиус примерно 2.5 блока
-                        Location webLoc = center.clone().add(x, -1, z); // На уровне ног
+                    if (distance <= 2.5) {
+                        // Находим поверхность под игроком
+                        Location webLoc = center.clone().add(x, 0, z);
                         
-                        // Ставим паутину (неважно, есть ли блок снизу)
-                        Block block = webLoc.getBlock();
-                        if (block.getType() == Material.AIR || block.getType() == Material.COBWEB) {
-                            block.setType(Material.COBWEB);
-                            newWebs.add(webLoc.clone());
+                        // Ищем первый блок снизу
+                        while (webLoc.getBlock().getType() == Material.AIR && webLoc.getY() > -64) {
+                            webLoc.subtract(0, 1, 0);
+                        }
+                        
+                        // Ставим паутину на найденную поверхность
+                        Location placeLoc = webLoc.clone().add(0, 1, 0);
+                        if (placeLoc.getBlock().getType() == Material.AIR) {
+                            placeLoc.getBlock().setType(Material.COBWEB);
+                            newWebs.add(placeLoc.clone());
                         }
                     }
                 }
@@ -76,7 +81,7 @@ public class SpiderBladeHandler implements Listener {
             placedWebs.put(player.getUniqueId(), newWebs);
             webCooldowns.put(player.getUniqueId(), now);
             
-            player.sendMessage("§2Паутина 5×5 создана в ногах! Исчезнет через 20 секунд.");
+            player.sendMessage("§2Паутина 5×5 создана на поверхности! Исчезнет через 20 секунд.");
             
             // Запускаем таймер на удаление паутины
             new BukkitRunnable() {
@@ -108,12 +113,10 @@ public class SpiderBladeHandler implements Listener {
 
         if (!isSpiderBlade(item)) return;
 
-        // Проверяем шанс отравления
         if (Math.random() < POISON_CHANCE) {
             target.addPotionEffect(new PotionEffect(PotionEffectType.POISON, 400, 1));
             player.sendMessage("§2Яд сработал! Цель отравлена на 20 секунд.");
             
-            // Эффекты отравления
             target.getWorld().spawnParticle(Particle.ENTITY_EFFECT, 
                 target.getLocation().add(0, 1, 0), 30, 0.5, 0.5, 0.5, 0);
         }
@@ -128,9 +131,17 @@ public class SpiderBladeHandler implements Listener {
             ItemStack mainHand = player.getInventory().getItemInMainHand();
             ItemStack offHand = player.getInventory().getItemInOffHand();
             
+            // Если это паутина владельца - телепортируем его наверх
             if (isSpiderBlade(mainHand) || isSpiderBlade(offHand)) {
-                // Убираем замедление от паутины
-                player.setVelocity(player.getVelocity().multiply(2));
+                Location loc = player.getLocation();
+                Block above = loc.clone().add(0, 1, 0).getBlock();
+                Block above2 = loc.clone().add(0, 2, 0).getBlock();
+                
+                // Телепортируем игрока наверх, если есть место
+                if (above.getType() == Material.AIR && above2.getType() == Material.AIR) {
+                    player.teleport(loc.clone().add(0, 1, 0));
+                    player.sendMessage("§2Вы выбрались из своей паутины!");
+                }
             }
         }
     }

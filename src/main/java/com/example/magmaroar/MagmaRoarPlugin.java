@@ -13,6 +13,7 @@ public class MagmaRoarPlugin extends JavaPlugin {
         // Регистрация обработчиков
         getServer().getPluginManager().registerEvents(new StaffEvents(), this);
         getServer().getPluginManager().registerEvents(new LightMaceHandler(), this);
+        getServer().getPluginManager().registerEvents(new FlamingCrossbowHandler(), this); // НОВОЕ
         
         // Команда для Рога Магмы
         getCommand("roar").setExecutor((sender, command, label, args) -> {
@@ -30,7 +31,15 @@ public class MagmaRoarPlugin extends JavaPlugin {
             return true;
         });
         
-        getLogger().info("§aMagmaRoarPlugin включён! Легкая Булава добавлена.");
+        // НОВАЯ КОМАНДА для Пылающего арбалета
+        getCommand("flamingbow").setExecutor((sender, command, label, args) -> {
+            if (sender instanceof org.bukkit.entity.Player) {
+                ((org.bukkit.entity.Player) sender).getInventory().addItem(FlamingCrossbowItem.createCrossbow());
+            }
+            return true;
+        });
+        
+        getLogger().info("§aMagmaRoarPlugin включён! Легкая Булава и Пылающий арбалет добавлены.");
     }
 
     public static MagmaRoarPlugin getInstance() {

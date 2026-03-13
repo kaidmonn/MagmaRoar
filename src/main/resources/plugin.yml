@@ -9,3 +9,6 @@ commands:
   mace:
     description: Дает Легкую Булаву
     usage: /mace
+  flamingbow:
+    description: Дает Пылающий арбалет
+    usage: /flamingbow

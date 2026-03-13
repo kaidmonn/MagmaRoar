@@ -23,6 +23,31 @@ public class MjolnirHandler implements Listener {
     private final Map<UUID, Long> cooldowns = new HashMap<>();
     private final Map<UUID, ItemStack> thrownWeapons = new HashMap<>();
     private static final long COOLDOWN = 20 * 1000; // 20 секунд
+    private static final double MELEE_DAMAGE = 5.0; // 2.5 сердца
+    private static final double THROW_DAMAGE = 6.0; // 3 сердца
+
+    @EventHandler
+    public void onEntityDamage(EntityDamageByEntityEvent event) {
+        if (!(event.getDamager() instanceof Player)) return;
+        
+        Player player = (Player) event.getDamager();
+        ItemStack item = player.getInventory().getItemInMainHand();
+        
+        if (!isMjolnir(item)) return;
+        
+        // Устанавливаем урон 2.5 сердца
+        event.setDamage(MELEE_DAMAGE);
+        
+        // Эффекты молнии при ударе (шанс 30%)
+        if (Math.random() < 0.3) {
+            Location targetLoc = event.getEntity().getLocation();
+            player.getWorld().strikeLightningEffect(targetLoc);
+            player.getWorld().playSound(targetLoc, Sound.ENTITY_LIGHTNING_BOLT_IMPACT, 0.5f, 1.0f);
+            
+            player.getWorld().spawnParticle(Particle.ELECTRIC_SPARK, 
+                targetLoc.add(0, 1, 0), 20, 0.5, 0.5, 0.5, 0.1);
+        }
+    }
 
     @EventHandler
     public void onPlayerInteract(PlayerInteractEvent event) {
@@ -83,26 +108,27 @@ public class MjolnirHandler implements Listener {
         Location hitLoc = snowball.getLocation();
         World world = hitLoc.getWorld();
         
-        // МОЛНИЯ + ЗВУК
+        // МОЛНИЯ
         world.strikeLightningEffect(hitLoc);
-        world.playSound(hitLoc, Sound.ENTITY_LIGHTNING_BOLT_THUNDER, 2.0f, 1.0f);
-        world.playSound(hitLoc, Sound.ENTITY_LIGHTNING_BOLT_IMPACT, 2.0f, 1.0f);
+        world.playSound(hitLoc, Sound.ENTITY_LIGHTNING_BOLT_THUNDER, 1.0f, 1.0f);
+        world.playSound(hitLoc, Sound.ENTITY_LIGHTNING_BOLT_IMPACT, 1.0f, 1.0f);
         
-        // УРОН 3 СЕРДЦА ПРИ БРОСКЕ
-        for (Entity e : world.getNearbyEntities(hitLoc, 4, 4, 4)) {
+        // УРОН 3 СЕРДЦА ВСЕМ В РАДИУСЕ
+        for (Entity e : world.getNearbyEntities(hitLoc, 4, 2, 4)) {
             if (e instanceof LivingEntity && !e.equals(player)) {
                 LivingEntity target = (LivingEntity) e;
-                target.damage(6, player); // 3 сердца
+                target.damage(THROW_DAMAGE, player);
+                
                 target.getWorld().spawnParticle(Particle.ELECTRIC_SPARK, 
-                    target.getLocation().add(0, 1, 0), 30, 0.5, 1, 0.5, 0.1);
+                    target.getLocation().add(0, 1, 0), 20, 0.5, 0.5, 0.5, 0.1);
             }
         }
         
         // Эффекты
-        world.spawnParticle(Particle.ELECTRIC_SPARK, hitLoc, 100, 3, 2, 3, 0.2);
-        world.spawnParticle(Particle.FLASH, hitLoc, 20, 2, 2, 2, 0);
+        world.spawnParticle(Particle.ELECTRIC_SPARK, hitLoc, 50, 2, 1, 2, 0.1);
+        world.spawnParticle(Particle.FLASH, hitLoc, 10, 1, 1, 1, 0);
         
-        // ВОЗВРАТ
+        // ВОЗВРАТ МОЛОТА
         ItemStack returningItem = thrownWeapons.remove(projectileId);
         if (returningItem != null) {
             HashMap<Integer, ItemStack> leftover = player.getInventory().addItem(returningItem);
@@ -113,30 +139,6 @@ public class MjolnirHandler implements Listener {
         }
         
         snowball.remove();
-    }
-
-    @EventHandler
-    public void onEntityDamage(EntityDamageByEntityEvent event) {
-        if (!(event.getDamager() instanceof Player)) return;
-        
-        Player player = (Player) event.getDamager();
-        ItemStack item = player.getInventory().getItemInMainHand();
-        
-        if (!isMjolnir(item)) return;
-        
-        // ОБЫЧНЫЙ УРОН 2.5 СЕРДЦА (5 HP)
-        event.setDamage(5.0);
-        
-        // МОЛНИЯ ПРИ УДАРЕ (шанс 50% для эффектности)
-        if (Math.random() < 0.5) {
-            Location targetLoc = event.getEntity().getLocation();
-            player.getWorld().strikeLightningEffect(targetLoc);
-            player.getWorld().playSound(targetLoc, Sound.ENTITY_LIGHTNING_BOLT_IMPACT, 1.0f, 1.0f);
-            
-            // Частицы
-            player.getWorld().spawnParticle(Particle.ELECTRIC_SPARK, 
-                targetLoc.add(0, 1, 0), 30, 0.5, 1, 0.5, 0.1);
-        }
     }
 
     private boolean isMjolnir(ItemStack item) {

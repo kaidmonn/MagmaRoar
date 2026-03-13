@@ -6,6 +6,7 @@ import org.bukkit.Particle;
 import org.bukkit.Sound;
 import org.bukkit.World;
 import org.bukkit.entity.Entity;
+import org.bukkit.entity.LivingEntity;
 import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.Listener;
@@ -14,6 +15,7 @@ import org.bukkit.event.player.PlayerInteractEvent;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.inventory.meta.ItemMeta;
 import org.bukkit.scheduler.BukkitRunnable;
+import org.bukkit.util.Vector;
 
 import java.util.HashMap;
 import java.util.Map;
@@ -54,15 +56,11 @@ public class VillagerStaffHandler implements Listener {
             player.getWorld().spawnParticle(Particle.END_ROD, targetLoc, 50, 1, 1, 1, 0.1);
             
             // СОЗДАЕМ ТОЛСТЫЙ ЛУЧ (от неба до земли)
-            Location topLoc = targetLoc.clone().add(0, 30, 0);
-            Location bottomLoc = targetLoc.clone().subtract(0, 5, 0);
-            
-            // Рисуем луч частицами
             new BukkitRunnable() {
                 double t = 0;
                 @Override
                 public void run() {
-                    if (t >= 40) { // 2 секунды (20 тиков = 1 сек)
+                    if (t >= 40) { // 2 секунды
                         this.cancel();
                         return;
                     }
@@ -97,25 +95,28 @@ public class VillagerStaffHandler implements Listener {
                     // Звук взрыва
                     world.playSound(targetLoc, Sound.ENTITY_GENERIC_EXPLODE, 2.0f, 0.5f);
                     
-                    // УРОН ПО ИГРОКАМ (ТОЛЬКО ПО ГОРИЗОНТАЛИ, ВЫСОТА НЕОГРАНИЧЕНА)
-                    int playersHit = 0;
-                    for (Entity entity : world.getNearbyEntities(targetLoc, 5, 256, 5)) { // 256 блоков вверх/вниз
-                        if (entity instanceof Player && !entity.equals(player)) {
-                            Player target = (Player) entity;
-                            // Урон 30 сердец (60 HP) - гарантированная смерть
+                    // УРОН ПО ВСЕМ СУЩЕСТВАМ (мобы + игроки)
+                    int entitiesHit = 0;
+                    for (Entity entity : world.getNearbyEntities(targetLoc, 5, 256, 5)) {
+                        if (entity instanceof LivingEntity && !entity.equals(player)) {
+                            LivingEntity target = (LivingEntity) entity;
+                            // Урон 60 HP (30 сердец)
                             target.damage(60, player);
-                            playersHit++;
+                            entitiesHit++;
                             
-                            // Эффекты на пораженных игроках
+                            // Эффекты на пораженных существах
                             target.getWorld().spawnParticle(Particle.SONIC_BOOM, target.getLocation(), 20, 1, 1, 1, 0);
-                            target.sendMessage("§c§lВАС ПОРАЗИЛ ПОСОХ ЖИТЕЛЯ!");
+                            
+                            if (target instanceof Player) {
+                                target.sendMessage("§c§lВАС ПОРАЗИЛ ПОСОХ ЖИТЕЛЯ!");
+                            }
                             
                             // Подбрасываем вверх
-                            target.setVelocity(target.getVelocity().add(new org.bukkit.util.Vector(0, 1.5, 0)));
+                            target.setVelocity(target.getVelocity().add(new Vector(0, 1.5, 0)));
                         }
                     }
                     
-                    player.sendMessage("§a§lМОЩНЫЙ ВЗРЫВ! Уровень 20. Задето игроков: " + playersHit);
+                    player.sendMessage("§a§lМОЩНЫЙ ВЗРЫВ! Уровень 20. Задето существ: " + entitiesHit);
                     
                     // Ставим кулдаун
                     cooldowns.put(player.getUniqueId(), now);

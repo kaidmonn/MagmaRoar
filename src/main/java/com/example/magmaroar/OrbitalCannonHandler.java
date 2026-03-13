@@ -43,19 +43,53 @@ public class OrbitalCannonHandler implements Listener {
             // Получаем точку взгляда игрока
             Location targetLoc = player.getTargetBlock(null, 100).getLocation().add(0.5, 1, 0.5);
             
-            // Спавним 5 ТНТ в одной точке
-            for (int i = 0; i < 5; i++) {
-                TNTPrimed tnt = player.getWorld().spawn(targetLoc, TNTPrimed.class);
-                tnt.setFuseTicks(40); // 2 секунды до взрыва
-                tnt.setYield(4.0f);
-                tnt.setIsIncendiary(false);
-                tnt.setGlowing(true);
+            // Проверяем, зажат ли Shift
+            if (player.isSneaking()) {
+                // Режим 2: Кольцевой динамит (как у Wembu)
+                spawnRingTNT(player, targetLoc);
+                player.sendMessage("§5Орбитальная пушка: кольцевой режим активирован!");
+            } else {
+                // Режим 1: Обычный - 5 ТНТ в одной точке (мгновенный взрыв)
+                spawnInstantTNT(player, targetLoc);
+                player.sendMessage("§5Орбитальная пушка: 5 ТНТ сброшены!");
             }
             
             lastUseTime.put(player.getUniqueId(), now);
-            player.sendMessage("§5Орбитальная пушка активирована! 5 ТНТ сброшены.");
-            
             event.setCancelled(true);
+        }
+    }
+
+    private void spawnInstantTNT(Player player, Location center) {
+        for (int i = 0; i < 5; i++) {
+            TNTPrimed tnt = player.getWorld().spawn(center, TNTPrimed.class);
+            tnt.setFuseTicks(0); // Мгновенный взрыв
+            tnt.setYield(4.0f);
+            tnt.setIsIncendiary(false);
+            tnt.setGlowing(true);
+            
+            // Сразу создаём взрыв без разрушения блоков
+            player.getWorld().createExplosion(center, 4.0f, false, false, player);
+        }
+    }
+
+    private void spawnRingTNT(Player player, Location center) {
+        int radius = 5;
+        int tntCount = 12;
+        
+        for (int i = 0; i < tntCount; i++) {
+            double angle = 2 * Math.PI * i / tntCount;
+            double x = center.getX() + radius * Math.cos(angle);
+            double z = center.getZ() + radius * Math.sin(angle);
+            
+            Location tntLoc = new Location(center.getWorld(), x, center.getY(), z);
+            TNTPrimed tnt = player.getWorld().spawn(tntLoc, TNTPrimed.class);
+            tnt.setFuseTicks(0); // Мгновенный взрыв
+            tnt.setYield(4.0f);
+            tnt.setIsIncendiary(false);
+            tnt.setGlowing(true);
+            
+            // Сразу создаём взрыв без разрушения блоков
+            player.getWorld().createExplosion(tntLoc, 4.0f, false, false, player);
         }
     }
 

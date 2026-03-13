@@ -18,8 +18,10 @@ public class OrbitalCannonItem {
             meta.displayName(Component.text("§5Орбитальная пушка"));
 
             List<Component> lore = new ArrayList<>();
-            lore.add(Component.text("§7ПКМ: Вызывает 5 ТНТ в точку взгляда"));
+            lore.add(Component.text("§7ПКМ: 5 ТНТ в одной точке"));
+            lore.add(Component.text("§7Shift+ПКМ: Кольцевой динамит (как у Wembu)"));
             lore.add(Component.text("§7Взрывы не ломают блоки"));
+            lore.add(Component.text("§7Мгновенный взрыв"));
             lore.add(Component.text("§7Кулдаун: 25 секунд"));
             lore.add(Component.text("§7Нерушимая"));
             meta.lore(lore);

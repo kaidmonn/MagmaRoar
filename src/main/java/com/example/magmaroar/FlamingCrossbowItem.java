@@ -3,7 +3,7 @@ package com.example.magmaroar;
 import net.kyori.adventure.text.Component;
 import org.bukkit.Material;
 import org.bukkit.inventory.ItemStack;
-import org.bukkit.inventory.meta.CrossbowMeta;
+import org.bukkit.inventory.meta.Damageable;
 import org.bukkit.inventory.meta.ItemMeta;
 
 import java.util.ArrayList;
@@ -18,13 +18,11 @@ public class FlamingCrossbowItem {
         if (meta != null) {
             meta.displayName(Component.text("§cПылающий арбалет"));
             
-            // Устанавливаем прочность 6
-            meta.setMaxDamage(6);
-            meta.setUnbreakable(false);
-            
-            // Автоматически заряжен (опционально)
-            if (meta instanceof CrossbowMeta) {
-                // Можно добавить стрелы, если хочешь
+            // Устанавливаем прочность через Damageable
+            if (meta instanceof Damageable) {
+                Damageable damageable = (Damageable) meta;
+                damageable.setMaxDamage(6); // Макс прочность 6
+                damageable.setDamage(0); // Начинается с полной прочности
             }
 
             List<Component> lore = new ArrayList<>();

@@ -22,11 +22,14 @@ public class MjolnirHandler implements Listener {
 
     private final Map<UUID, Long> throwCooldowns = new HashMap<>();
     private final Map<UUID, Long> lightningCooldowns = new HashMap<>();
+    private final Map<UUID, Long> damageCooldowns = new HashMap<>(); // КД на урон
     private final Map<UUID, ItemStack> thrownWeapons = new HashMap<>();
     
     private static final long THROW_COOLDOWN = 20 * 1000; // 20 секунд на бросок
     private static final long LIGHTNING_COOLDOWN = 2 * 1000; // 2 секунды на молнию
-    private static final double MELEE_DAMAGE = 5.0; // 2.5 сердца (фиксированный урон)
+    private static final long DAMAGE_COOLDOWN = 1 * 1000; // 1 секунда между уроном
+    private static final double MELEE_DAMAGE = 5.0; // 2.5 сердца
+    private static final double THROW_DAMAGE = 6.0; // 3 сердца
 
     @EventHandler
     public void onEntityDamage(EntityDamageByEntityEvent event) {
@@ -37,25 +40,52 @@ public class MjolnirHandler implements Listener {
         
         if (!isMjolnir(item)) return;
         
-        // ФИКСИРОВАННЫЙ УРОН 2.5 СЕРДЦА
-        event.setDamage(MELEE_DAMAGE);
-        
-        // Проверяем КД на молнию
         long now = System.currentTimeMillis();
-        Long lastLightning = lightningCooldowns.get(player.getUniqueId());
+        Long lastDamage = damageCooldowns.get(player.getUniqueId());
         
-        if (lastLightning == null || now - lastLightning >= LIGHTNING_COOLDOWN) {
-            // Бьём молнией
-            Location targetLoc = event.getEntity().getLocation();
-            player.getWorld().strikeLightningEffect(targetLoc);
-            player.getWorld().playSound(targetLoc, Sound.ENTITY_LIGHTNING_BOLT_IMPACT, 0.5f, 1.0f);
+        // Проверяем КД на урон
+        if (lastDamage != null && now - lastDamage < DAMAGE_COOLDOWN) {
+            event.setCancelled(true); // Отменяем урон, если КД не прошёл
+            return;
+        }
+        
+        // Отменяем обычный урон
+        event.setCancelled(true);
+        
+        // ПРЯМОЙ УРОН ЧЕРЕЗ setHealth
+        if (event.getEntity() instanceof LivingEntity) {
+            LivingEntity target = (LivingEntity) event.getEntity();
+            double newHealth = target.getHealth() - MELEE_DAMAGE;
             
-            // Частицы
-            player.getWorld().spawnParticle(Particle.ELECTRIC_SPARK, 
-                targetLoc.add(0, 1, 0), 30, 0.5, 0.5, 0.5, 0.1);
+            if (newHealth <= 0) {
+                target.setHealth(0);
+                target.damage(1);
+            } else {
+                target.setHealth(newHealth);
+            }
             
-            // Обновляем КД
-            lightningCooldowns.put(player.getUniqueId(), now);
+            // Обновляем КД на урон
+            damageCooldowns.put(player.getUniqueId(), now);
+            
+            // Эффекты удара
+            target.getWorld().playSound(target.getLocation(), Sound.ENTITY_PLAYER_ATTACK_CRIT, 1.0f, 1.0f);
+            target.getWorld().spawnParticle(Particle.CRIT, target.getLocation().add(0, 1, 0), 20, 0.5, 0.5, 0.5, 0.1);
+            
+            // Проверяем КД на молнию
+            Long lastLightning = lightningCooldowns.get(player.getUniqueId());
+            
+            if (lastLightning == null || now - lastLightning >= LIGHTNING_COOLDOWN) {
+                // Бьём молнией
+                Location targetLoc = target.getLocation();
+                player.getWorld().strikeLightningEffect(targetLoc);
+                player.getWorld().playSound(targetLoc, Sound.ENTITY_LIGHTNING_BOLT_IMPACT, 0.5f, 1.0f);
+                
+                // Частицы молнии
+                player.getWorld().spawnParticle(Particle.ELECTRIC_SPARK, 
+                    targetLoc.add(0, 1, 0), 30, 0.5, 0.5, 0.5, 0.1);
+                
+                lightningCooldowns.put(player.getUniqueId(), now);
+            }
         }
     }
 
@@ -118,22 +148,29 @@ public class MjolnirHandler implements Listener {
         Location hitLoc = snowball.getLocation();
         World world = hitLoc.getWorld();
         
-        // Молния (гарантированная)
+        // Молния
         world.strikeLightningEffect(hitLoc);
         world.playSound(hitLoc, Sound.ENTITY_LIGHTNING_BOLT_THUNDER, 1.0f, 1.0f);
         
-        // Урон 3 сердца по области (6 HP)
+        // Урон по области через setHealth
         for (Entity e : world.getNearbyEntities(hitLoc, 4, 2, 4)) {
             if (e instanceof LivingEntity && !e.equals(player)) {
                 LivingEntity target = (LivingEntity) e;
-                target.damage(6.0, player); // 3 сердца
+                double newHealth = target.getHealth() - THROW_DAMAGE;
+                
+                if (newHealth <= 0) {
+                    target.setHealth(0);
+                    target.damage(1);
+                } else {
+                    target.setHealth(newHealth);
+                }
                 
                 target.getWorld().spawnParticle(Particle.ELECTRIC_SPARK, 
                     target.getLocation().add(0, 1, 0), 20, 0.5, 0.5, 0.5, 0.1);
             }
         }
         
-        // Визуальные эффекты
+        // Эффекты
         world.spawnParticle(Particle.ELECTRIC_SPARK, hitLoc, 50, 2, 1, 2, 0.1);
         world.spawnParticle(Particle.FLASH, hitLoc, 10, 1, 1, 1, 0);
         

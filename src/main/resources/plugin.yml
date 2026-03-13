@@ -1,5 +1,5 @@
 name: MagmaRoar
-version: 3.2
+version: 4.0
 main: com.example.magmaroar.MagmaRoarPlugin
 api-version: 1.21
 commands:
@@ -30,3 +30,6 @@ commands:
   orbital:
     description: Дает Орбитальную пушку
     usage: /orbital
+  sculkbow:
+    description: Дает Скалковый арбалет
+    usage: /sculkbow

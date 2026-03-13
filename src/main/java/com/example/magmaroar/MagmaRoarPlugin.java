@@ -18,7 +18,8 @@ public class MagmaRoarPlugin extends JavaPlugin {
         getServer().getPluginManager().registerEvents(new TestZombieHandler(), this);
         getServer().getPluginManager().registerEvents(new FrostSwordHandler(), this);
         getServer().getPluginManager().registerEvents(new ShadowSwordHandler(), this);
-        getServer().getPluginManager().registerEvents(new OrbitalCannonHandler(), this); // Орбитальная пушка
+        getServer().getPluginManager().registerEvents(new OrbitalCannonHandler(), this);
+        getServer().getPluginManager().registerEvents(new SculkCrossbowHandler(), this);
         
         // Команда для Рога Магмы
         getCommand("roar").setExecutor((sender, command, label, args) -> {
@@ -91,7 +92,15 @@ public class MagmaRoarPlugin extends JavaPlugin {
             return true;
         });
         
-        getLogger().info("§aMagmaRoarPlugin включён! Предметы: Рог Магмы, Легкая Булава, Пылающий арбалет, Кровавый меч, Тестовые зомби, Морозный меч, Теневой меч, Орбитальная пушка");
+        // Команда для Скалкового арбалета
+        getCommand("sculkbow").setExecutor((sender, command, label, args) -> {
+            if (sender instanceof org.bukkit.entity.Player) {
+                ((org.bukkit.entity.Player) sender).getInventory().addItem(SculkCrossbowItem.createCrossbow());
+            }
+            return true;
+        });
+        
+        getLogger().info("§aMagmaRoarPlugin включён! Загружено 9 предметов: Рог Магмы, Легкая Булава, Пылающий арбалет, Кровавый меч, Тестовые зомби, Морозный меч, Теневой меч, Орбитальная пушка, Скалковый арбалет");
     }
 
     public static MagmaRoarPlugin getInstance() {

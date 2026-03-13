@@ -19,7 +19,7 @@ public class LightMaceHandler implements Listener {
 
     private final Map<UUID, Long> lastJumpTime = new HashMap<>();
     private static final long JUMP_COOLDOWN = 15 * 1000; // 15 секунд
-    private static final double JUMP_HEIGHT = 1.2; // 20 блоков (примерно)
+    private static final double JUMP_HEIGHT = 1.2; // 20 блоков
 
     @EventHandler
     public void onPlayerInteract(PlayerInteractEvent event) {

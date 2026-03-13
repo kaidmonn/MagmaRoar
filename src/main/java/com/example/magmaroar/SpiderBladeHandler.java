@@ -12,6 +12,7 @@ import org.bukkit.event.Listener;
 import org.bukkit.event.block.Action;
 import org.bukkit.event.entity.EntityDamageByEntityEvent;
 import org.bukkit.event.player.PlayerInteractEvent;
+import org.bukkit.event.player.PlayerJoinEvent;
 import org.bukkit.event.player.PlayerMoveEvent;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.inventory.meta.ItemMeta;
@@ -25,9 +26,42 @@ public class SpiderBladeHandler implements Listener {
 
     private final Map<UUID, Long> webCooldowns = new HashMap<>();
     private final Map<UUID, Set<Location>> placedWebs = new HashMap<>();
+    private final Set<UUID> playersWithWebbing = new HashSet<>(); // Игроки с активным эффектом плетения
     private static final long WEB_COOLDOWN = 20 * 1000; // 20 секунд
     private static final double POISON_CHANCE = 0.07; // 7% шанс
     private static final int WEB_DURATION = 20 * 1000; // 20 секунд
+
+    @EventHandler
+    public void onPlayerJoin(PlayerJoinEvent event) {
+        // Проверяем при заходе, есть ли у игрока клинок
+        checkPlayerWebbingEffect(event.getPlayer());
+    }
+
+    @EventHandler
+    public void onPlayerMove(PlayerMoveEvent event) {
+        Player player = event.getPlayer();
+        
+        // Проверяем, есть ли у игрока клинок в руках
+        ItemStack mainHand = player.getInventory().getItemInMainHand();
+        ItemStack offHand = player.getInventory().getItemInOffHand();
+        
+        boolean hasBlade = isSpiderBlade(mainHand) || isSpiderBlade(offHand);
+        UUID playerId = player.getUniqueId();
+        
+        if (hasBlade) {
+            // Если клинок есть, даём эффект плетения
+            if (!playersWithWebbing.contains(playerId)) {
+                player.addPotionEffect(new PotionEffect(PotionEffectType.WEAVING, Integer.MAX_VALUE, 0, false, false, true));
+                playersWithWebbing.add(playerId);
+            }
+        } else {
+            // Если клинка нет, убираем эффект
+            if (playersWithWebbing.contains(playerId)) {
+                player.removePotionEffect(PotionEffectType.WEAVING);
+                playersWithWebbing.remove(playerId);
+            }
+        }
+    }
 
     @EventHandler
     public void onPlayerInteract(PlayerInteractEvent event) {
@@ -122,27 +156,13 @@ public class SpiderBladeHandler implements Listener {
         }
     }
 
-    @EventHandler
-    public void onPlayerMove(PlayerMoveEvent event) {
-        Player player = event.getPlayer();
+    private void checkPlayerWebbingEffect(Player player) {
+        ItemStack mainHand = player.getInventory().getItemInMainHand();
+        ItemStack offHand = player.getInventory().getItemInOffHand();
         
-        // Проверяем, не застрял ли владелец паучьего клинка в паутине
-        if (player.getLocation().getBlock().getType() == Material.COBWEB) {
-            ItemStack mainHand = player.getInventory().getItemInMainHand();
-            ItemStack offHand = player.getInventory().getItemInOffHand();
-            
-            // Если это паутина владельца - телепортируем его наверх
-            if (isSpiderBlade(mainHand) || isSpiderBlade(offHand)) {
-                Location loc = player.getLocation();
-                Block above = loc.clone().add(0, 1, 0).getBlock();
-                Block above2 = loc.clone().add(0, 2, 0).getBlock();
-                
-                // Телепортируем игрока наверх, если есть место
-                if (above.getType() == Material.AIR && above2.getType() == Material.AIR) {
-                    player.teleport(loc.clone().add(0, 1, 0));
-                    player.sendMessage("§2Вы выбрались из своей паутины!");
-                }
-            }
+        if (isSpiderBlade(mainHand) || isSpiderBlade(offHand)) {
+            player.addPotionEffect(new PotionEffect(PotionEffectType.WEAVING, Integer.MAX_VALUE, 0, false, false, true));
+            playersWithWebbing.add(player.getUniqueId());
         }
     }
 

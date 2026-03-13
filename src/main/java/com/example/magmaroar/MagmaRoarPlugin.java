@@ -15,7 +15,8 @@ public class MagmaRoarPlugin extends JavaPlugin {
         getServer().getPluginManager().registerEvents(new LightMaceHandler(), this);
         getServer().getPluginManager().registerEvents(new FlamingCrossbowHandler(), this);
         getServer().getPluginManager().registerEvents(new BloodSwordHandler(), this);
-        getServer().getPluginManager().registerEvents(new TestZombieHandler(), this); // Тестовые зомби
+        getServer().getPluginManager().registerEvents(new TestZombieHandler(), this);
+        getServer().getPluginManager().registerEvents(new FrostSwordHandler(), this); // Морозный меч
         
         // Команда для Рога Магмы
         getCommand("roar").setExecutor((sender, command, label, args) -> {
@@ -64,7 +65,15 @@ public class MagmaRoarPlugin extends JavaPlugin {
             return true;
         });
         
-        getLogger().info("§aMagmaRoarPlugin включён! Предметы: Рог Магмы, Легкая Булава, Пылающий арбалет, Кровавый меч, Тестовые зомби");
+        // Команда для Морозного меча
+        getCommand("frost").setExecutor((sender, command, label, args) -> {
+            if (sender instanceof org.bukkit.entity.Player) {
+                ((org.bukkit.entity.Player) sender).getInventory().addItem(FrostSwordItem.createFrostSword());
+            }
+            return true;
+        });
+        
+        getLogger().info("§aMagmaRoarPlugin включён! Предметы: Рог Магмы, Легкая Булава, Пылающий арбалет, Кровавый меч, Тестовые зомби, Морозный меч");
     }
 
     public static MagmaRoarPlugin getInstance() {

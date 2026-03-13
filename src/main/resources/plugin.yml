@@ -1,5 +1,5 @@
 name: MagmaRoar
-version: 2.0
+version: 3.0
 main: com.example.magmaroar.MagmaRoarPlugin
 api-version: 1.21
 commands:
@@ -21,3 +21,6 @@ commands:
   zombieshield:
     description: Дает яйцо зомби со щитом
     usage: /zombieshield
+  frost:
+    description: Дает Морозный меч
+    usage: /frost

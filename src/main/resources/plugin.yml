@@ -1,5 +1,5 @@
 name: MagmaRoar
-version: 4.5
+version: 4.6
 main: com.example.magmaroar.MagmaRoarPlugin
 api-version: 1.21
 commands:
@@ -45,3 +45,6 @@ commands:
   mjolnir:
     description: Дает Мьёльнир
     usage: /mjolnir
+  hypnosis:
+    description: Дает Жезл гипноза
+    usage: /hypnosis

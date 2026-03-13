@@ -71,8 +71,6 @@ public class SculkCrossbowHandler implements Listener {
                 arrow.setVelocity(direction.multiply(4.0)); // Очень быстро
                 arrow.setShooter(player);
                 arrow.setGlowing(true);
-                
-                // Вместо setPierce используем setCritical
                 arrow.setCritical(true);
                 
                 // Добавляем частицы скалка
@@ -81,10 +79,10 @@ public class SculkCrossbowHandler implements Listener {
                 trackedArrows.add(arrow);
                 arrowsShot++;
                 
-                // Звук выстрела
-                player.getWorld().playSound(player.getLocation(), Sound.ENTITY_CROSSBOW_SHOOT, 1.0f, 0.5f);
+                // Звук выстрела (исправленный)
+                player.getWorld().playSound(player.getLocation(), Sound.ENTITY_ARROW_SHOOT, 1.0f, 0.5f);
             }
-        }.runTaskTimer(MagmaRoarPlugin.getInstance(), 0L, 5L); // Стрелы с интервалом в 5 тиков
+        }.runTaskTimer(MagmaRoarPlugin.getInstance(), 0L, 5L);
         
         event.setCancelled(true);
     }
@@ -102,7 +100,7 @@ public class SculkCrossbowHandler implements Listener {
         World world = hitLoc.getWorld();
         Player shooter = (Player) arrow.getShooter();
         
-        // МОЩНЫЙ ВЗРЫВ (урон 40-50, убивает в полном незерите)
+        // МОЩНЫЙ ВЗРЫВ
         world.createExplosion(hitLoc, 8.0f, false, false, shooter);
         
         // Эффекты скалка

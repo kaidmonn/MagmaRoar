@@ -1,5 +1,5 @@
 name: MagmaRoar
-version: 4.1
+version: 4.2
 main: com.example.magmaroar.MagmaRoarPlugin
 api-version: 1.21
 commands:
@@ -36,3 +36,6 @@ commands:
   villagerstaff:
     description: Дает Посох жителя
     usage: /villagerstaff
+  explosivepotion:
+    description: Дает взрывные зелья (x16)
+    usage: /explosivepotion

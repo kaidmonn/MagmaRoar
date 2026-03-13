@@ -20,13 +20,13 @@ import java.util.*;
 
 public class MjolnirHandler implements Listener {
 
-    private final Map<UUID, Long> throwCooldowns = new HashMap<>(); // КД на бросок
-    private final Map<UUID, Long> lightningCooldowns = new HashMap<>(); // КД на молнию
+    private final Map<UUID, Long> throwCooldowns = new HashMap<>();
+    private final Map<UUID, Long> lightningCooldowns = new HashMap<>();
     private final Map<UUID, ItemStack> thrownWeapons = new HashMap<>();
     
     private static final long THROW_COOLDOWN = 20 * 1000; // 20 секунд на бросок
     private static final long LIGHTNING_COOLDOWN = 2 * 1000; // 2 секунды на молнию
-    private static final double MELEE_DAMAGE = 5.0; // 2.5 сердца
+    private static final double MELEE_DAMAGE = 5.0; // 2.5 сердца (фиксированный урон)
 
     @EventHandler
     public void onEntityDamage(EntityDamageByEntityEvent event) {
@@ -37,7 +37,7 @@ public class MjolnirHandler implements Listener {
         
         if (!isMjolnir(item)) return;
         
-        // Устанавливаем урон 2.5 сердца
+        // ФИКСИРОВАННЫЙ УРОН 2.5 СЕРДЦА
         event.setDamage(MELEE_DAMAGE);
         
         // Проверяем КД на молнию
@@ -122,18 +122,11 @@ public class MjolnirHandler implements Listener {
         world.strikeLightningEffect(hitLoc);
         world.playSound(hitLoc, Sound.ENTITY_LIGHTNING_BOLT_THUNDER, 1.0f, 1.0f);
         
-        // Урон 3 сердца по области (через setHealth)
+        // Урон 3 сердца по области (6 HP)
         for (Entity e : world.getNearbyEntities(hitLoc, 4, 2, 4)) {
             if (e instanceof LivingEntity && !e.equals(player)) {
                 LivingEntity target = (LivingEntity) e;
-                double newHealth = target.getHealth() - 6.0; // 3 сердца
-                
-                if (newHealth <= 0) {
-                    target.setHealth(0);
-                    target.damage(1);
-                } else {
-                    target.setHealth(newHealth);
-                }
+                target.damage(6.0, player); // 3 сердца
                 
                 target.getWorld().spawnParticle(Particle.ELECTRIC_SPARK, 
                     target.getLocation().add(0, 1, 0), 20, 0.5, 0.5, 0.5, 0.1);

@@ -1,6 +1,8 @@
 package com.example.magmaroar;
 
+import org.bukkit.Color;
 import org.bukkit.Material;
+import org.bukkit.Particle;
 import org.bukkit.entity.LivingEntity;
 import org.bukkit.entity.Player;
 import org.bukkit.entity.Snowball;
@@ -49,9 +51,13 @@ public class ExplosivePotionHandler implements Listener {
             }
         }
         
-        // Частицы
-        snowball.getWorld().spawnParticle(org.bukkit.Particle.SPELL_MOB, 
-            snowball.getLocation(), 50, 1, 1, 1, 1, new org.bukkit.Color(200, 0, 200));
+        // Частицы (исправленные)
+        snowball.getWorld().spawnParticle(Particle.SPELL_MOB, 
+            snowball.getLocation(), 50, 1, 1, 1, 1);
+        
+        // Дополнительные фиолетовые частицы
+        snowball.getWorld().spawnParticle(Particle.END_ROD, 
+            snowball.getLocation(), 30, 1, 1, 1, 0.1);
     }
 
     private boolean isExplosivePotion(ItemStack item) {

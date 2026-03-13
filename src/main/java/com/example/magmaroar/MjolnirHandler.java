@@ -9,6 +9,7 @@ import org.bukkit.entity.*;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.Listener;
 import org.bukkit.event.block.Action;
+import org.bukkit.event.entity.EntityDamageByEntityEvent;
 import org.bukkit.event.entity.ProjectileHitEvent;
 import org.bukkit.event.player.PlayerInteractEvent;
 import org.bukkit.inventory.ItemStack;
@@ -52,7 +53,7 @@ public class MjolnirHandler implements Listener {
             Location eyeLoc = player.getEyeLocation();
             Vector direction = player.getLocation().getDirection().normalize();
             
-            // Используем снежок (он лучше летит)
+            // Снежок как снаряд
             Snowball projectile = world.spawn(eyeLoc, Snowball.class);
             projectile.setVelocity(direction.multiply(2.5));
             projectile.setGlowing(true);
@@ -82,36 +83,26 @@ public class MjolnirHandler implements Listener {
         Location hitLoc = snowball.getLocation();
         World world = hitLoc.getWorld();
         
-        // ГРОМКИЙ ЗВУК МОЛНИИ
+        // МОЛНИЯ + ЗВУК
+        world.strikeLightningEffect(hitLoc);
         world.playSound(hitLoc, Sound.ENTITY_LIGHTNING_BOLT_THUNDER, 2.0f, 1.0f);
         world.playSound(hitLoc, Sound.ENTITY_LIGHTNING_BOLT_IMPACT, 2.0f, 1.0f);
         
-        // ВИЗУАЛ МОЛНИИ (без разрушения блоков)
-        world.strikeLightningEffect(hitLoc);
-        
-        // УРОН 3 СЕРДЦА (6 HP) + ЧАСТИЦЫ
+        // УРОН 3 СЕРДЦА ПРИ БРОСКЕ
         for (Entity e : world.getNearbyEntities(hitLoc, 4, 4, 4)) {
             if (e instanceof LivingEntity && !e.equals(player)) {
                 LivingEntity target = (LivingEntity) e;
-                
-                // Истинный урон (игнорирует броню)
-                target.damage(6, player);
-                
-                // Частицы молнии на цели
+                target.damage(6, player); // 3 сердца
                 target.getWorld().spawnParticle(Particle.ELECTRIC_SPARK, 
                     target.getLocation().add(0, 1, 0), 30, 0.5, 1, 0.5, 0.1);
-                
-                // Поджигаем цель? (для эффектности)
-                target.setFireTicks(40); // 2 секунды огня
             }
         }
         
-        // Эффекты взрыва
+        // Эффекты
         world.spawnParticle(Particle.ELECTRIC_SPARK, hitLoc, 100, 3, 2, 3, 0.2);
         world.spawnParticle(Particle.FLASH, hitLoc, 20, 2, 2, 2, 0);
-        world.spawnParticle(Particle.SONIC_BOOM, hitLoc, 30, 2, 1, 2, 0);
         
-        // ВОЗВРАТ МОЛОТА
+        // ВОЗВРАТ
         ItemStack returningItem = thrownWeapons.remove(projectileId);
         if (returningItem != null) {
             HashMap<Integer, ItemStack> leftover = player.getInventory().addItem(returningItem);
@@ -122,6 +113,30 @@ public class MjolnirHandler implements Listener {
         }
         
         snowball.remove();
+    }
+
+    @EventHandler
+    public void onEntityDamage(EntityDamageByEntityEvent event) {
+        if (!(event.getDamager() instanceof Player)) return;
+        
+        Player player = (Player) event.getDamager();
+        ItemStack item = player.getInventory().getItemInMainHand();
+        
+        if (!isMjolnir(item)) return;
+        
+        // ОБЫЧНЫЙ УРОН 2.5 СЕРДЦА (5 HP)
+        event.setDamage(5.0);
+        
+        // МОЛНИЯ ПРИ УДАРЕ (шанс 50% для эффектности)
+        if (Math.random() < 0.5) {
+            Location targetLoc = event.getEntity().getLocation();
+            player.getWorld().strikeLightningEffect(targetLoc);
+            player.getWorld().playSound(targetLoc, Sound.ENTITY_LIGHTNING_BOLT_IMPACT, 1.0f, 1.0f);
+            
+            // Частицы
+            player.getWorld().spawnParticle(Particle.ELECTRIC_SPARK, 
+                targetLoc.add(0, 1, 0), 30, 0.5, 1, 0.5, 0.1);
+        }
     }
 
     private boolean isMjolnir(ItemStack item) {

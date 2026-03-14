@@ -88,7 +88,8 @@ public class HellMeteorHandler implements Listener {
                             
                             world.createExplosion(hitLoc, EXPLOSION_POWER, false, true, player);
                             
-                            world.spawnParticle(Particle.EXPLOSION_HUGE, hitLoc, 10, EXPLOSION_RADIUS, 2, EXPLOSION_RADIUS, 0);
+                            // Исправлено: EXPLOSION_HUGE -> EXPLOSION
+                            world.spawnParticle(Particle.EXPLOSION, hitLoc, 10, EXPLOSION_RADIUS, 2, EXPLOSION_RADIUS, 0);
                             world.spawnParticle(Particle.LAVA, hitLoc, 100, EXPLOSION_RADIUS, 2, EXPLOSION_RADIUS, 0.1);
                             world.spawnParticle(Particle.FLAME, hitLoc, 200, EXPLOSION_RADIUS, 3, EXPLOSION_RADIUS, 0.05);
                             

@@ -1,4 +1,4 @@
-]package com.example.magmaroar;
+package com.example.magmaroar;
 
 import org.bukkit.Location;
 import org.bukkit.Material;
@@ -65,20 +65,17 @@ public class HellMeteorHandler implements Listener {
             
             World world = player.getWorld();
             
-            // Звук запуска
             world.playSound(player.getLocation(), Sound.ENTITY_GHAST_SHOOT, 2.0f, 0.5f);
             player.sendMessage("§cАдский метеорит падает! (2 секунды)");
             
             charging.add(player.getUniqueId());
 
-            // СОЗДАЁМ РЕАЛЬНЫЙ FIREBALL (увеличенный)
+            // СОЗДАЁМ БОЛЬШОЙ ОГНЕННЫЙ ШАР
             LargeFireball meteor = world.spawn(spawnLoc, LargeFireball.class);
-            meteor.setVelocity(new Vector(0, -0.8, 0)); // Падает вниз
-            meteor.setYield(0); // Сам не взрывается
+            meteor.setVelocity(new Vector(0, -0.8, 0));
+            meteor.setYield(0);
             meteor.setIsIncendiary(false);
             meteor.setGlowing(true);
-            
-            // Увеличиваем визуально (нельзя реально изменить размер, но можно добавить частицы)
 
             new BukkitRunnable() {
                 int ticks = 0;
@@ -140,11 +137,11 @@ public class HellMeteorHandler implements Listener {
                         return;
                     }
                     
-                    // ДОБАВЛЯЕМ ЧАСТИЦЫ ДЛЯ УВЕЛИЧЕНИЯ
-                    for (int i = 0; i < 15; i++) {
-                        double offsetX = (Math.random() - 0.5) * 3;
-                        double offsetY = (Math.random() - 0.5) * 3;
-                        double offsetZ = (Math.random() - 0.5) * 3;
+                    // ЧАСТИЦЫ ДЛЯ УВЕЛИЧЕНИЯ МЕТЕОРИТА
+                    for (int i = 0; i < 20; i++) {
+                        double offsetX = (Math.random() - 0.5) * 4;
+                        double offsetY = (Math.random() - 0.5) * 4;
+                        double offsetZ = (Math.random() - 0.5) * 4;
                         
                         Location particleLoc = meteor.getLocation().clone().add(offsetX, offsetY, offsetZ);
                         world.spawnParticle(Particle.FLAME, particleLoc, 1, 0, 0, 0, 0);

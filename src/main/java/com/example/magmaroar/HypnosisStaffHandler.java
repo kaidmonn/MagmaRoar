@@ -79,8 +79,8 @@ public class HypnosisStaffHandler implements Listener {
 
             Warden warden = world.spawn(spawnLoc, Warden.class);
 
-            // Настройка Вардена
-            warden.setAI(true); // Включаем ИИ для движения
+            // Полное отключение встроенного ИИ
+            warden.setAI(false);
             warden.setTarget(null);
             warden.setHealth(100);
             warden.setRemoveWhenFarAway(false);
@@ -111,14 +111,14 @@ public class HypnosisStaffHandler implements Listener {
                 }
             }.runTaskLater(MagmaRoarPlugin.getInstance(), WARDEN_LIFETIME / 50);
 
-            // Запускаем контроль целей
-            startTargetControl(player, newInfo);
+            // Запускаем КАСТОМНОЕ управление (без встроенного ИИ)
+            startCustomAI(player, newInfo);
 
             event.setCancelled(true);
         }
     }
 
-    private void startTargetControl(Player player, WardenInfo info) {
+    private void startCustomAI(Player player, WardenInfo info) {
         new BukkitRunnable() {
             @Override
             public void run() {
@@ -129,54 +129,69 @@ public class HypnosisStaffHandler implements Listener {
                 }
 
                 long now = System.currentTimeMillis();
+                Location wardenLoc = info.warden.getLocation();
+                Location ownerLoc = player.getLocation();
 
                 // Если есть цель
                 if (info.target != null && !info.target.isDead()) {
-                    // Проверяем дистанцию до цели и до владельца
-                    double distToTarget = info.warden.getLocation().distance(info.target.getLocation());
-                    double distToOwner = info.target.getLocation().distance(player.getLocation());
+                    double distToTarget = wardenLoc.distance(info.target.getLocation());
+                    double distTargetToOwner = info.target.getLocation().distance(ownerLoc);
 
                     // Если цель слишком далеко от владельца - забываем
-                    if (distToOwner > FOLLOW_RADIUS) {
+                    if (distTargetToOwner > FOLLOW_RADIUS) {
                         info.target = null;
-                        info.warden.setTarget(null);
+                    } else {
+                        // Двигаемся к цели
+                        Vector direction = info.target.getLocation().toVector().subtract(wardenLoc.toVector()).normalize();
+                        info.warden.setVelocity(direction.multiply(0.3));
+
+                        // Атакуем если близко
+                        if (distToTarget < 2.5 && now - info.lastAttackTime > ATTACK_COOLDOWN * 50) {
+                            info.warden.attack(info.target);
+                            info.lastAttackTime = now;
+                        }
                         return;
-                    }
-
-                    // Устанавливаем цель для атаки
-                    info.warden.setTarget(info.target);
-
-                    // Принудительная атака с кулдауном
-                    if (distToTarget < 3 && now - info.lastAttackTime > ATTACK_COOLDOWN * 50) {
-                        info.warden.attack(info.target);
-                        info.lastAttackTime = now;
                     }
                 }
 
                 // Если нет цели - следуем за владельцем
-                if (info.target == null || info.target.isDead()) {
-                    info.warden.setTarget(player);
-                }
-
-                // Защита от атаки владельца
-                if (info.warden.getTarget() != null && info.warden.getTarget().equals(player)) {
-                    info.warden.setTarget(null);
+                double distToOwner = wardenLoc.distance(ownerLoc);
+                if (distToOwner > 3) {
+                    Vector direction = ownerLoc.toVector().subtract(wardenLoc.toVector()).normalize();
+                    info.warden.setVelocity(direction.multiply(0.3));
+                } else {
+                    info.warden.setVelocity(new Vector(0, 0, 0));
                 }
             }
-        }.runTaskTimer(MagmaRoarPlugin.getInstance(), 0L, 5L); // Проверка каждые 5 тиков
+        }.runTaskTimer(MagmaRoarPlugin.getInstance(), 0L, 2L); // Каждые 2 тика для плавности
     }
 
     @EventHandler
     public void onEntityTarget(EntityTargetEvent event) {
+        // Полностью блокируем любое targeting для наших варденов
         if (event.getEntity() instanceof Warden) {
             Warden warden = (Warden) event.getEntity();
 
             for (WardenInfo info : activeWardens.values()) {
                 if (info.warden != null && info.warden.equals(warden)) {
-                    // Если цель - владелец, отменяем
-                    if (event.getTarget() instanceof Player &&
-                        ((Player) event.getTarget()).getUniqueId().equals(info.ownerId)) {
-                        event.setCancelled(true);
+                    event.setCancelled(true); // Отменяем ЛЮБУЮ смену цели
+                    return;
+                }
+            }
+        }
+    }
+
+    @EventHandler
+    public void onEntityDamageByWarden(EntityDamageByEntityEvent event) {
+        // Блокируем урон по владельцу от его вардена
+        if (event.getDamager() instanceof Warden) {
+            Warden warden = (Warden) event.getDamager();
+
+            for (WardenInfo info : activeWardens.values()) {
+                if (info.warden != null && info.warden.equals(warden)) {
+                    if (event.getEntity() instanceof Player &&
+                        ((Player) event.getEntity()).getUniqueId().equals(info.ownerId)) {
+                        event.setCancelled(true); // Не даём вардену бить владельца
                     }
                     return;
                 }
@@ -204,7 +219,6 @@ public class HypnosisStaffHandler implements Listener {
                 }
 
                 info.target = target;
-                info.warden.setTarget(target);
                 player.sendMessage("§5Варден атакует: " + (target instanceof Player ? target.getName() : "моб"));
 
                 target.getWorld().spawnParticle(Particle.SCULK_SOUL,

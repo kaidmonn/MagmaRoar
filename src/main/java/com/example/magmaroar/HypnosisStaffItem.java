@@ -20,8 +20,8 @@ public class HypnosisStaffItem {
             List<Component> lore = new ArrayList<>();
             lore.add(Component.text("§7ПКМ: Призвать Вардена"));
             lore.add(Component.text("§7Варден следует за владельцем"));
-            lore.add(Component.text("§7Атакует цель, которую били жезлом"));
-            lore.add(Component.text("§7ПКМ с активным Варденом: телепорт"));
+            lore.add(Component.text("§7Удар жезлом задаёт цель"));
+            lore.add(Component.text("§7Радиус следования: 10 блоков"));
             lore.add(Component.text("§7Живёт 40 секунд"));
             lore.add(Component.text("§7Кулдаун: 90 секунд"));
             meta.lore(lore);

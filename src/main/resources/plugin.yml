@@ -57,3 +57,6 @@ commands:
   meteor:
     description: Дает Адский метеорит
     usage: /meteor
+  laser:
+    description: Дает Лазер
+    usage: /laser

@@ -27,7 +27,8 @@ public class MagmaRoarPlugin extends JavaPlugin {
         getServer().getPluginManager().registerEvents(new HypnosisStaffHandler(), this);
         getServer().getPluginManager().registerEvents(new DeathScytheHandler(), this);
         getServer().getPluginManager().registerEvents(new RavagerHornHandler(), this);
-        getServer().getPluginManager().registerEvents(new HellMeteorHandler(), this); // Адский метеорит V2
+        getServer().getPluginManager().registerEvents(new HellMeteorHandler(), this);
+        getServer().getPluginManager().registerEvents(new LaserHandler(), this); // Лазер
         
         // Команда для Рога Магмы
         getCommand("roar").setExecutor((sender, command, label, args) -> {
@@ -164,7 +165,7 @@ public class MagmaRoarPlugin extends JavaPlugin {
             return true;
         });
         
-        // Команда для Адского метеорита (V2)
+        // Команда для Адского метеорита
         getCommand("meteor").setExecutor((sender, command, label, args) -> {
             if (sender instanceof org.bukkit.entity.Player) {
                 ((org.bukkit.entity.Player) sender).getInventory().addItem(HellMeteorItem.createMeteor());
@@ -172,7 +173,15 @@ public class MagmaRoarPlugin extends JavaPlugin {
             return true;
         });
         
-        getLogger().info("§aMagmaRoarPlugin V2 включён! Загружено 18 предметов");
+        // Команда для Лазера
+        getCommand("laser").setExecutor((sender, command, label, args) -> {
+            if (sender instanceof org.bukkit.entity.Player) {
+                ((org.bukkit.entity.Player) sender).getInventory().addItem(LaserItem.createLaser());
+            }
+            return true;
+        });
+        
+        getLogger().info("§aMagmaRoarPlugin V2 включён! Загружено 19 предметов");
     }
 
     public static MagmaRoarPlugin getInstance() {

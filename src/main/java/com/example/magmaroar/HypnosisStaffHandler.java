@@ -10,6 +10,7 @@ import org.bukkit.event.EventHandler;
 import org.bukkit.event.Listener;
 import org.bukkit.event.block.Action;
 import org.bukkit.event.entity.EntityDamageByEntityEvent;
+import org.bukkit.event.entity.EntityTargetEvent; // ← ДОБАВЛЕН ЭТОТ ИМПОРТ
 import org.bukkit.event.player.PlayerInteractEvent;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.inventory.meta.ItemMeta;
@@ -76,7 +77,7 @@ public class HypnosisStaffHandler implements Listener {
             Warden warden = world.spawn(spawnLoc, Warden.class);
 
             // Минимальная настройка
-            warden.setAI(true); // ВКЛЮЧАЕМ встроенный ИИ
+            warden.setAI(true);
             warden.setTarget(null);
             warden.setHealth(100);
             warden.addPotionEffect(new PotionEffect(PotionEffectType.SPEED, Integer.MAX_VALUE, 2));

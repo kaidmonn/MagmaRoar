@@ -17,6 +17,7 @@ import org.bukkit.inventory.meta.ItemMeta;
 import org.bukkit.potion.PotionEffect;
 import org.bukkit.potion.PotionEffectType;
 import org.bukkit.scheduler.BukkitRunnable;
+import org.bukkit.util.Vector;
 
 import java.util.*;
 
@@ -27,18 +28,21 @@ public class HypnosisStaffHandler implements Listener {
     private static final long COOLDOWN = 90 * 1000;
     private static final int WARDEN_LIFETIME = 40 * 1000;
     private static final int FOLLOW_RADIUS = 10;
+    private static final int ATTACK_COOLDOWN = 20; // 1 секунда между атаками
 
     private static class WardenInfo {
         Warden warden;
         long spawnTime;
         LivingEntity target;
         UUID ownerId;
+        long lastAttackTime;
 
         WardenInfo(Warden warden, long spawnTime, UUID ownerId) {
             this.warden = warden;
             this.spawnTime = spawnTime;
             this.ownerId = ownerId;
             this.target = null;
+            this.lastAttackTime = 0;
         }
     }
 
@@ -75,14 +79,14 @@ public class HypnosisStaffHandler implements Listener {
 
             Warden warden = world.spawn(spawnLoc, Warden.class);
 
-            // Полный контроль над Варденом
-            warden.setAI(false); // Отключаем встроенный ИИ
+            // Настройка Вардена
+            warden.setAI(true); // Включаем ИИ для движения
             warden.setTarget(null);
             warden.setHealth(100);
             warden.setRemoveWhenFarAway(false);
             warden.setPersistent(true);
 
-            // Добавляем эффекты для скорости и живучести
+            // Добавляем эффекты
             warden.addPotionEffect(new PotionEffect(PotionEffectType.SPEED, Integer.MAX_VALUE, 2));
             warden.addPotionEffect(new PotionEffect(PotionEffectType.RESISTANCE, Integer.MAX_VALUE, 1));
 
@@ -107,14 +111,14 @@ public class HypnosisStaffHandler implements Listener {
                 }
             }.runTaskLater(MagmaRoarPlugin.getInstance(), WARDEN_LIFETIME / 50);
 
-            // Запускаем кастомное управление
-            startCustomAI(player, newInfo);
+            // Запускаем контроль целей
+            startTargetControl(player, newInfo);
 
             event.setCancelled(true);
         }
     }
 
-    private void startCustomAI(Player player, WardenInfo info) {
+    private void startTargetControl(Player player, WardenInfo info) {
         new BukkitRunnable() {
             @Override
             public void run() {
@@ -124,57 +128,49 @@ public class HypnosisStaffHandler implements Listener {
                     return;
                 }
 
-                // Всегда отменяем любые попытки вардена атаковать владельца
-                if (info.warden.getTarget() != null && info.warden.getTarget().equals(player)) {
-                    info.warden.setTarget(null);
-                }
+                long now = System.currentTimeMillis();
 
                 // Если есть цель
                 if (info.target != null && !info.target.isDead()) {
+                    // Проверяем дистанцию до цели и до владельца
                     double distToTarget = info.warden.getLocation().distance(info.target.getLocation());
-                    double distToOwner = info.warden.getLocation().distance(player.getLocation());
+                    double distToOwner = info.target.getLocation().distance(player.getLocation());
 
-                    // Если цель дальше FOLLOW_RADIUS от владельца - забываем
-                    if (info.target.getLocation().distance(player.getLocation()) > FOLLOW_RADIUS) {
+                    // Если цель слишком далеко от владельца - забываем
+                    if (distToOwner > FOLLOW_RADIUS) {
                         info.target = null;
-                    } else {
-                        // Идём к цели
-                        moveToward(info.warden, info.target.getLocation());
+                        info.warden.setTarget(null);
+                        return;
+                    }
 
-                        // Если рядом - атакуем
-                        if (distToTarget < 2) {
-                            info.warden.attack(info.target);
-                        }
+                    // Устанавливаем цель для атаки
+                    info.warden.setTarget(info.target);
+
+                    // Принудительная атака с кулдауном
+                    if (distToTarget < 3 && now - info.lastAttackTime > ATTACK_COOLDOWN * 50) {
+                        info.warden.attack(info.target);
+                        info.lastAttackTime = now;
                     }
                 }
 
                 // Если нет цели - следуем за владельцем
                 if (info.target == null || info.target.isDead()) {
-                    double distToOwner = info.warden.getLocation().distance(player.getLocation());
+                    info.warden.setTarget(player);
+                }
 
-                    if (distToOwner > 3) {
-                        moveToward(info.warden, player.getLocation());
-                    } else {
-                        // Стоим на месте
-                        info.warden.setVelocity(new org.bukkit.util.Vector(0, 0, 0));
-                    }
+                // Защита от атаки владельца
+                if (info.warden.getTarget() != null && info.warden.getTarget().equals(player)) {
+                    info.warden.setTarget(null);
                 }
             }
-        }.runTaskTimer(MagmaRoarPlugin.getInstance(), 0L, 2L); // Каждые 2 тика для плавности
-    }
-
-    private void moveToward(LivingEntity entity, Location target) {
-        org.bukkit.util.Vector direction = target.toVector().subtract(entity.getLocation().toVector()).normalize();
-        entity.setVelocity(direction.multiply(0.3));
+        }.runTaskTimer(MagmaRoarPlugin.getInstance(), 0L, 5L); // Проверка каждые 5 тиков
     }
 
     @EventHandler
     public void onEntityTarget(EntityTargetEvent event) {
-        // Блокируем Вардена от самостоятельного выбора цели
         if (event.getEntity() instanceof Warden) {
             Warden warden = (Warden) event.getEntity();
 
-            // Проверяем, принадлежит ли этот Варден кому-то
             for (WardenInfo info : activeWardens.values()) {
                 if (info.warden != null && info.warden.equals(warden)) {
                     // Если цель - владелец, отменяем
@@ -182,7 +178,6 @@ public class HypnosisStaffHandler implements Listener {
                         ((Player) event.getTarget()).getUniqueId().equals(info.ownerId)) {
                         event.setCancelled(true);
                     }
-                    // Если цели нет или это кто-то другой - разрешаем (но наш AI перехватит)
                     return;
                 }
             }
@@ -209,6 +204,7 @@ public class HypnosisStaffHandler implements Listener {
                 }
 
                 info.target = target;
+                info.warden.setTarget(target);
                 player.sendMessage("§5Варден атакует: " + (target instanceof Player ? target.getName() : "моб"));
 
                 target.getWorld().spawnParticle(Particle.SCULK_SOUL,

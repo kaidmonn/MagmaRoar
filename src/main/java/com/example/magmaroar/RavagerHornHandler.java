@@ -72,7 +72,6 @@ public class RavagerHornHandler implements Listener {
             
             long now = System.currentTimeMillis();
             
-            // Проверка кулдауна
             Long lastUse = cooldowns.get(player.getUniqueId());
             if (lastUse != null && now - lastUse < COOLDOWN) {
                 long secondsLeft = (COOLDOWN - (now - lastUse)) / 1000;
@@ -81,7 +80,6 @@ public class RavagerHornHandler implements Listener {
                 return;
             }
 
-            // Удаляем старую группу если есть
             RavagerGroup oldGroup = activeGroups.remove(player.getUniqueId());
             if (oldGroup != null) {
                 if (oldGroup.ravager != null) oldGroup.ravager.remove();
@@ -94,17 +92,17 @@ public class RavagerHornHandler implements Listener {
 
             // 1. РАЗОРИТЕЛЬ (200 HP, скорость 4)
             Ravager ravager = world.spawn(spawnLoc, Ravager.class);
-            ravager.setAI(false); // Полный контроль
+            ravager.setAI(true); // ВКЛЮЧАЕМ ИИ для движения
             ravager.getAttribute(Attribute.MAX_HEALTH).setBaseValue(200);
             ravager.setHealth(200);
-            ravager.addPotionEffect(new PotionEffect(PotionEffectType.SPEED, Integer.MAX_VALUE, 3)); // Скорость IV
+            ravager.addPotionEffect(new PotionEffect(PotionEffectType.SPEED, Integer.MAX_VALUE, 3));
             ravager.setTarget(null);
             ravager.setRemoveWhenFarAway(false);
             ravager.setPersistent(true);
 
             // 2. ЗАКЛИНАТЕЛЬ (Resistance II)
             Evoker evoker = world.spawn(spawnLoc, Evoker.class);
-            evoker.setAI(false);
+            evoker.setAI(true);
             evoker.addPotionEffect(new PotionEffect(PotionEffectType.RESISTANCE, Integer.MAX_VALUE, 1));
             evoker.setTarget(null);
             evoker.setRemoveWhenFarAway(false);
@@ -112,7 +110,7 @@ public class RavagerHornHandler implements Listener {
 
             // 3. ИЛЛЮЗИОНИСТ (Resistance II)
             Illusioner illusioner = world.spawn(spawnLoc, Illusioner.class);
-            illusioner.setAI(false);
+            illusioner.setAI(true);
             illusioner.addPotionEffect(new PotionEffect(PotionEffectType.RESISTANCE, Integer.MAX_VALUE, 1));
             illusioner.setTarget(null);
             illusioner.setRemoveWhenFarAway(false);
@@ -125,7 +123,6 @@ public class RavagerHornHandler implements Listener {
             world.playSound(spawnLoc, Sound.ENTITY_RAVAGER_ROAR, 1.0f, 1.0f);
             player.sendMessage("§cРазоритель и прислужники призваны! Живут 60 секунд.");
 
-            // Таймер исчезновения
             new BukkitRunnable() {
                 @Override
                 public void run() {
@@ -140,7 +137,6 @@ public class RavagerHornHandler implements Listener {
                 }
             }.runTaskLater(MagmaRoarPlugin.getInstance(), GROUP_LIFETIME / 50);
 
-            // Запускаем управление
             startGroupAI(player, group);
 
             event.setCancelled(true);
@@ -156,11 +152,16 @@ public class RavagerHornHandler implements Listener {
                     return;
                 }
 
+                // Защита от атаки владельца
+                if (group.ravager != null && group.ravager.getTarget() != null && 
+                    group.ravager.getTarget().equals(player)) {
+                    group.ravager.setTarget(null);
+                }
+
                 // Если есть цель
                 if (group.target != null && !group.target.isDead()) {
                     double distToOwner = group.target.getLocation().distance(player.getLocation());
                     
-                    // Если цель слишком далеко от владельца - забываем
                     if (distToOwner > FOLLOW_RADIUS) {
                         group.target = null;
                         setGroupTarget(group, null);
@@ -174,14 +175,23 @@ public class RavagerHornHandler implements Listener {
                     setGroupTarget(group, player);
                 }
 
-                // Движение разорителя (для плавности)
-                if (group.ravager != null && !group.ravager.isDead()) {
-                    if (group.ravager.getTarget() != null) {
-                        moveToward(group.ravager, group.ravager.getTarget().getLocation());
+                // Управление разорителем, если на нём сидят
+                if (group.ravager != null && !group.ravager.isDead() && !group.ravager.getPassengers().isEmpty()) {
+                    Player rider = (Player) group.ravager.getPassengers().get(0);
+                    if (rider.equals(player)) {
+                        // Движение по WASD
+                        Vector direction = rider.getLocation().getDirection().normalize();
+                        Vector velocity = new Vector(direction.getX() * 0.5, 0, direction.getZ() * 0.5);
+                        group.ravager.setVelocity(velocity);
+                        
+                        // Поворот в сторону движения
+                        Location loc = group.ravager.getLocation();
+                        loc.setYaw(rider.getLocation().getYaw());
+                        group.ravager.teleport(loc);
                     }
                 }
             }
-        }.runTaskTimer(MagmaRoarPlugin.getInstance(), 0L, 5L);
+        }.runTaskTimer(MagmaRoarPlugin.getInstance(), 0L, 2L);
     }
 
     private void setGroupTarget(RavagerGroup group, LivingEntity target) {
@@ -196,16 +206,10 @@ public class RavagerHornHandler implements Listener {
         }
     }
 
-    private void moveToward(LivingEntity entity, Location target) {
-        Vector direction = target.toVector().subtract(entity.getLocation().toVector()).normalize();
-        entity.setVelocity(direction.multiply(0.3));
-    }
-
     @EventHandler
     public void onPlayerInteractEntity(PlayerInteractEntityEvent event) {
         Player player = event.getPlayer();
         
-        // Посадка на разорителя
         if (event.getRightClicked() instanceof Ravager) {
             Ravager ravager = (Ravager) event.getRightClicked();
             RavagerGroup group = findGroupByRavager(ravager);
@@ -224,7 +228,6 @@ public class RavagerHornHandler implements Listener {
     public void onPlayerToggleSneak(PlayerToggleSneakEvent event) {
         Player player = event.getPlayer();
         
-        // Спешивание
         if (event.isSneaking() && player.getVehicle() instanceof Ravager) {
             player.getVehicle().removePassenger(player);
             player.sendMessage("§cВы слезли с разорителя");
@@ -235,13 +238,12 @@ public class RavagerHornHandler implements Listener {
     public void onPlayerInteractRiding(PlayerInteractEvent event) {
         Player player = event.getPlayer();
         
-        // Топот ПКМ верхом
         if (player.getVehicle() instanceof Ravager) {
             Ravager ravager = (Ravager) player.getVehicle();
             RavagerGroup group = findGroupByRavager(ravager);
             
-            if (group != null && event.getAction() == Action.RIGHT_CLICK_AIR || 
-                event.getAction() == Action.RIGHT_CLICK_BLOCK) {
+            if (group != null && (event.getAction() == Action.RIGHT_CLICK_AIR || 
+                event.getAction() == Action.RIGHT_CLICK_BLOCK)) {
                 
                 long now = System.currentTimeMillis();
                 Long lastStomp = stompCooldowns.get(player.getUniqueId());
@@ -257,20 +259,17 @@ public class RavagerHornHandler implements Listener {
                 Location stompLoc = ravager.getLocation();
                 World world = stompLoc.getWorld();
                 
-                // Звук и эффекты
                 world.playSound(stompLoc, Sound.ENTITY_RAVAGER_STEP, 2.0f, 0.5f);
                 world.spawnParticle(Particle.EXPLOSION, stompLoc, 30, 2, 1, 2, 0);
                 
-                // Урон и замедление
                 for (Entity e : world.getNearbyEntities(stompLoc, STOMP_RADIUS, STOMP_RADIUS, STOMP_RADIUS)) {
                     if (e instanceof LivingEntity && !e.equals(player) && !e.equals(ravager) &&
                         !e.equals(group.evoker) && !e.equals(group.illusioner)) {
                         
                         LivingEntity target = (LivingEntity) e;
                         target.damage(STOMP_DAMAGE, ravager);
-                        target.addPotionEffect(new PotionEffect(PotionEffectType.SLOWNESS, 40, 3)); // Замедление IV на 2 сек
+                        target.addPotionEffect(new PotionEffect(PotionEffectType.SLOWNESS, 40, 3));
                         
-                        // Если это не владелец и не слуги - назначаем целью
                         if (group.target == null && !target.equals(player)) {
                             group.target = target;
                             setGroupTarget(group, target);
@@ -279,7 +278,7 @@ public class RavagerHornHandler implements Listener {
                 }
                 
                 stompCooldowns.put(player.getUniqueId(), now);
-                player.sendMessage("§c§lТОПОТ! Урон по области + замедление");
+                player.sendMessage("§c§lТОПОТ!");
                 event.setCancelled(true);
             }
         }
@@ -296,15 +295,8 @@ public class RavagerHornHandler implements Listener {
                     group.evoker != null && group.evoker.equals(event.getEntity()) ||
                     group.illusioner != null && group.illusioner.equals(event.getEntity())) {
                     
-                    // Не атакуют владельца
                     if (event.getTarget() instanceof Player && 
                         ((Player) event.getTarget()).getUniqueId().equals(group.ownerId)) {
-                        event.setCancelled(true);
-                        return;
-                    }
-                    
-                    // Атакуют только заданную цель
-                    if (group.target != null && !event.getTarget().equals(group.target)) {
                         event.setCancelled(true);
                         return;
                     }

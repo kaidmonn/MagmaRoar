@@ -54,3 +54,6 @@ commands:
   ravager:
     description: Дает Рог разорителя
     usage: /ravager
+  meteor:
+    description: Дает Адский метеорит
+    usage: /meteor

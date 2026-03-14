@@ -39,8 +39,8 @@ public class RavagerHornHandler implements Listener {
     private static final double STOMP_DAMAGE = 8.0;
 
     private static class RavagerInfo {
-        Ravager ravager;  // Видимый разоритель
-        Horse horse;      // Невидимая лошадь-водитель
+        Ravager ravager;
+        Horse horse;
         long spawnTime;
         UUID ownerId;
 
@@ -82,18 +82,18 @@ public class RavagerHornHandler implements Listener {
 
             // 1. СОЗДАЁМ НЕВИДИМУЮ ЛОШАДЬ (водитель)
             Horse horse = world.spawn(spawnLoc, Horse.class);
-            horse.setAI(false); // Отключаем ИИ, чтобы не мешал
-            horse.setVisible(false); // Делаем невидимой
-            horse.setInvulnerable(true); // Неуязвима
-            horse.setGravity(false); // Без гравитации
-            horse.setSilent(true); // Без звуков
-            horse.setCollidable(false); // Не сталкивается с блоками
+            horse.setAI(false);
+            horse.addPotionEffect(new PotionEffect(PotionEffectType.INVISIBILITY, Integer.MAX_VALUE, 0, false, false)); // Невидимость
+            horse.setInvulnerable(true);
+            horse.setGravity(false);
+            horse.setSilent(true);
+            horse.setCollidable(false);
             horse.getAttribute(Attribute.MAX_HEALTH).setBaseValue(1);
             horse.setHealth(1);
             
             // 2. СОЗДАЁМ ВИДИМОГО РАЗОРИТЕЛЯ (марионетка)
             Ravager ravager = world.spawn(spawnLoc, Ravager.class);
-            ravager.setAI(false); // Полностью отключаем ИИ
+            ravager.setAI(false);
             ravager.setTarget(null);
             ravager.getAttribute(Attribute.MAX_HEALTH).setBaseValue(200);
             ravager.setHealth(200);
@@ -101,7 +101,7 @@ public class RavagerHornHandler implements Listener {
             ravager.setRemoveWhenFarAway(false);
             ravager.setPersistent(true);
             
-            // 3. САЖАЕМ ЛОШАДЬ НА РАЗОРИТЕЛЯ (чтобы они были в одной точке)
+            // 3. САЖАЕМ ЛОШАДЬ НА РАЗОРИТЕЛЯ
             horse.addPassenger(ravager);
 
             RavagerInfo info = new RavagerInfo(ravager, horse, now, player.getUniqueId());
@@ -226,7 +226,7 @@ public class RavagerHornHandler implements Listener {
     @EventHandler
     public void onEntityTarget(EntityTargetEvent event) {
         if (event.getEntity() instanceof Ravager) {
-            event.setCancelled(true); // Разоритель ни на кого не агрится
+            event.setCancelled(true);
         }
     }
 
@@ -236,7 +236,15 @@ public class RavagerHornHandler implements Listener {
             Ravager ravager = (Ravager) event.getEntity();
             RavagerInfo info = findRavager(ravager);
             if (info != null) {
-                event.setCancelled(true); // Разоритель не получает урон
+                event.setCancelled(true);
+            }
+        }
+        
+        if (event.getEntity() instanceof Horse) {
+            Horse horse = (Horse) event.getEntity();
+            RavagerInfo info = findRavagerByHorse(horse);
+            if (info != null) {
+                event.setCancelled(true);
             }
         }
     }

@@ -10,7 +10,7 @@ import org.bukkit.entity.*;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.Listener;
 import org.bukkit.event.block.Action;
-import org.bukkit.event.entity.EntityDamageEvent;
+import org.bukkit.event.entity.EntityDamageByEntityEvent;
 import org.bukkit.event.entity.EntityTargetEvent;
 import org.bukkit.event.player.PlayerInteractEntityEvent;
 import org.bukkit.event.player.PlayerInteractEvent;
@@ -32,11 +32,11 @@ public class RavagerHornHandler implements Listener {
     private final Map<UUID, Long> cooldowns = new HashMap<>();
     private final Map<UUID, Long> stompCooldowns = new HashMap<>();
     
-    private static final long COOLDOWN = 2 * 60 * 1000; // 2 минуты
-    private static final long STOMP_COOLDOWN = 5 * 1000; // 5 секунд
-    private static final int RAVAGER_LIFETIME = 60 * 1000; // 60 секунд
+    private static final long COOLDOWN = 2 * 60 * 1000;
+    private static final long STOMP_COOLDOWN = 5 * 1000;
+    private static final int RAVAGER_LIFETIME = 60 * 1000;
     private static final int STOMP_RADIUS = 5;
-    private static final double STOMP_DAMAGE = 8.0; // 4 сердца
+    private static final double STOMP_DAMAGE = 8.0;
 
     private static class RavagerInfo {
         Ravager ravager;
@@ -77,17 +77,21 @@ public class RavagerHornHandler implements Listener {
             Location spawnLoc = player.getLocation();
             World world = player.getWorld();
 
-            // Призыв разорителя
             Ravager ravager = world.spawn(spawnLoc, Ravager.class);
             
-            // Настройка
-            ravager.setAI(true);
+            // Полностью отключаем ИИ
+            ravager.setAI(false);
             ravager.setTarget(null);
+            
+            // Устанавливаем атрибуты
             ravager.getAttribute(Attribute.MAX_HEALTH).setBaseValue(200);
             ravager.setHealth(200);
             ravager.getAttribute(Attribute.MOVEMENT_SPEED).setBaseValue(0.4);
+            
+            // Добавляем эффекты
             ravager.addPotionEffect(new PotionEffect(PotionEffectType.SPEED, Integer.MAX_VALUE, 3));
             ravager.addPotionEffect(new PotionEffect(PotionEffectType.RESISTANCE, Integer.MAX_VALUE, 1));
+            
             ravager.setRemoveWhenFarAway(false);
             ravager.setPersistent(true);
 
@@ -98,7 +102,6 @@ public class RavagerHornHandler implements Listener {
             world.playSound(spawnLoc, Sound.ENTITY_RAVAGER_ROAR, 1.0f, 1.0f);
             player.sendMessage("§cРазоритель призван! Живёт 60 секунд.");
 
-            // Таймер исчезновения
             new BukkitRunnable() {
                 @Override
                 public void run() {
@@ -154,18 +157,35 @@ public class RavagerHornHandler implements Listener {
             RavagerInfo info = findRavager(ravager);
             
             if (info != null) {
-                // Движение в сторону взгляда
+                // Получаем направление взгляда игрока
                 Vector direction = player.getLocation().getDirection();
+                
+                // Убираем вертикальную составляющую
                 direction.setY(0);
-                direction.normalize();
                 
-                Vector velocity = direction.multiply(0.8);
-                ravager.setVelocity(velocity);
+                // Если игрок нажимает W (движение вперед)
+                if (direction.lengthSquared() > 0) {
+                    direction.normalize();
+                    
+                    // Двигаем разорителя
+                    Vector velocity = direction.multiply(0.8);
+                    ravager.setVelocity(velocity);
+                    
+                    // Поворачиваем разорителя в сторону движения
+                    Location loc = ravager.getLocation();
+                    loc.setYaw(player.getLocation().getYaw());
+                    ravager.teleport(loc);
+                } else {
+                    // Если игрок не двигается, останавливаем разорителя
+                    ravager.setVelocity(new Vector(0, ravager.getVelocity().getY(), 0));
+                }
                 
-                // Поворот
-                Location loc = ravager.getLocation();
-                loc.setYaw(player.getLocation().getYaw());
-                ravager.teleport(loc);
+                // Прыжок (пробел)
+                if (player.isJumping() && ravager.isOnGround()) {
+                    Vector jump = ravager.getVelocity();
+                    jump.setY(0.6);
+                    ravager.setVelocity(jump);
+                }
             }
         }
     }
@@ -191,7 +211,6 @@ public class RavagerHornHandler implements Listener {
                     return;
                 }
 
-                // ТОПОТ
                 Location stompLoc = ravager.getLocation();
                 World world = stompLoc.getWorld();
                 
@@ -219,8 +238,8 @@ public class RavagerHornHandler implements Listener {
             Ravager ravager = (Ravager) event.getEntity();
             RavagerInfo info = findRavager(ravager);
             
-            if (info != null && event.getTarget() instanceof Player && 
-                ((Player) event.getTarget()).getUniqueId().equals(info.ownerId)) {
+            if (info != null) {
+                // Полностью отключаем любое таргетирование
                 event.setCancelled(true);
             }
         }
@@ -232,8 +251,24 @@ public class RavagerHornHandler implements Listener {
             Ravager ravager = (Ravager) event.getEntity();
             RavagerInfo info = findRavager(ravager);
             
-            if (info != null && event.getCause() == EntityDamageEvent.DamageCause.FALL) {
-                event.setCancelled(true); // Разоритель не получает урон от падения
+            if (info != null) {
+                // Отключаем урон от падения
+                if (event.getCause() == EntityDamageEvent.DamageCause.FALL) {
+                    event.setCancelled(true);
+                }
+            }
+        }
+    }
+
+    @EventHandler
+    public void onEntityDamageByEntity(EntityDamageByEntityEvent event) {
+        if (event.getDamager() instanceof Ravager) {
+            Ravager ravager = (Ravager) event.getDamager();
+            RavagerInfo info = findRavager(ravager);
+            
+            if (info != null) {
+                // Разоритель не может никого атаковать (кроме топата)
+                event.setCancelled(true);
             }
         }
     }

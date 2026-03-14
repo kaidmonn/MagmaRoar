@@ -6,6 +6,7 @@ import org.bukkit.Particle;
 import org.bukkit.Sound;
 import org.bukkit.World;
 import org.bukkit.entity.Player;
+import org.bukkit.entity.TNTPrimed;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.Listener;
 import org.bukkit.event.block.Action;
@@ -18,81 +19,129 @@ import java.util.HashMap;
 import java.util.Map;
 import java.util.UUID;
 
-public class VillagerStaffHandler implements Listener {
+public class OrbitalCannonHandler implements Listener {
 
-    private final Map<UUID, Long> cooldowns = new HashMap<>();
-    private final Map<UUID, Boolean> charging = new HashMap<>();
-    private static final long COOLDOWN = 2 * 60 * 1000; // 2 минуты
-    private static final int EXPLOSION_POWER = 20; // Уровень взрыва 20
+    private final Map<UUID, Long> lastUseTimeNormal = new HashMap<>();
+    private final Map<UUID, Long> lastUseTimeRing = new HashMap<>();
+    private static final long COOLDOWN_NORMAL = 25 * 1000;
+    private static final long COOLDOWN_RING = 3 * 60 * 1000;
 
     @EventHandler
     public void onPlayerInteract(PlayerInteractEvent event) {
         Player player = event.getPlayer();
         ItemStack item = event.getItem();
 
-        if (!isVillagerStaff(item)) return;
+        if (!isOrbitalCannon(item)) return;
 
         if (event.getAction() == Action.RIGHT_CLICK_AIR || event.getAction() == Action.RIGHT_CLICK_BLOCK) {
-
-            if (charging.getOrDefault(player.getUniqueId(), false)) {
-                player.sendMessage("§cПосох уже заряжается!");
+            if (!player.isSneaking()) {
+                handleNormalMode(player);
                 event.setCancelled(true);
-                return;
             }
+        }
 
-            long now = System.currentTimeMillis();
-            Long lastUse = cooldowns.get(player.getUniqueId());
-
-            if (lastUse != null && now - lastUse < COOLDOWN) {
-                long secondsLeft = (COOLDOWN - (now - lastUse)) / 1000;
-                player.sendMessage("§cПосох жителя перезаряжается! Осталось: " + secondsLeft + " сек.");
+        if (event.getAction() == Action.LEFT_CLICK_AIR || event.getAction() == Action.LEFT_CLICK_BLOCK) {
+            if (player.isSneaking()) {
+                handleRingMode(player);
                 event.setCancelled(true);
-                return;
             }
-
-            Location targetLoc = player.getTargetBlock(null, 200).getLocation().add(0.5, 1, 0.5);
-
-            // Звук активации
-            player.getWorld().playSound(player.getLocation(), Sound.BLOCK_BEACON_ACTIVATE, 1.0f, 1.0f);
-            player.sendMessage("§aПосох жителя заряжается... 1.5 секунды до взрыва уровня 20!");
-
-            // Частицы подготовки
-            player.getWorld().spawnParticle(Particle.END_ROD, targetLoc, 50, 1, 1, 1, 0.1);
-
-            charging.put(player.getUniqueId(), true);
-
-            new BukkitRunnable() {
-                @Override
-                public void run() {
-                    World world = player.getWorld();
-
-                    // ВЗРЫВ УРОВНЯ 20 (без разрушения блоков)
-                    world.createExplosion(targetLoc, EXPLOSION_POWER, false, false, player);
-
-                    // Эпичные частицы
-                    world.spawnParticle(Particle.EXPLOSION, targetLoc, 10, 5, 3, 5, 0);
-                    world.spawnParticle(Particle.FLASH, targetLoc, 20, 3, 2, 3, 0);
-                    world.spawnParticle(Particle.SONIC_BOOM, targetLoc, 100, 6, 4, 6, 0);
-                    world.spawnParticle(Particle.END_ROD, targetLoc, 300, 7, 5, 7, 0.2);
-                    world.spawnParticle(Particle.LAVA, targetLoc, 150, 5, 3, 5, 0.1);
-
-                    world.playSound(targetLoc, Sound.ENTITY_GENERIC_EXPLODE, 3.0f, 0.5f);
-
-                    player.sendMessage("§a§lВЗРЫВ УРОВНЯ 20!");
-
-                    charging.remove(player.getUniqueId());
-                    cooldowns.put(player.getUniqueId(), now);
-                }
-            }.runTaskLater(MagmaRoarPlugin.getInstance(), 30L); // 1.5 секунды
-
-            event.setCancelled(true);
         }
     }
 
-    private boolean isVillagerStaff(ItemStack item) {
-        if (item == null || item.getType() != Material.BLAZE_ROD || !item.hasItemMeta()) return false;
+    private void handleNormalMode(Player player) {
+        long now = System.currentTimeMillis();
+        Long lastUse = lastUseTimeNormal.get(player.getUniqueId());
+
+        if (lastUse != null && now - lastUse < COOLDOWN_NORMAL) {
+            long secondsLeft = (COOLDOWN_NORMAL - (now - lastUse)) / 1000;
+            player.sendMessage("§cОбычный режим перезаряжается! Осталось: " + secondsLeft + " сек.");
+            return;
+        }
+
+        Location targetLoc = player.getTargetBlock(null, 200).getLocation().add(0.5, 0, 0.5);
+        World world = player.getWorld();
+
+        int tntCount = 3;
+        double spread = 1.5;
+
+        for (int level = 0; level < 8; level++) {
+            double yOffset = level * 3;
+
+            for (int i = 0; i < tntCount; i++) {
+                double xOffset = (Math.random() - 0.5) * spread;
+                double zOffset = (Math.random() - 0.5) * spread;
+
+                Location tntLoc = targetLoc.clone().add(xOffset, yOffset, zOffset);
+                
+                TNTPrimed tnt = world.spawn(tntLoc, TNTPrimed.class);
+                tnt.setFuseTicks(1);
+                tnt.setYield(8.0f); // Увеличен урон с 4.0 до 8.0 (5 сердец)
+                tnt.setIsIncendiary(false);
+                tnt.setGlowing(true);
+            }
+        }
+
+        world.playSound(player.getLocation(), Sound.ENTITY_FIREWORK_ROCKET_BLAST, 1.0f, 0.5f);
+        player.sendMessage("§5Орбитальная пушка: 24 ТНТ (урон 5♥)!");
+        
+        lastUseTimeNormal.put(player.getUniqueId(), now);
+    }
+
+    private void handleRingMode(Player player) {
+        long now = System.currentTimeMillis();
+        Long lastUse = lastUseTimeRing.get(player.getUniqueId());
+
+        if (lastUse != null && now - lastUse < COOLDOWN_RING) {
+            long minutesLeft = ((COOLDOWN_RING - (now - lastUse)) / 1000) / 60;
+            long secondsLeft = ((COOLDOWN_RING - (now - lastUse)) / 1000) % 60;
+            player.sendMessage("§cКольцевой режим перезаряжается! Осталось: " + minutesLeft + " мин " + secondsLeft + " сек.");
+            return;
+        }
+
+        Location center = player.getLocation().clone();
+        World world = player.getWorld();
+        double height = 30.0;
+
+        int[] tntPerRing = {72, 90, 108, 126, 144};
+        double[] radii = {15.0, 21.0, 27.0, 33.0, 39.0};
+        float yield = 12.0f; // Увеличен урон (было 6.0)
+
+        player.sendMessage("§5§lКОЛЬЦЕВОЙ РЕЖИМ! " + (72+90+108+126+144) + " ТНТ ПАДАЕТ С НЕБА!");
+
+        for (int ring = 0; ring < 5; ring++) {
+            double radius = radii[ring];
+            int count = tntPerRing[ring];
+
+            for (int i = 0; i < count; i++) {
+                double angle = 2 * Math.PI * i / count;
+                double x = center.getX() + radius * Math.cos(angle);
+                double z = center.getZ() + radius * Math.sin(angle);
+
+                double yOffset = (Math.random() - 0.5) * 2;
+                Location tntLoc = new Location(world, x, center.getY() + height + yOffset, z);
+
+                TNTPrimed tnt = world.spawn(tntLoc, TNTPrimed.class);
+                tnt.setFuseTicks(40 + ring * 5);
+                tnt.setYield(yield);
+                tnt.setIsIncendiary(false);
+                tnt.setGlowing(true);
+            }
+        }
+
+        Location centerLoc = new Location(world, center.getX(), center.getY() + height + 5, center.getZ());
+        TNTPrimed centerTNT = world.spawn(centerLoc, TNTPrimed.class);
+        centerTNT.setFuseTicks(50);
+        centerTNT.setYield(yield * 1.5f);
+        centerTNT.setIsIncendiary(false);
+        centerTNT.setGlowing(true);
+
+        lastUseTimeRing.put(player.getUniqueId(), now);
+    }
+
+    private boolean isOrbitalCannon(ItemStack item) {
+        if (item == null || item.getType() != Material.FISHING_ROD || !item.hasItemMeta()) return false;
         ItemMeta meta = item.getItemMeta();
         return meta != null && meta.displayName() != null &&
-               meta.displayName().toString().contains("Посох жителя");
+               meta.displayName().toString().contains("Орбитальная пушка");
     }
 }

@@ -14,6 +14,8 @@ import org.bukkit.event.entity.EntityTargetEvent;
 import org.bukkit.event.player.PlayerInteractEvent;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.inventory.meta.ItemMeta;
+import org.bukkit.potion.PotionEffect;
+import org.bukkit.potion.PotionEffectType;
 import org.bukkit.scheduler.BukkitRunnable;
 import org.bukkit.util.Vector;
 
@@ -29,9 +31,9 @@ public class HellMeteorHandler implements Listener {
     private final Set<UUID> meteorProjectiles = new HashSet<>();
     private final Map<UUID, UUID> meteorOwners = new HashMap<>();
     
-    private static final long COOLDOWN = 60 * 1000; // 60 секунд
+    private static final long COOLDOWN = 60 * 1000;
     private static final int METEOR_HEIGHT = 25;
-    private static final float EXPLOSION_POWER = 10.0f; // Уровень 10
+    private static final float EXPLOSION_POWER = 10.0f;
     private static final int FIRE_RADIUS = 5;
 
     @EventHandler
@@ -53,10 +55,8 @@ public class HellMeteorHandler implements Listener {
                 return;
             }
 
-            // Получаем точку взгляда
             Location targetLoc = player.getTargetBlock(null, 200).getLocation().add(0.5, 0, 0.5);
             
-            // Вычисляем точку падения под углом
             Vector direction = player.getLocation().getDirection().normalize();
             double horizontalDistance = 15.0;
             Location spawnLoc = targetLoc.clone().add(
@@ -67,16 +67,13 @@ public class HellMeteorHandler implements Listener {
             
             World world = player.getWorld();
             
-            // Звук запуска
             world.playSound(spawnLoc, Sound.ENTITY_GHAST_SHOOT, 2.0f, 0.5f);
             
-            // Создаём метеорит
             LargeFireball meteor = world.spawn(spawnLoc, LargeFireball.class);
             
-            // Вычисляем вектор к цели
             Vector toTarget = targetLoc.toVector().subtract(spawnLoc.toVector()).normalize();
-            meteor.setVelocity(toTarget.multiply(1.2)); // Падает под углом
-            meteor.setYield(0); // Без взрыва (взрыв будет вручную)
+            meteor.setVelocity(toTarget.multiply(1.2));
+            meteor.setYield(0);
             meteor.setIsIncendiary(false);
             meteor.setGlowing(true);
             
@@ -90,7 +87,6 @@ public class HellMeteorHandler implements Listener {
             player.sendMessage("§cАдский метеорит падает под углом! (2 секунды)");
             event.setCancelled(true);
 
-            // Отслеживаем падение
             new BukkitRunnable() {
                 int ticks = 0;
                 
@@ -108,7 +104,6 @@ public class HellMeteorHandler implements Listener {
                             // ОГНЕННЫЙ КРУГ 5×5
                             for (int x = -FIRE_RADIUS; x <= FIRE_RADIUS; x++) {
                                 for (int z = -FIRE_RADIUS; z <= FIRE_RADIUS; z++) {
-                                    // Проверяем расстояние для круга
                                     if (Math.sqrt(x*x + z*z) <= FIRE_RADIUS) {
                                         Location fireLoc = hitLoc.clone().add(x, 0, z);
                                         if (fireLoc.getBlock().getType() == Material.AIR) {
@@ -118,10 +113,8 @@ public class HellMeteorHandler implements Listener {
                                 }
                             }
                             
-                            // ВЗРЫВ УРОВНЯ 10
                             world.createExplosion(hitLoc, EXPLOSION_POWER, true, true, player);
                             
-                            // ДОПОЛНИТЕЛЬНЫЕ ЧАСТИЦЫ
                             world.spawnParticle(Particle.LAVA, hitLoc, 200, FIRE_RADIUS, 3, FIRE_RADIUS, 0.1);
                             world.spawnParticle(Particle.FLAME, hitLoc, 300, FIRE_RADIUS, 4, FIRE_RADIUS, 0.05);
                             world.spawnParticle(Particle.SONIC_BOOM, hitLoc, 50, 5, 3, 5, 0);
@@ -129,7 +122,6 @@ public class HellMeteorHandler implements Listener {
                             world.playSound(hitLoc, Sound.ENTITY_GENERIC_EXPLODE, 3.0f, 0.5f);
                             world.playSound(hitLoc, Sound.ENTITY_WITHER_SPAWN, 2.0f, 0.8f);
                             
-                            // СПАВНИМ 4 ВИЗЕР-СКЕЛЕТОВ
                             for (int i = 0; i < 4; i++) {
                                 Location spawnLoc = hitLoc.clone().add(
                                     (Math.random() - 0.5) * 5,
@@ -145,9 +137,8 @@ public class HellMeteorHandler implements Listener {
                                 wither.setRemoveWhenFarAway(false);
                                 wither.setPersistent(true);
                                 
-                                // Даём им огнестойкость
-                                wither.addPotionEffect(new org.bukkit.potion.PotionEffect(
-                                    org.bukkit.potion.PotionEffectType.FIRE_RESISTANCE, 
+                                wither.addPotionEffect(new PotionEffect(
+                                    PotionEffectType.FIRE_RESISTANCE, 
                                     Integer.MAX_VALUE, 
                                     0, 
                                     false, 
@@ -165,11 +156,10 @@ public class HellMeteorHandler implements Listener {
                         this.cancel();
                     }
                     
-                    // Добавляем хвост из частиц
                     if (meteor != null && !meteor.isDead()) {
                         world.spawnParticle(Particle.FLAME, meteor.getLocation(), 20, 1, 1, 1, 0.02);
                         world.spawnParticle(Particle.LAVA, meteor.getLocation(), 10, 0.5, 0.5, 0.5, 0.01);
-                        world.spawnParticle(Particle.SMOKE_NORMAL, meteor.getLocation(), 15, 1, 1, 1, 0.01);
+                        world.spawnParticle(Particle.SMOKE_LARGE, meteor.getLocation(), 15, 1, 1, 1, 0.01);
                     }
                     
                     ticks++;
@@ -180,7 +170,6 @@ public class HellMeteorHandler implements Listener {
 
     @EventHandler
     public void onEntityTarget(EntityTargetEvent event) {
-        // Визер-скелеты не атакуют владельца
         if (event.getEntity() instanceof WitherSkeleton) {
             WitherSkeleton wither = (WitherSkeleton) event.getEntity();
             UUID ownerId = meteorOwners.get(wither.getUniqueId());
@@ -194,7 +183,6 @@ public class HellMeteorHandler implements Listener {
 
     @EventHandler
     public void onEntityDamage(EntityDamageEvent event) {
-        // Визер-скелеты не получают урон от взрывов метеорита
         if (event.getEntity() instanceof WitherSkeleton) {
             WitherSkeleton wither = (WitherSkeleton) event.getEntity();
             if (meteorOwners.containsKey(wither.getUniqueId())) {

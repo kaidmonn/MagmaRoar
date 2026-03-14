@@ -28,13 +28,11 @@ import java.util.UUID;
 public class HellMeteorHandler implements Listener {
 
     private final Map<UUID, Long> cooldowns = new HashMap<>();
-    private final Set<UUID> meteorProjectiles = new HashSet<>();
     private final Map<UUID, UUID> meteorOwners = new HashMap<>();
     
-    private static final long COOLDOWN = 60 * 1000; // 60 секунд
-    private static final int METEOR_HEIGHT = 25;
+    private static final long COOLDOWN = 60 * 1000;
+    private static final int METEOR_HEIGHT = 20;
     private static final float EXPLOSION_POWER = 10.0f;
-    private static final int FIRE_RADIUS = 5;
 
     @EventHandler
     public void onPlayerInteract(PlayerInteractEvent event) {
@@ -55,135 +53,70 @@ public class HellMeteorHandler implements Listener {
                 return;
             }
 
-            // Получаем точку взгляда
-            Location targetLoc = player.getTargetBlock(null, 200).getLocation().add(0.5, 0, 0.5);
-            
-            // Вычисляем точку падения под углом
-            Vector direction = player.getLocation().getDirection().normalize();
-            double horizontalDistance = 15.0;
-            Location spawnLoc = targetLoc.clone().add(
-                direction.getX() * horizontalDistance,
-                METEOR_HEIGHT,
-                direction.getZ() * horizontalDistance
-            );
+            Location targetLoc = player.getTargetBlock(null, 200).getLocation().add(0.5, 1, 0.5);
+            Location spawnLoc = targetLoc.clone().add(0, METEOR_HEIGHT, 0);
             
             World world = player.getWorld();
             
-            // Звук запуска
             world.playSound(spawnLoc, Sound.ENTITY_GHAST_SHOOT, 2.0f, 0.5f);
             
-            // Создаём метеорит
-            LargeFireball meteor = world.spawn(spawnLoc, LargeFireball.class);
-            
-            // Вычисляем вектор к цели
-            Vector toTarget = targetLoc.toVector().subtract(spawnLoc.toVector()).normalize();
-            meteor.setVelocity(toTarget.multiply(1.2)); // Падает под углом
-            meteor.setYield(0); // Без взрыва (взрыв будет вручную)
-            meteor.setIsIncendiary(false);
-            meteor.setGlowing(true);
-            
-            meteor.setCustomName("§c§lМЕТЕОРИТ");
-            meteor.setCustomNameVisible(true);
-            
-            meteorProjectiles.add(meteor.getUniqueId());
-            meteorOwners.put(meteor.getUniqueId(), player.getUniqueId());
-            
-            cooldowns.put(player.getUniqueId(), now);
-            player.sendMessage("§cАдский метеорит падает под углом! (2 секунды)");
-            event.setCancelled(true);
-
-            // Отслеживаем падение
+            // Просто частицы для визуала (без实体)
             new BukkitRunnable() {
                 int ticks = 0;
                 
                 @Override
                 public void run() {
-                    if (meteor == null || meteor.isDead() || meteor.isOnGround() || ticks >= 40) {
+                    if (ticks >= 40) {
                         
-                        if (meteor != null && !meteor.isDead()) {
-                            Location hitLoc = meteor.getLocation();
+                        // ВЗРЫВ
+                        world.createExplosion(targetLoc, EXPLOSION_POWER, false, true, player);
+                        
+                        // Визуальные эффекты
+                        world.spawnParticle(Particle.EXPLOSION, targetLoc, 30, 3, 3, 3, 0);
+                        world.spawnParticle(Particle.LAVA, targetLoc, 200, 5, 3, 5, 0.1);
+                        world.spawnParticle(Particle.FLAME, targetLoc, 300, 5, 4, 5, 0.05);
+                        
+                        world.playSound(targetLoc, Sound.ENTITY_GENERIC_EXPLODE, 3.0f, 0.5f);
+                        
+                        // СПАВНИМ 4 ВИЗЕР-СКЕЛЕТОВ
+                        for (int i = 0; i < 4; i++) {
+                            Location skeletonLoc = targetLoc.clone().add(
+                                (Math.random() - 0.5) * 4,
+                                0,
+                                (Math.random() - 0.5) * 4
+                            );
                             
-                            // ВИЗУАЛ ВЗРЫВА
-                            world.spawnParticle(Particle.EXPLOSION, hitLoc, 20, 3, 3, 3, 0);
-                            world.spawnParticle(Particle.FLASH, hitLoc, 10, 2, 2, 2, 0);
+                            WitherSkeleton wither = world.spawn(skeletonLoc, WitherSkeleton.class);
+                            wither.setTarget(null);
+                            wither.getAttribute(org.bukkit.attribute.Attribute.MAX_HEALTH).setBaseValue(30);
+                            wither.setHealth(30);
+                            wither.addPotionEffect(new PotionEffect(PotionEffectType.FIRE_RESISTANCE, Integer.MAX_VALUE, 0));
                             
-                            // ОГНЕННЫЙ КРУГ 5×5
-                            for (int x = -FIRE_RADIUS; x <= FIRE_RADIUS; x++) {
-                                for (int z = -FIRE_RADIUS; z <= FIRE_RADIUS; z++) {
-                                    // Проверяем расстояние для круга
-                                    if (Math.sqrt(x*x + z*z) <= FIRE_RADIUS) {
-                                        Location fireLoc = hitLoc.clone().add(x, 0, z);
-                                        if (fireLoc.getBlock().getType() == Material.AIR) {
-                                            fireLoc.getBlock().setType(Material.FIRE);
-                                        }
-                                    }
-                                }
-                            }
-                            
-                            // ВЗРЫВ УРОВНЯ 10
-                            world.createExplosion(hitLoc, EXPLOSION_POWER, true, true, player);
-                            
-                            // ДОПОЛНИТЕЛЬНЫЕ ЧАСТИЦЫ
-                            world.spawnParticle(Particle.LAVA, hitLoc, 200, FIRE_RADIUS, 3, FIRE_RADIUS, 0.1);
-                            world.spawnParticle(Particle.FLAME, hitLoc, 300, FIRE_RADIUS, 4, FIRE_RADIUS, 0.05);
-                            world.spawnParticle(Particle.SONIC_BOOM, hitLoc, 50, 5, 3, 5, 0);
-                            
-                            world.playSound(hitLoc, Sound.ENTITY_GENERIC_EXPLODE, 3.0f, 0.5f);
-                            world.playSound(hitLoc, Sound.ENTITY_WITHER_SPAWN, 2.0f, 0.8f);
-                            
-                            // СПАВНИМ 4 ВИЗЕР-СКЕЛЕТОВ
-                            for (int i = 0; i < 4; i++) {
-                                Location spawnLoc = hitLoc.clone().add(
-                                    (Math.random() - 0.5) * 5,
-                                    0,
-                                    (Math.random() - 0.5) * 5
-                                );
-                                
-                                WitherSkeleton wither = world.spawn(spawnLoc, WitherSkeleton.class);
-                                wither.setTarget(null);
-                                wither.setAI(true);
-                                wither.getAttribute(org.bukkit.attribute.Attribute.MAX_HEALTH).setBaseValue(30);
-                                wither.setHealth(30);
-                                wither.setRemoveWhenFarAway(false);
-                                wither.setPersistent(true);
-                                
-                                // Даём им огнестойкость
-                                wither.addPotionEffect(new PotionEffect(
-                                    PotionEffectType.FIRE_RESISTANCE, 
-                                    Integer.MAX_VALUE, 
-                                    0, 
-                                    false, 
-                                    false
-                                ));
-                                
-                                meteorOwners.put(wither.getUniqueId(), player.getUniqueId());
-                            }
-                            
-                            meteorProjectiles.remove(meteor.getUniqueId());
-                            meteorOwners.remove(meteor.getUniqueId());
-                            meteor.remove();
+                            meteorOwners.put(wither.getUniqueId(), player.getUniqueId());
                         }
+                        
+                        cooldowns.put(player.getUniqueId(), now);
+                        player.sendMessage("§cМетеорит упал! Призваны визер-скелеты.");
                         
                         this.cancel();
                     }
                     
-                    // Добавляем хвост из частиц (С ДЫМОМ!)
-                    if (meteor != null && !meteor.isDead()) {
-                        world.spawnParticle(Particle.FLAME, meteor.getLocation(), 20, 1, 1, 1, 0.02);
-                        world.spawnParticle(Particle.LAVA, meteor.getLocation(), 10, 0.5, 0.5, 0.5, 0.01);
-                        world.spawnParticle(Particle.CAMPFIRE_SIGNAL_SMOKE, meteor.getLocation(), 15, 1, 1, 1, 0.01);
-                        world.spawnParticle(Particle.CAMPFIRE_COSY_SMOKE, meteor.getLocation(), 10, 1, 1, 1, 0.01);
-                    }
+                    // Частицы падающего метеорита
+                    Location currentLoc = targetLoc.clone().add(0, METEOR_HEIGHT - (ticks * 0.5), 0);
+                    world.spawnParticle(Particle.FLAME, currentLoc, 30, 2, 2, 2, 0.02);
+                    world.spawnParticle(Particle.LAVA, currentLoc, 15, 1, 1, 1, 0.01);
+                    world.spawnParticle(Particle.CAMPFIRE_SIGNAL_SMOKE, currentLoc, 10, 1, 1, 1, 0.01);
                     
                     ticks++;
                 }
             }.runTaskTimer(MagmaRoarPlugin.getInstance(), 0L, 1L);
+            
+            event.setCancelled(true);
         }
     }
 
     @EventHandler
     public void onEntityTarget(EntityTargetEvent event) {
-        // Визер-скелеты не атакуют владельца
         if (event.getEntity() instanceof WitherSkeleton) {
             WitherSkeleton wither = (WitherSkeleton) event.getEntity();
             UUID ownerId = meteorOwners.get(wither.getUniqueId());
@@ -197,13 +130,10 @@ public class HellMeteorHandler implements Listener {
 
     @EventHandler
     public void onEntityDamage(EntityDamageEvent event) {
-        // Визер-скелеты не получают урон от взрывов метеорита
         if (event.getEntity() instanceof WitherSkeleton) {
             WitherSkeleton wither = (WitherSkeleton) event.getEntity();
             if (meteorOwners.containsKey(wither.getUniqueId())) {
-                if (event.getCause() == EntityDamageEvent.DamageCause.ENTITY_EXPLOSION ||
-                    event.getCause() == EntityDamageEvent.DamageCause.BLOCK_EXPLOSION ||
-                    event.getCause() == EntityDamageEvent.DamageCause.FIRE ||
+                if (event.getCause() == EntityDamageEvent.DamageCause.FIRE ||
                     event.getCause() == EntityDamageEvent.DamageCause.FIRE_TICK ||
                     event.getCause() == EntityDamageEvent.DamageCause.LAVA) {
                     event.setCancelled(true);

@@ -1,5 +1,5 @@
 name: MagmaRoar
-version: 4.7
+version: 5.0
 main: com.example.magmaroar.MagmaRoarPlugin
 api-version: 1.21
 commands:
@@ -51,3 +51,6 @@ commands:
   scythe:
     description: Дает Косу смерти
     usage: /scythe
+  ravager:
+    description: Дает Рог разорителя
+    usage: /ravager

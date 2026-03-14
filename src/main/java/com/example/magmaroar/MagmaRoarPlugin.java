@@ -25,7 +25,8 @@ public class MagmaRoarPlugin extends JavaPlugin {
         getServer().getPluginManager().registerEvents(new SpiderBladeHandler(), this);
         getServer().getPluginManager().registerEvents(new MjolnirHandler(), this);
         getServer().getPluginManager().registerEvents(new HypnosisStaffHandler(), this);
-        getServer().getPluginManager().registerEvents(new DeathScytheHandler(), this); // Коса смерти
+        getServer().getPluginManager().registerEvents(new DeathScytheHandler(), this);
+        getServer().getPluginManager().registerEvents(new RavagerHornHandler(), this); // Рог разорителя
         
         // Команда для Рога Магмы
         getCommand("roar").setExecutor((sender, command, label, args) -> {
@@ -154,7 +155,15 @@ public class MagmaRoarPlugin extends JavaPlugin {
             return true;
         });
         
-        getLogger().info("§aMagmaRoarPlugin включён! Загружено 15 предметов + взрывные зелья");
+        // Команда для Рога разорителя
+        getCommand("ravager").setExecutor((sender, command, label, args) -> {
+            if (sender instanceof org.bukkit.entity.Player) {
+                ((org.bukkit.entity.Player) sender).getInventory().addItem(RavagerHornItem.createHorn());
+            }
+            return true;
+        });
+        
+        getLogger().info("§aMagmaRoarPlugin включён! Загружено 17 предметов");
     }
 
     public static MagmaRoarPlugin getInstance() {

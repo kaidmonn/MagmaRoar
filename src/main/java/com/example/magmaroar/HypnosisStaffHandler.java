@@ -10,14 +10,13 @@ import org.bukkit.event.EventHandler;
 import org.bukkit.event.Listener;
 import org.bukkit.event.block.Action;
 import org.bukkit.event.entity.EntityDamageByEntityEvent;
-import org.bukkit.event.entity.EntityTargetEvent; // ← ДОБАВЛЕН ЭТОТ ИМПОРТ
+import org.bukkit.event.entity.EntityTargetEvent;
 import org.bukkit.event.player.PlayerInteractEvent;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.inventory.meta.ItemMeta;
 import org.bukkit.potion.PotionEffect;
 import org.bukkit.potion.PotionEffectType;
 import org.bukkit.scheduler.BukkitRunnable;
-import org.bukkit.util.Vector;
 
 import java.util.*;
 
@@ -76,7 +75,7 @@ public class HypnosisStaffHandler implements Listener {
 
             Warden warden = world.spawn(spawnLoc, Warden.class);
 
-            // Минимальная настройка
+            // Настройка Вардена
             warden.setAI(true);
             warden.setTarget(null);
             warden.setHealth(100);
@@ -101,8 +100,48 @@ public class HypnosisStaffHandler implements Listener {
                 }
             }.runTaskLater(MagmaRoarPlugin.getInstance(), WARDEN_LIFETIME / 50);
 
+            // Запускаем контроль гнева
+            startAngerControl(player, newInfo);
+
             event.setCancelled(true);
         }
+    }
+
+    private void startAngerControl(Player player, WardenInfo info) {
+        new BukkitRunnable() {
+            @Override
+            public void run() {
+                if (info.warden == null || info.warden.isDead()) {
+                    this.cancel();
+                    return;
+                }
+
+                // Сбрасываем гнев на владельца, если он появился
+                if (info.warden.getAnger(player) > 0) {
+                    info.warden.setAnger(player, 0);
+                }
+
+                // Если есть цель
+                if (info.target != null && !info.target.isDead()) {
+                    // Проверяем дистанцию цели до владельца
+                    if (info.target.getLocation().distance(player.getLocation()) > FOLLOW_RADIUS) {
+                        info.target = null;
+                        info.warden.setTarget(null);
+                    } else {
+                        info.warden.setTarget(info.target);
+                    }
+                }
+
+                // Если нет цели - следуем за владельцем
+                if (info.target == null || info.target.isDead()) {
+                    if (info.warden.getLocation().distance(player.getLocation()) > 3) {
+                        info.warden.setTarget(player);
+                    } else {
+                        info.warden.setTarget(null);
+                    }
+                }
+            }
+        }.runTaskTimer(MagmaRoarPlugin.getInstance(), 0L, 20L); // Проверка каждую секунду
     }
 
     @EventHandler
@@ -112,23 +151,16 @@ public class HypnosisStaffHandler implements Listener {
 
             for (WardenInfo info : activeWardens.values()) {
                 if (info.warden != null && info.warden.equals(warden)) {
-                    // Если цель - владелец, отменяем
+                    // Запрещаем атаку на владельца
                     if (event.getTarget() instanceof Player &&
                         ((Player) event.getTarget()).getUniqueId().equals(info.ownerId)) {
                         event.setCancelled(true);
                         return;
                     }
 
-                    // Если есть заданная цель, разрешаем атаковать только её
+                    // Если есть заданная цель и цель не совпадает - запрещаем
                     if (info.target != null && !event.getTarget().equals(info.target)) {
                         event.setCancelled(true);
-                        return;
-                    }
-
-                    // Если нет цели - разрешаем следовать за владельцем
-                    if (info.target == null && event.getTarget() instanceof Player &&
-                        ((Player) event.getTarget()).getUniqueId().equals(info.ownerId)) {
-                        // Разрешаем следовать
                         return;
                     }
                 }
@@ -138,28 +170,54 @@ public class HypnosisStaffHandler implements Listener {
 
     @EventHandler
     public void onEntityDamage(EntityDamageByEntityEvent event) {
-        if (!(event.getDamager() instanceof Player)) return;
+        // Владелец не может бить своего вардена
+        if (event.getDamager() instanceof Player && event.getEntity() instanceof Warden) {
+            Player player = (Player) event.getDamager();
+            Warden warden = (Warden) event.getEntity();
 
-        Player player = (Player) event.getDamager();
-        ItemStack item = player.getInventory().getItemInMainHand();
+            WardenInfo info = activeWardens.get(player.getUniqueId());
+            if (info != null && info.warden != null && info.warden.equals(warden)) {
+                event.setCancelled(true);
+                player.sendMessage("§cНельзя бить своего вардена!");
+                return;
+            }
+        }
 
-        if (!isHypnosisStaff(item)) return;
+        // Варден не может бить владельца
+        if (event.getDamager() instanceof Warden && event.getEntity() instanceof Player) {
+            Warden warden = (Warden) event.getDamager();
+            Player player = (Player) event.getEntity();
 
-        WardenInfo info = activeWardens.get(player.getUniqueId());
-        if (info != null && info.warden != null && !info.warden.isDead()) {
-            if (event.getEntity() instanceof LivingEntity) {
-                LivingEntity target = (LivingEntity) event.getEntity();
-
-                if (target.equals(player) || target instanceof Warden) {
+            for (WardenInfo info : activeWardens.values()) {
+                if (info.warden != null && info.warden.equals(warden) &&
+                    player.getUniqueId().equals(info.ownerId)) {
+                    event.setCancelled(true);
                     return;
                 }
+            }
+        }
 
-                info.target = target;
-                info.warden.setTarget(target);
-                player.sendMessage("§5Варден атакует цель!");
+        // Задание цели для вардена
+        if (event.getDamager() instanceof Player && event.getEntity() instanceof LivingEntity) {
+            Player player = (Player) event.getDamager();
+            ItemStack item = player.getInventory().getItemInMainHand();
 
-                target.getWorld().spawnParticle(Particle.SCULK_SOUL,
-                    target.getLocation().add(0, 1, 0), 30, 1, 1, 1, 0.1);
+            if (isHypnosisStaff(item)) {
+                WardenInfo info = activeWardens.get(player.getUniqueId());
+                if (info != null && info.warden != null && !info.warden.isDead()) {
+                    LivingEntity target = (LivingEntity) event.getEntity();
+
+                    if (target.equals(player) || target instanceof Warden) {
+                        return;
+                    }
+
+                    info.target = target;
+                    info.warden.setTarget(target);
+                    player.sendMessage("§5Варден атакует цель!");
+
+                    target.getWorld().spawnParticle(Particle.SCULK_SOUL,
+                        target.getLocation().add(0, 1, 0), 30, 1, 1, 1, 0.1);
+                }
             }
         }
     }

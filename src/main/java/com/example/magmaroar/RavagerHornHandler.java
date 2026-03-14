@@ -1,5 +1,11 @@
 package com.example.magmaroar;
 
+import com.comphenix.protocol.PacketType;
+import com.comphenix.protocol.ProtocolLibrary;
+import com.comphenix.protocol.ProtocolManager;
+import com.comphenix.protocol.events.PacketContainer;
+import com.comphenix.protocol.events.PacketEvent;
+import com.comphenix.protocol.wrappers.EnumWrappers;
 import org.bukkit.Location;
 import org.bukkit.Material;
 import org.bukkit.Particle;
@@ -10,9 +16,6 @@ import org.bukkit.entity.*;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.Listener;
 import org.bukkit.event.block.Action;
-import org.bukkit.event.entity.EntityDamageByEntityEvent;
-import org.bukkit.event.entity.EntityDamageEvent; // ← ДОБАВЛЕН ЭТОТ ИМПОРТ
-import org.bukkit.event.entity.EntityTargetEvent;
 import org.bukkit.event.player.PlayerInteractEntityEvent;
 import org.bukkit.event.player.PlayerInteractEvent;
 import org.bukkit.event.player.PlayerToggleSneakEvent;
@@ -23,6 +26,7 @@ import org.bukkit.potion.PotionEffectType;
 import org.bukkit.scheduler.BukkitRunnable;
 import org.bukkit.util.Vector;
 
+import java.lang.reflect.InvocationTargetException;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.UUID;
@@ -32,6 +36,7 @@ public class RavagerHornHandler implements Listener {
     private final Map<UUID, RavagerInfo> activeRavagers = new HashMap<>();
     private final Map<UUID, Long> cooldowns = new HashMap<>();
     private final Map<UUID, Long> stompCooldowns = new HashMap<>();
+    private ProtocolManager protocolManager;
     
     private static final long COOLDOWN = 2 * 60 * 1000;
     private static final long STOMP_COOLDOWN = 5 * 1000;
@@ -41,14 +46,69 @@ public class RavagerHornHandler implements Listener {
 
     private static class RavagerInfo {
         Ravager ravager;
+        ArmorStand seat;
         long spawnTime;
         UUID ownerId;
 
-        RavagerInfo(Ravager ravager, long spawnTime, UUID ownerId) {
+        RavagerInfo(Ravager ravager, ArmorStand seat, long spawnTime, UUID ownerId) {
             this.ravager = ravager;
+            this.seat = seat;
             this.spawnTime = spawnTime;
             this.ownerId = ownerId;
         }
+    }
+
+    public RavagerHornHandler() {
+        this.protocolManager = ProtocolLibrary.getProtocolManager();
+        setupSteeringListener();
+    }
+
+    private void setupSteeringListener() {
+        protocolManager.addPacketListener(
+            new com.comphenix.protocol.events.PacketAdapter(
+                MagmaRoarPlugin.getInstance(),
+                PacketType.Play.Client.STEER_VEHICLE
+            ) {
+                @Override
+                public void onPacketReceiving(PacketEvent event) {
+                    Player player = event.getPlayer();
+                    if (!(player.getVehicle() instanceof ArmorStand)) return;
+
+                    PacketContainer packet = event.getPacket();
+                    float sideways = packet.getFloat().read(0); // A и D
+                    float forward = packet.getFloat().read(1);  // W и S
+                    boolean jump = packet.getBooleans().read(0); // Пробел
+
+                    RavagerInfo info = findRavagerBySeat((ArmorStand) player.getVehicle());
+                    if (info == null) return;
+
+                    Ravager ravager = info.ravager;
+
+                    // Движение
+                    if (forward != 0 || sideways != 0) {
+                        Vector direction = player.getLocation().getDirection().setY(0).normalize();
+                        Vector right = direction.clone().crossProduct(new Vector(0, 1, 0));
+                        
+                        Vector move = direction.clone().multiply(forward * 0.8);
+                        move.add(right.clone().multiply(sideways * 0.8));
+                        
+                        ravager.setVelocity(move);
+                        
+                        // Поворот
+                        Location loc = ravager.getLocation();
+                        loc.setYaw(player.getLocation().getYaw());
+                        ravager.teleport(loc);
+                    }
+
+                    // Прыжок
+                    if (jump && ravager.isOnGround()) {
+                        Vector vel = ravager.getVelocity();
+                        vel.setY(0.6);
+                        ravager.setVelocity(vel);
+                    }
+                }
+            }
+        );
     }
 
     @EventHandler
@@ -71,32 +131,41 @@ public class RavagerHornHandler implements Listener {
             }
 
             RavagerInfo oldRavager = activeRavagers.remove(player.getUniqueId());
-            if (oldRavager != null && oldRavager.ravager != null && !oldRavager.ravager.isDead()) {
-                oldRavager.ravager.remove();
+            if (oldRavager != null) {
+                if (oldRavager.ravager != null && !oldRavager.ravager.isDead()) {
+                    oldRavager.ravager.remove();
+                }
+                if (oldRavager.seat != null && !oldRavager.seat.isDead()) {
+                    oldRavager.seat.remove();
+                }
             }
 
             Location spawnLoc = player.getLocation();
             World world = player.getWorld();
 
+            // 1. Спавним разорителя
             Ravager ravager = world.spawn(spawnLoc, Ravager.class);
-            
-            // Полностью отключаем ИИ
             ravager.setAI(false);
             ravager.setTarget(null);
-            
-            // Устанавливаем атрибуты
             ravager.getAttribute(Attribute.MAX_HEALTH).setBaseValue(200);
             ravager.setHealth(200);
             ravager.getAttribute(Attribute.MOVEMENT_SPEED).setBaseValue(0.4);
-            
-            // Добавляем эффекты
             ravager.addPotionEffect(new PotionEffect(PotionEffectType.SPEED, Integer.MAX_VALUE, 3));
             ravager.addPotionEffect(new PotionEffect(PotionEffectType.RESISTANCE, Integer.MAX_VALUE, 1));
-            
             ravager.setRemoveWhenFarAway(false);
             ravager.setPersistent(true);
 
-            RavagerInfo info = new RavagerInfo(ravager, now, player.getUniqueId());
+            // 2. Спавним невидимый ArmorStand как "седло"
+            ArmorStand seat = world.spawn(spawnLoc, ArmorStand.class);
+            seat.setVisible(false);
+            seat.setGravity(false);
+            seat.setMarker(true);
+            seat.setSmall(true);
+            
+            // Сажаем ArmorStand на разорителя
+            ravager.addPassenger(seat);
+
+            RavagerInfo info = new RavagerInfo(ravager, seat, now, player.getUniqueId());
             activeRavagers.put(player.getUniqueId(), info);
             cooldowns.put(player.getUniqueId(), now);
 
@@ -110,6 +179,9 @@ public class RavagerHornHandler implements Listener {
                     if (current != null && current == info) {
                         if (current.ravager != null && !current.ravager.isDead()) {
                             current.ravager.remove();
+                        }
+                        if (current.seat != null && !current.seat.isDead()) {
+                            current.seat.remove();
                         }
                         activeRavagers.remove(player.getUniqueId());
                         player.sendMessage("§cРазоритель исчез.");
@@ -130,8 +202,8 @@ public class RavagerHornHandler implements Listener {
             RavagerInfo info = findRavager(ravager);
             
             if (info != null && info.ownerId.equals(player.getUniqueId())) {
-                if (ravager.getPassengers().isEmpty()) {
-                    ravager.addPassenger(player);
+                if (info.seat != null && !info.seat.isDead() && info.seat.getPassengers().isEmpty()) {
+                    info.seat.addPassenger(player);
                     player.sendMessage("§cВы сели на разорителя! WASD - движение, Пробел - прыжок, ПКМ - топот");
                 }
                 event.setCancelled(true);
@@ -143,51 +215,9 @@ public class RavagerHornHandler implements Listener {
     public void onPlayerToggleSneak(PlayerToggleSneakEvent event) {
         Player player = event.getPlayer();
         
-        if (event.isSneaking() && player.getVehicle() instanceof Ravager) {
+        if (event.isSneaking() && player.getVehicle() instanceof ArmorStand) {
             player.getVehicle().removePassenger(player);
             player.sendMessage("§cВы слезли с разорителя");
-        }
-    }
-
-    @EventHandler
-    public void onPlayerMove(org.bukkit.event.player.PlayerMoveEvent event) {
-        Player player = event.getPlayer();
-        
-        if (player.getVehicle() instanceof Ravager) {
-            Ravager ravager = (Ravager) player.getVehicle();
-            RavagerInfo info = findRavager(ravager);
-            
-            if (info != null) {
-                // Получаем направление взгляда игрока
-                Vector direction = player.getLocation().getDirection();
-                
-                // Убираем вертикальную составляющую
-                direction.setY(0);
-                
-                // Если игрок нажимает W (движение вперед)
-                if (direction.lengthSquared() > 0) {
-                    direction.normalize();
-                    
-                    // Двигаем разорителя
-                    Vector velocity = direction.multiply(0.8);
-                    ravager.setVelocity(velocity);
-                    
-                    // Поворачиваем разорителя в сторону движения
-                    Location loc = ravager.getLocation();
-                    loc.setYaw(player.getLocation().getYaw());
-                    ravager.teleport(loc);
-                } else {
-                    // Если игрок не двигается, останавливаем разорителя
-                    ravager.setVelocity(new Vector(0, ravager.getVelocity().getY(), 0));
-                }
-                
-                // Прыжок (пробел)
-                if (player.isJumping() && ravager.isOnGround()) {
-                    Vector jump = ravager.getVelocity();
-                    jump.setY(0.6);
-                    ravager.setVelocity(jump);
-                }
-            }
         }
     }
 
@@ -195,9 +225,9 @@ public class RavagerHornHandler implements Listener {
     public void onPlayerInteractRiding(PlayerInteractEvent event) {
         Player player = event.getPlayer();
         
-        if (player.getVehicle() instanceof Ravager) {
-            Ravager ravager = (Ravager) player.getVehicle();
-            RavagerInfo info = findRavager(ravager);
+        if (player.getVehicle() instanceof ArmorStand) {
+            ArmorStand seat = (ArmorStand) player.getVehicle();
+            RavagerInfo info = findRavagerBySeat(seat);
             
             if (info != null && (event.getAction() == Action.RIGHT_CLICK_AIR || 
                 event.getAction() == Action.RIGHT_CLICK_BLOCK)) {
@@ -212,6 +242,7 @@ public class RavagerHornHandler implements Listener {
                     return;
                 }
 
+                Ravager ravager = info.ravager;
                 Location stompLoc = ravager.getLocation();
                 World world = stompLoc.getWorld();
                 
@@ -233,50 +264,18 @@ public class RavagerHornHandler implements Listener {
         }
     }
 
-    @EventHandler
-    public void onEntityTarget(EntityTargetEvent event) {
-        if (event.getEntity() instanceof Ravager) {
-            Ravager ravager = (Ravager) event.getEntity();
-            RavagerInfo info = findRavager(ravager);
-            
-            if (info != null) {
-                // Полностью отключаем любое таргетирование
-                event.setCancelled(true);
-            }
-        }
-    }
-
-    @EventHandler
-    public void onEntityDamage(EntityDamageEvent event) {
-        if (event.getEntity() instanceof Ravager) {
-            Ravager ravager = (Ravager) event.getEntity();
-            RavagerInfo info = findRavager(ravager);
-            
-            if (info != null) {
-                // Отключаем урон от падения
-                if (event.getCause() == EntityDamageEvent.DamageCause.FALL) {
-                    event.setCancelled(true);
-                }
-            }
-        }
-    }
-
-    @EventHandler
-    public void onEntityDamageByEntity(EntityDamageByEntityEvent event) {
-        if (event.getDamager() instanceof Ravager) {
-            Ravager ravager = (Ravager) event.getDamager();
-            RavagerInfo info = findRavager(ravager);
-            
-            if (info != null) {
-                // Разоритель не может никого атаковать (кроме топата)
-                event.setCancelled(true);
-            }
-        }
-    }
-
     private RavagerInfo findRavager(Ravager ravager) {
         for (RavagerInfo info : activeRavagers.values()) {
             if (info.ravager != null && info.ravager.equals(ravager)) {
+                return info;
+            }
+        }
+        return null;
+    }
+
+    private RavagerInfo findRavagerBySeat(ArmorStand seat) {
+        for (RavagerInfo info : activeRavagers.values()) {
+            if (info.seat != null && info.seat.equals(seat)) {
                 return info;
             }
         }

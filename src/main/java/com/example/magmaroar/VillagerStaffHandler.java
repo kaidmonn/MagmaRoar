@@ -1,4 +1,4 @@
- package com.example.magmaroar;
+package com.example.magmaroar;
 
 import org.bukkit.Location;
 import org.bukkit.Material;
@@ -22,10 +22,12 @@ import java.util.UUID;
 public class VillagerStaffHandler implements Listener {
 
     private final Map<UUID, Long> cooldowns = new HashMap<>();
-    private final Map<UUID, Boolean> charging = new HashMap<>(); // Для защиты от мульти-клика
+    private final Map<UUID, Boolean> charging = new HashMap<>();
     private static final long COOLDOWN = 2 * 60 * 1000; // 2 минуты
-    private static final int DAMAGE_RADIUS = 8; // Увеличенный радиус (было 5)
-    private static final double DAMAGE = 70.0; // Увеличенный урон (35 сердец)
+    private static final int RADIUS_1 = 5;  // Ближняя зона
+    private static final int RADIUS_2 = 10; // Дальняя зона
+    private static final double DAMAGE_1 = 30.0; // 15 сердец (30 HP)
+    private static final double DAMAGE_2 = 10.0; // 5 сердец (10 HP)
 
     @EventHandler
     public void onPlayerInteract(PlayerInteractEvent event) {
@@ -36,7 +38,6 @@ public class VillagerStaffHandler implements Listener {
 
         if (event.getAction() == Action.RIGHT_CLICK_AIR || event.getAction() == Action.RIGHT_CLICK_BLOCK) {
 
-            // Защита от мульти-клика
             if (charging.getOrDefault(player.getUniqueId(), false)) {
                 player.sendMessage("§cПосох уже заряжается!");
                 event.setCancelled(true);
@@ -53,59 +54,73 @@ public class VillagerStaffHandler implements Listener {
                 return;
             }
 
-            // Получаем точку взгляда
             Location targetLoc = player.getTargetBlock(null, 200).getLocation().add(0.5, 1, 0.5);
 
-            // Звук активации
             player.getWorld().playSound(player.getLocation(), Sound.BLOCK_BEACON_ACTIVATE, 1.0f, 1.0f);
             player.sendMessage("§aПосох жителя заряжается... 1.5 секунды до взрыва!");
 
-            // Отмечаем место частицами
             player.getWorld().spawnParticle(Particle.END_ROD, targetLoc, 50, 1, 1, 1, 0.1);
 
-            // Блокируем повторный клик
             charging.put(player.getUniqueId(), true);
 
-            // Задержка 1.5 секунды (30 тиков)
             new BukkitRunnable() {
                 @Override
                 public void run() {
                     World world = player.getWorld();
 
-                    // Эпичные частицы
+                    // Эффекты взрыва
                     world.spawnParticle(Particle.EXPLOSION, targetLoc, 5, 3, 2, 3, 0);
                     world.spawnParticle(Particle.FLASH, targetLoc, 10, 2, 1, 2, 0);
                     world.spawnParticle(Particle.SONIC_BOOM, targetLoc, 50, 4, 3, 4, 0);
                     world.spawnParticle(Particle.END_ROD, targetLoc, 200, 5, 3, 5, 0.2);
                     world.spawnParticle(Particle.LAVA, targetLoc, 100, 3, 2, 3, 0.1);
 
-                    // Звук взрыва
                     world.playSound(targetLoc, Sound.ENTITY_GENERIC_EXPLODE, 2.0f, 0.5f);
 
-                    // УРОН ПО ВСЕМ В РАДИУСЕ
+                    // УРОН ПО ЗОНАМ
                     int entitiesHit = 0;
-                    for (org.bukkit.entity.Entity entity : world.getNearbyEntities(targetLoc, DAMAGE_RADIUS, DAMAGE_RADIUS, DAMAGE_RADIUS)) {
+                    int zone1 = 0;
+                    int zone2 = 0;
+
+                    for (org.bukkit.entity.Entity entity : world.getNearbyEntities(targetLoc, RADIUS_2, RADIUS_2, RADIUS_2)) {
                         if (entity instanceof LivingEntity && !entity.equals(player)) {
                             LivingEntity target = (LivingEntity) entity;
-                            target.setHealth(Math.max(0, target.getHealth() - DAMAGE));
+                            double distance = target.getLocation().distance(targetLoc);
+
+                            // Определяем зону
+                            if (distance <= RADIUS_1) {
+                                // Ближняя зона - 15 сердец
+                                target.setHealth(Math.max(0, target.getHealth() - DAMAGE_1));
+                                zone1++;
+                                if (target instanceof Player) {
+                                    target.sendMessage("§c§lВЫ В ЭПИЦЕНТРЕ! -15 сердец");
+                                }
+                            } else if (distance <= RADIUS_2) {
+                                // Дальняя зона - 5 сердец
+                                target.setHealth(Math.max(0, target.getHealth() - DAMAGE_2));
+                                zone2++;
+                                if (target instanceof Player) {
+                                    target.sendMessage("§cВас задело взрывом! -5 сердец");
+                                }
+                            }
+
                             entitiesHit++;
 
                             // Эффекты на цели
-                            target.getWorld().spawnParticle(Particle.SONIC_BOOM, target.getLocation(), 20, 1, 1, 1, 0);
-
-                            if (target instanceof Player) {
-                                target.sendMessage("§c§lВАС ПОРАЗИЛ ПОСОХ ЖИТЕЛЯ!");
-                            }
+                            target.getWorld().spawnParticle(Particle.SONIC_BOOM, 
+                                target.getLocation().add(0, 1, 0), 10, 0.5, 0.5, 0.5, 0);
                         }
                     }
 
-                    player.sendMessage("§a§lМОЩНЫЙ ВЗРЫВ! Радиус " + DAMAGE_RADIUS + " блоков. Задето существ: " + entitiesHit);
+                    player.sendMessage("§a§lМОЩНЫЙ ВЗРЫВ!");
+                    player.sendMessage("§cБлижняя зона (до 5 блоков): " + zone1 + " целей (-15♥)");
+                    player.sendMessage("§eДальняя зона (5-10 блоков): " + zone2 + " целей (-5♥)");
+                    player.sendMessage("§7Всего поражено: " + entitiesHit + " существ");
 
-                    // Снимаем блокировку и ставим кулдаун
                     charging.remove(player.getUniqueId());
                     cooldowns.put(player.getUniqueId(), now);
                 }
-            }.runTaskLater(MagmaRoarPlugin.getInstance(), 30L); // 30 тиков = 1.5 секунды
+            }.runTaskLater(MagmaRoarPlugin.getInstance(), 30L); // 1.5 секунды
 
             event.setCancelled(true);
         }
@@ -117,4 +132,4 @@ public class VillagerStaffHandler implements Listener {
         return meta != null && meta.displayName() != null &&
                meta.displayName().toString().contains("Посох жителя");
     }
-} 
+}

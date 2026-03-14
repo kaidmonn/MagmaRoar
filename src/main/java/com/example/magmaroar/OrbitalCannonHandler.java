@@ -2,7 +2,6 @@ package com.example.magmaroar;
 
 import org.bukkit.Location;
 import org.bukkit.Material;
-import org.bukkit.Particle;
 import org.bukkit.Sound;
 import org.bukkit.World;
 import org.bukkit.entity.Player;
@@ -13,7 +12,6 @@ import org.bukkit.event.block.Action;
 import org.bukkit.event.player.PlayerInteractEvent;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.inventory.meta.ItemMeta;
-import org.bukkit.scheduler.BukkitRunnable;
 
 import java.util.HashMap;
 import java.util.Map;
@@ -60,21 +58,21 @@ public class OrbitalCannonHandler implements Listener {
             return;
         }
 
-        Location targetLoc = player.getTargetBlock(null, 200).getLocation().add(0.5, 0, 0.5);
+        Location targetLoc = player.getTargetBlock(null, 200).getLocation().add(0.5, 1, 0.5);
         World world = player.getWorld();
 
-        // СТАРЫЙ РЕЖИМ - 5 ТНТ в одной точке
+        // 5 ТНТ мгновенно на земле
         for (int i = 0; i < 5; i++) {
-            Location tntLoc = targetLoc.clone().add(0, 1 + i * 0.5, 0); // Небольшой разброс по высоте
+            Location tntLoc = targetLoc.clone();
             TNTPrimed tnt = world.spawn(tntLoc, TNTPrimed.class);
-            tnt.setFuseTicks(20); // 1 секунда до взрыва
+            tnt.setFuseTicks(0); // Мгновенный взрыв
             tnt.setYield(4.0f);
             tnt.setIsIncendiary(false);
             tnt.setGlowing(true);
         }
 
         world.playSound(player.getLocation(), Sound.ENTITY_FIREWORK_ROCKET_BLAST, 1.0f, 0.5f);
-        player.sendMessage("§5Орбитальная пушка: 5 ТНТ сброшены!");
+        player.sendMessage("§5Орбитальная пушка: 5 ТНТ (мгновенно)!");
         
         lastUseTimeNormal.put(player.getUniqueId(), now);
     }

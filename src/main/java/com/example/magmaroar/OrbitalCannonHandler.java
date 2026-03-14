@@ -33,7 +33,6 @@ public class OrbitalCannonHandler implements Listener {
 
         if (!isOrbitalCannon(item)) return;
 
-        // ПКМ - вертикальные взрывы
         if (event.getAction() == Action.RIGHT_CLICK_AIR || event.getAction() == Action.RIGHT_CLICK_BLOCK) {
             if (!player.isSneaking()) {
                 handleNormalMode(player);
@@ -41,7 +40,6 @@ public class OrbitalCannonHandler implements Listener {
             }
         }
 
-        // Shift+ЛКМ - кольцевой режим
         if (event.getAction() == Action.LEFT_CLICK_AIR || event.getAction() == Action.LEFT_CLICK_BLOCK) {
             if (player.isSneaking()) {
                 handleRingMode(player);
@@ -63,29 +61,26 @@ public class OrbitalCannonHandler implements Listener {
         Location targetLoc = player.getTargetBlock(null, 200).getLocation().add(0.5, 0, 0.5);
         World world = player.getWorld();
 
-        // 8 уровней по 3 ТНТ = 24 ТНТ
-        int tntCount = 3; // 3 ТНТ на уровень
-        double spread = 1.5; // Разброс по горизонтали
+        int tntCount = 3;
+        double spread = 1.5;
 
         for (int level = 0; level < 8; level++) {
-            double yOffset = level * 3; // Каждый уровень через 3 блока
+            double yOffset = level * 3;
 
             for (int i = 0; i < tntCount; i++) {
-                // Небольшой разброс по горизонтали
                 double xOffset = (Math.random() - 0.5) * spread;
                 double zOffset = (Math.random() - 0.5) * spread;
 
                 Location tntLoc = targetLoc.clone().add(xOffset, yOffset, zOffset);
                 
                 TNTPrimed tnt = world.spawn(tntLoc, TNTPrimed.class);
-                tnt.setFuseTicks(0); // Мгновенный взрыв
+                tnt.setFuseTicks(1); // 1 тик = урон будет, но взрыв почти мгновенный
                 tnt.setYield(4.0f);
                 tnt.setIsIncendiary(false);
                 tnt.setGlowing(true);
             }
         }
 
-        // Звук и сообщение
         world.playSound(player.getLocation(), Sound.ENTITY_FIREWORK_ROCKET_BLAST, 1.0f, 0.5f);
         player.sendMessage("§5Орбитальная пушка: 24 ТНТ (3 на уровень × 8 уровней)!");
         

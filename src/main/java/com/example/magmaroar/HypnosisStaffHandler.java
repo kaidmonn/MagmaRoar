@@ -5,11 +5,13 @@ import org.bukkit.Material;
 import org.bukkit.Particle;
 import org.bukkit.Sound;
 import org.bukkit.World;
+import org.bukkit.attribute.Attribute;
 import org.bukkit.entity.*;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.Listener;
 import org.bukkit.event.block.Action;
 import org.bukkit.event.entity.EntityDamageByEntityEvent;
+import org.bukkit.event.entity.EntityPotionEffectEvent;
 import org.bukkit.event.entity.EntityTargetEvent;
 import org.bukkit.event.player.PlayerInteractEvent;
 import org.bukkit.inventory.ItemStack;
@@ -76,11 +78,18 @@ public class HypnosisStaffHandler implements Listener {
 
             Warden warden = world.spawn(spawnLoc, Warden.class);
 
-            // Настройка Вардена
+            // Полный контроль над Варденом
             warden.setAI(true);
             warden.setTarget(null);
-            warden.setHealth(100);
-            warden.addPotionEffect(new PotionEffect(PotionEffectType.SPEED, Integer.MAX_VALUE, 2));
+            
+            // Понижаем характеристики
+            warden.getAttribute(Attribute.MAX_HEALTH).setBaseValue(200);
+            warden.setHealth(200);
+            warden.getAttribute(Attribute.ATTACK_DAMAGE).setBaseValue(15);
+            
+            // Убираем эффект тьмы
+            warden.addPotionEffect(new PotionEffect(PotionEffectType.SPEED, Integer.MAX_VALUE, 1));
+            warden.addPotionEffect(new PotionEffect(PotionEffectType.RESISTANCE, Integer.MAX_VALUE, 0));
 
             WardenInfo newInfo = new WardenInfo(warden, now, player.getUniqueId());
             activeWardens.put(player.getUniqueId(), newInfo);
@@ -101,14 +110,14 @@ public class HypnosisStaffHandler implements Listener {
                 }
             }.runTaskLater(MagmaRoarPlugin.getInstance(), WARDEN_LIFETIME / 50);
 
-            // Контроль дистанции
-            startDistanceControl(player, newInfo);
+            // Контроль дистанции и гнева
+            startDistanceAndAngerControl(player, newInfo);
 
             event.setCancelled(true);
         }
     }
 
-    private void startDistanceControl(Player player, WardenInfo info) {
+    private void startDistanceAndAngerControl(Player player, WardenInfo info) {
         new BukkitRunnable() {
             @Override
             public void run() {
@@ -122,12 +131,20 @@ public class HypnosisStaffHandler implements Listener {
                     info.warden.teleport(player.getLocation());
                 }
 
-                // Сбрасываем гнев на владельца
-                if (info.warden.getAnger(player) > 0) {
-                    info.warden.setAnger(player, 0);
+                // Сбрасываем гнев у ВСЕХ существ, КРОМЕ текущей цели
+                for (org.bukkit.entity.Entity entity : info.warden.getWorld().getEntities()) {
+                    if (entity instanceof LivingEntity) {
+                        LivingEntity living = (LivingEntity) entity;
+                        // Не сбрасываем гнев у текущей цели
+                        if (info.target != null && living.equals(info.target)) {
+                            continue;
+                        }
+                        // Сбрасываем гнев у всех остальных
+                        info.warden.setAnger(living, 0);
+                    }
                 }
             }
-        }.runTaskTimer(MagmaRoarPlugin.getInstance(), 0L, 40L);
+        }.runTaskTimer(MagmaRoarPlugin.getInstance(), 0L, 40L); // Каждые 2 секунды
     }
 
     @EventHandler
@@ -144,11 +161,28 @@ public class HypnosisStaffHandler implements Listener {
                         return;
                     }
 
-                    // Разрешаем атаку только если цель совпадает с заданной
+                    // Если есть заданная цель, разрешаем только её
                     if (info.target != null && !event.getTarget().equals(info.target)) {
                         event.setCancelled(true);
                         return;
                     }
+                }
+            }
+        }
+    }
+
+    @EventHandler
+    public void onEntityPotionEffect(EntityPotionEffectEvent event) {
+        // Полностью блокируем эффект тьмы у наших варденов
+        if (event.getEntity() instanceof Warden) {
+            Warden warden = (Warden) event.getEntity();
+            
+            for (WardenInfo info : activeWardens.values()) {
+                if (info.warden != null && info.warden.equals(warden) &&
+                    event.getNewEffect() != null && 
+                    event.getNewEffect().getType().equals(PotionEffectType.DARKNESS)) {
+                    event.setCancelled(true);
+                    return;
                 }
             }
         }
@@ -197,9 +231,11 @@ public class HypnosisStaffHandler implements Listener {
                         return;
                     }
 
-                    // СБРАСЫВАЕМ ГНЕВ СО СТАРОЙ ЦЕЛИ
-                    if (info.target != null && !info.target.isDead()) {
-                        info.warden.setAnger(info.target, 0);
+                    // СБРАСЫВАЕМ ГНЕВ У ВСЕХ СУЩНОСТЕЙ (ВКЛЮЧАЯ СТАРУЮ ЦЕЛЬ)
+                    for (org.bukkit.entity.Entity entity : info.warden.getWorld().getEntities()) {
+                        if (entity instanceof LivingEntity) {
+                            info.warden.setAnger((LivingEntity) entity, 0);
+                        }
                     }
 
                     // ДОБАВЛЯЕМ ГНЕВ НОВОЙ ЦЕЛИ

@@ -27,6 +27,7 @@ public class HypnosisStaffHandler implements Listener {
     private static final long COOLDOWN = 90 * 1000;
     private static final int WARDEN_LIFETIME = 40 * 1000;
     private static final int FOLLOW_RADIUS = 10;
+    private static final int ANGER_AMOUNT = 150; // +150 гнева при ударе посохом
 
     private static class WardenInfo {
         Warden warden;
@@ -80,6 +81,9 @@ public class HypnosisStaffHandler implements Listener {
             warden.setTarget(null);
             warden.setHealth(100);
             warden.addPotionEffect(new PotionEffect(PotionEffectType.SPEED, Integer.MAX_VALUE, 2));
+            
+            // Убираем эффект тьмы
+            warden.addPotionEffect(new PotionEffect(PotionEffectType.DARKNESS, 0, 0)); // Сбрасываем
 
             WardenInfo newInfo = new WardenInfo(warden, now, player.getUniqueId());
             activeWardens.put(player.getUniqueId(), newInfo);
@@ -100,14 +104,14 @@ public class HypnosisStaffHandler implements Listener {
                 }
             }.runTaskLater(MagmaRoarPlugin.getInstance(), WARDEN_LIFETIME / 50);
 
-            // Запускаем контроль гнева
-            startAngerControl(player, newInfo);
+            // Запускаем контроль вардена
+            startWardenControl(player, newInfo);
 
             event.setCancelled(true);
         }
     }
 
-    private void startAngerControl(Player player, WardenInfo info) {
+    private void startWardenControl(Player player, WardenInfo info) {
         new BukkitRunnable() {
             @Override
             public void run() {
@@ -116,7 +120,13 @@ public class HypnosisStaffHandler implements Listener {
                     return;
                 }
 
-                // Сбрасываем гнев на владельца, если он появился
+                // Автотелепорт если слишком далеко
+                if (info.warden.getLocation().distance(player.getLocation()) > FOLLOW_RADIUS) {
+                    info.warden.teleport(player.getLocation());
+                    player.sendMessage("§5Варден телепортирован к вам (слишком далеко)");
+                }
+
+                // Сбрасываем гнев на владельца
                 if (info.warden.getAnger(player) > 0) {
                     info.warden.setAnger(player, 0);
                 }
@@ -141,7 +151,7 @@ public class HypnosisStaffHandler implements Listener {
                     }
                 }
             }
-        }.runTaskTimer(MagmaRoarPlugin.getInstance(), 0L, 20L); // Проверка каждую секунду
+        }.runTaskTimer(MagmaRoarPlugin.getInstance(), 0L, 20L);
     }
 
     @EventHandler
@@ -154,12 +164,6 @@ public class HypnosisStaffHandler implements Listener {
                     // Запрещаем атаку на владельца
                     if (event.getTarget() instanceof Player &&
                         ((Player) event.getTarget()).getUniqueId().equals(info.ownerId)) {
-                        event.setCancelled(true);
-                        return;
-                    }
-
-                    // Если есть заданная цель и цель не совпадает - запрещаем
-                    if (info.target != null && !event.getTarget().equals(info.target)) {
                         event.setCancelled(true);
                         return;
                     }
@@ -197,7 +201,7 @@ public class HypnosisStaffHandler implements Listener {
             }
         }
 
-        // Задание цели для вардена
+        // УДАР ПОСОХОМ - добавляем 150 гнева и задаём цель
         if (event.getDamager() instanceof Player && event.getEntity() instanceof LivingEntity) {
             Player player = (Player) event.getDamager();
             ItemStack item = player.getInventory().getItemInMainHand();
@@ -211,12 +215,35 @@ public class HypnosisStaffHandler implements Listener {
                         return;
                     }
 
+                    // Добавляем 150 гнева цели
+                    info.warden.setAnger(target, ANGER_AMOUNT);
+                    
+                    // Устанавливаем цель
                     info.target = target;
                     info.warden.setTarget(target);
-                    player.sendMessage("§5Варден атакует цель!");
+                    
+                    player.sendMessage("§5Варден в ярости! +150 гнева к цели!");
 
                     target.getWorld().spawnParticle(Particle.SCULK_SOUL,
-                        target.getLocation().add(0, 1, 0), 30, 1, 1, 1, 0.1);
+                        target.getLocation().add(0, 1, 0), 50, 1, 1, 1, 0.2);
+                    target.getWorld().playSound(target.getLocation(), Sound.ENTITY_WARDEN_ROAR, 1.0f, 1.0f);
+                }
+            }
+        }
+    }
+
+    @EventHandler
+    public void onPotionEffect(org.bukkit.event.entity.EntityPotionEffectEvent event) {
+        // Убираем эффект тьмы у наших варденов
+        if (event.getEntity() instanceof Warden) {
+            Warden warden = (Warden) event.getEntity();
+            
+            for (WardenInfo info : activeWardens.values()) {
+                if (info.warden != null && info.warden.equals(warden) &&
+                    event.getNewEffect() != null && 
+                    event.getNewEffect().getType().equals(PotionEffectType.DARKNESS)) {
+                    event.setCancelled(true);
+                    return;
                 }
             }
         }

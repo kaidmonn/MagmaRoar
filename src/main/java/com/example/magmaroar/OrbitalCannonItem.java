@@ -18,14 +18,12 @@ public class OrbitalCannonItem {
             meta.displayName(Component.text("§5Орбитальная пушка"));
 
             List<Component> lore = new ArrayList<>();
-            lore.add(Component.text("§7ПКМ: 5 мгновенных взрывов (по взгляду)"));
-            lore.add(Component.text("§7Shift+ЛКМ: 360 ТНТ кольцами вокруг игрока"));
-            lore.add(Component.text("§7Радиусы: 15, 21, 27, 33, 39 блоков"));
-            lore.add(Component.text("§7ТНТ в 3 блоках друг от друга"));
+            lore.add(Component.text("§7ПКМ: 8 взрывов по вертикали"));
+            lore.add(Component.text("§7Shift+ЛКМ: Кольцевой режим (540 ТНТ)"));
+            lore.add(Component.text("§7Урон x1.5 в кольцевом режиме"));
             lore.add(Component.text("§7Взрывы не ломают блоки"));
             lore.add(Component.text("§7ПКМ кулдаун: 25 сек"));
             lore.add(Component.text("§7ЛКМ кулдаун: 3 минуты"));
-            lore.add(Component.text("§7Нерушимая"));
             meta.lore(lore);
 
             cannon.setItemMeta(meta);

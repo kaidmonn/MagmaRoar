@@ -26,8 +26,8 @@ public class VillagerStaffHandler implements Listener {
     private static final long COOLDOWN = 2 * 60 * 1000; // 2 минуты
     private static final int RADIUS_1 = 5;  // Ближняя зона
     private static final int RADIUS_2 = 10; // Дальняя зона
-    private static final double DAMAGE_1 = 30.0; // 15 сердец (30 HP)
-    private static final double DAMAGE_2 = 10.0; // 5 сердец (10 HP)
+    private static final double DAMAGE_1 = 30.0; // 15 сердец
+    private static final double DAMAGE_2 = 10.0; // 5 сердец
 
     @EventHandler
     public void onPlayerInteract(PlayerInteractEvent event) {
@@ -78,7 +78,6 @@ public class VillagerStaffHandler implements Listener {
                     world.playSound(targetLoc, Sound.ENTITY_GENERIC_EXPLODE, 2.0f, 0.5f);
 
                     // УРОН ПО ЗОНАМ
-                    int entitiesHit = 0;
                     int zone1 = 0;
                     int zone2 = 0;
 
@@ -87,24 +86,21 @@ public class VillagerStaffHandler implements Listener {
                             LivingEntity target = (LivingEntity) entity;
                             double distance = target.getLocation().distance(targetLoc);
 
-                            // Определяем зону
                             if (distance <= RADIUS_1) {
                                 // Ближняя зона - 15 сердец
-                                target.setHealth(Math.max(0, target.getHealth() - DAMAGE_1));
+                                target.damage(DAMAGE_1, player);
                                 zone1++;
                                 if (target instanceof Player) {
                                     target.sendMessage("§c§lВЫ В ЭПИЦЕНТРЕ! -15 сердец");
                                 }
                             } else if (distance <= RADIUS_2) {
                                 // Дальняя зона - 5 сердец
-                                target.setHealth(Math.max(0, target.getHealth() - DAMAGE_2));
+                                target.damage(DAMAGE_2, player);
                                 zone2++;
                                 if (target instanceof Player) {
                                     target.sendMessage("§cВас задело взрывом! -5 сердец");
                                 }
                             }
-
-                            entitiesHit++;
 
                             // Эффекты на цели
                             target.getWorld().spawnParticle(Particle.SONIC_BOOM, 
@@ -115,12 +111,11 @@ public class VillagerStaffHandler implements Listener {
                     player.sendMessage("§a§lМОЩНЫЙ ВЗРЫВ!");
                     player.sendMessage("§cБлижняя зона (до 5 блоков): " + zone1 + " целей (-15♥)");
                     player.sendMessage("§eДальняя зона (5-10 блоков): " + zone2 + " целей (-5♥)");
-                    player.sendMessage("§7Всего поражено: " + entitiesHit + " существ");
 
                     charging.remove(player.getUniqueId());
                     cooldowns.put(player.getUniqueId(), now);
                 }
-            }.runTaskLater(MagmaRoarPlugin.getInstance(), 30L); // 1.5 секунды
+            }.runTaskLater(MagmaRoarPlugin.getInstance(), 30L);
 
             event.setCancelled(true);
         }

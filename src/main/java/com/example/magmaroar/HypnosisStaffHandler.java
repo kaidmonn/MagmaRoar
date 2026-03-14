@@ -28,7 +28,7 @@ public class HypnosisStaffHandler implements Listener {
     private static final long COOLDOWN = 90 * 1000;
     private static final int WARDEN_LIFETIME = 40 * 1000;
     private static final int FOLLOW_RADIUS = 10;
-    private static final int ATTACK_COOLDOWN = 20; // 1 секунда между атаками
+    private static final int ATTACK_COOLDOWN = 20; // 1 секунда
 
     private static class WardenInfo {
         Warden warden;
@@ -36,6 +36,7 @@ public class HypnosisStaffHandler implements Listener {
         LivingEntity target;
         UUID ownerId;
         long lastAttackTime;
+        boolean isMoving;
 
         WardenInfo(Warden warden, long spawnTime, UUID ownerId) {
             this.warden = warden;
@@ -43,6 +44,7 @@ public class HypnosisStaffHandler implements Listener {
             this.ownerId = ownerId;
             this.target = null;
             this.lastAttackTime = 0;
+            this.isMoving = false;
         }
     }
 
@@ -79,15 +81,15 @@ public class HypnosisStaffHandler implements Listener {
 
             Warden warden = world.spawn(spawnLoc, Warden.class);
 
-            // Полное отключение встроенного ИИ
-            warden.setAI(false);
+            // Настройка Вардена
+            warden.setAI(false); // Отключаем встроенный ИИ
             warden.setTarget(null);
             warden.setHealth(100);
             warden.setRemoveWhenFarAway(false);
             warden.setPersistent(true);
 
             // Добавляем эффекты
-            warden.addPotionEffect(new PotionEffect(PotionEffectType.SPEED, Integer.MAX_VALUE, 2));
+            warden.addPotionEffect(new PotionEffect(PotionEffectType.SPEED, Integer.MAX_VALUE, 3)); // Увеличил скорость
             warden.addPotionEffect(new PotionEffect(PotionEffectType.RESISTANCE, Integer.MAX_VALUE, 1));
 
             WardenInfo newInfo = new WardenInfo(warden, now, player.getUniqueId());
@@ -111,7 +113,7 @@ public class HypnosisStaffHandler implements Listener {
                 }
             }.runTaskLater(MagmaRoarPlugin.getInstance(), WARDEN_LIFETIME / 50);
 
-            // Запускаем КАСТОМНОЕ управление (без встроенного ИИ)
+            // Запускаем движение
             startCustomAI(player, newInfo);
 
             event.setCancelled(true);
@@ -142,8 +144,12 @@ public class HypnosisStaffHandler implements Listener {
                         info.target = null;
                     } else {
                         // Двигаемся к цели
-                        Vector direction = info.target.getLocation().toVector().subtract(wardenLoc.toVector()).normalize();
-                        info.warden.setVelocity(direction.multiply(0.3));
+                        Vector toTarget = info.target.getLocation().toVector().subtract(wardenLoc.toVector());
+                        if (toTarget.length() > 0.5) {
+                            toTarget.normalize().multiply(0.4);
+                            info.warden.setVelocity(toTarget);
+                            info.isMoving = true;
+                        }
 
                         // Атакуем если близко
                         if (distToTarget < 2.5 && now - info.lastAttackTime > ATTACK_COOLDOWN * 50) {
@@ -157,24 +163,33 @@ public class HypnosisStaffHandler implements Listener {
                 // Если нет цели - следуем за владельцем
                 double distToOwner = wardenLoc.distance(ownerLoc);
                 if (distToOwner > 3) {
-                    Vector direction = ownerLoc.toVector().subtract(wardenLoc.toVector()).normalize();
-                    info.warden.setVelocity(direction.multiply(0.3));
+                    Vector toOwner = ownerLoc.toVector().subtract(wardenLoc.toVector());
+                    toOwner.normalize().multiply(0.4);
+                    info.warden.setVelocity(toOwner);
+                    info.isMoving = true;
+                } else if (distToOwner < 2) {
+                    // Если слишком близко - отходим
+                    Vector away = wardenLoc.toVector().subtract(ownerLoc.toVector());
+                    if (away.length() > 0) {
+                        away.normalize().multiply(0.2);
+                        info.warden.setVelocity(away);
+                    }
                 } else {
                     info.warden.setVelocity(new Vector(0, 0, 0));
+                    info.isMoving = false;
                 }
             }
-        }.runTaskTimer(MagmaRoarPlugin.getInstance(), 0L, 2L); // Каждые 2 тика для плавности
+        }.runTaskTimer(MagmaRoarPlugin.getInstance(), 0L, 1L); // Каждый тик для плавности
     }
 
     @EventHandler
     public void onEntityTarget(EntityTargetEvent event) {
-        // Полностью блокируем любое targeting для наших варденов
         if (event.getEntity() instanceof Warden) {
             Warden warden = (Warden) event.getEntity();
 
             for (WardenInfo info : activeWardens.values()) {
                 if (info.warden != null && info.warden.equals(warden)) {
-                    event.setCancelled(true); // Отменяем ЛЮБУЮ смену цели
+                    event.setCancelled(true);
                     return;
                 }
             }
@@ -183,7 +198,6 @@ public class HypnosisStaffHandler implements Listener {
 
     @EventHandler
     public void onEntityDamageByWarden(EntityDamageByEntityEvent event) {
-        // Блокируем урон по владельцу от его вардена
         if (event.getDamager() instanceof Warden) {
             Warden warden = (Warden) event.getDamager();
 
@@ -191,7 +205,7 @@ public class HypnosisStaffHandler implements Listener {
                 if (info.warden != null && info.warden.equals(warden)) {
                     if (event.getEntity() instanceof Player &&
                         ((Player) event.getEntity()).getUniqueId().equals(info.ownerId)) {
-                        event.setCancelled(true); // Не даём вардену бить владельца
+                        event.setCancelled(true);
                     }
                     return;
                 }
@@ -213,7 +227,6 @@ public class HypnosisStaffHandler implements Listener {
             if (event.getEntity() instanceof LivingEntity) {
                 LivingEntity target = (LivingEntity) event.getEntity();
 
-                // Нельзя атаковать владельца или других варденов
                 if (target.equals(player) || target instanceof Warden) {
                     return;
                 }

@@ -13,6 +13,7 @@ import org.bukkit.event.block.Action;
 import org.bukkit.event.player.PlayerInteractEvent;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.inventory.meta.ItemMeta;
+import org.bukkit.scheduler.BukkitRunnable;
 
 import java.util.HashMap;
 import java.util.Map;
@@ -32,6 +33,7 @@ public class OrbitalCannonHandler implements Listener {
 
         if (!isOrbitalCannon(item)) return;
 
+        // ПКМ - обычный режим (5 ТНТ в точку взгляда)
         if (event.getAction() == Action.RIGHT_CLICK_AIR || event.getAction() == Action.RIGHT_CLICK_BLOCK) {
             if (!player.isSneaking()) {
                 handleNormalMode(player);
@@ -39,6 +41,7 @@ public class OrbitalCannonHandler implements Listener {
             }
         }
 
+        // Shift+ЛКМ - кольцевой режим
         if (event.getAction() == Action.LEFT_CLICK_AIR || event.getAction() == Action.LEFT_CLICK_BLOCK) {
             if (player.isSneaking()) {
                 handleRingMode(player);
@@ -60,28 +63,18 @@ public class OrbitalCannonHandler implements Listener {
         Location targetLoc = player.getTargetBlock(null, 200).getLocation().add(0.5, 0, 0.5);
         World world = player.getWorld();
 
-        int tntCount = 3;
-        double spread = 1.5;
-
-        for (int level = 0; level < 8; level++) {
-            double yOffset = level * 3;
-
-            for (int i = 0; i < tntCount; i++) {
-                double xOffset = (Math.random() - 0.5) * spread;
-                double zOffset = (Math.random() - 0.5) * spread;
-
-                Location tntLoc = targetLoc.clone().add(xOffset, yOffset, zOffset);
-                
-                TNTPrimed tnt = world.spawn(tntLoc, TNTPrimed.class);
-                tnt.setFuseTicks(1);
-                tnt.setYield(4.0f); // Уменьшено с 8.0 до 4.0 (2.5 сердца)
-                tnt.setIsIncendiary(false);
-                tnt.setGlowing(true);
-            }
+        // СТАРЫЙ РЕЖИМ - 5 ТНТ в одной точке
+        for (int i = 0; i < 5; i++) {
+            Location tntLoc = targetLoc.clone().add(0, 1 + i * 0.5, 0); // Небольшой разброс по высоте
+            TNTPrimed tnt = world.spawn(tntLoc, TNTPrimed.class);
+            tnt.setFuseTicks(20); // 1 секунда до взрыва
+            tnt.setYield(4.0f);
+            tnt.setIsIncendiary(false);
+            tnt.setGlowing(true);
         }
 
         world.playSound(player.getLocation(), Sound.ENTITY_FIREWORK_ROCKET_BLAST, 1.0f, 0.5f);
-        player.sendMessage("§5Орбитальная пушка: 24 ТНТ (урон 2.5♥)!");
+        player.sendMessage("§5Орбитальная пушка: 5 ТНТ сброшены!");
         
         lastUseTimeNormal.put(player.getUniqueId(), now);
     }
@@ -103,7 +96,7 @@ public class OrbitalCannonHandler implements Listener {
 
         int[] tntPerRing = {72, 90, 108, 126, 144};
         double[] radii = {15.0, 21.0, 27.0, 33.0, 39.0};
-        float yield = 6.0f; // Уменьшено с 12.0 до 6.0 (3.5 сердца)
+        float yield = 6.0f;
 
         player.sendMessage("§5§lКОЛЬЦЕВОЙ РЕЖИМ! " + (72+90+108+126+144) + " ТНТ ПАДАЕТ С НЕБА!");
 

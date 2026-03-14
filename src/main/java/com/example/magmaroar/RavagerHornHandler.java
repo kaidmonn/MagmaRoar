@@ -30,11 +30,11 @@ public class RavagerHornHandler implements Listener {
     private final Map<UUID, Long> cooldowns = new HashMap<>();
     private final Map<UUID, Long> stompCooldowns = new HashMap<>();
     
-    private static final long COOLDOWN = 2 * 60 * 1000; // 2 минуты
-    private static final long STOMP_COOLDOWN = 5 * 1000; // 5 секунд
-    private static final int GROUP_LIFETIME = 60 * 1000; // 60 секунд
+    private static final long COOLDOWN = 2 * 60 * 1000;
+    private static final long STOMP_COOLDOWN = 5 * 1000;
+    private static final int GROUP_LIFETIME = 60 * 1000;
     private static final int STOMP_RADIUS = 5;
-    private static final double STOMP_DAMAGE = 8.0; // 4 сердца
+    private static final double STOMP_DAMAGE = 8.0;
     private static final int FOLLOW_RADIUS = 15;
 
     private static class RavagerGroup {
@@ -92,7 +92,7 @@ public class RavagerHornHandler implements Listener {
 
             // 1. РАЗОРИТЕЛЬ (200 HP, скорость 4)
             Ravager ravager = world.spawn(spawnLoc, Ravager.class);
-            ravager.setAI(true); // ВКЛЮЧАЕМ ИИ для движения
+            ravager.setAI(true);
             ravager.getAttribute(Attribute.MAX_HEALTH).setBaseValue(200);
             ravager.setHealth(200);
             ravager.addPotionEffect(new PotionEffect(PotionEffectType.SPEED, Integer.MAX_VALUE, 3));
@@ -152,10 +152,21 @@ public class RavagerHornHandler implements Listener {
                     return;
                 }
 
-                // Защита от атаки владельца
-                if (group.ravager != null && group.ravager.getTarget() != null && 
-                    group.ravager.getTarget().equals(player)) {
-                    group.ravager.setTarget(null);
+                // ЗАЩИТА ОТ АТАКИ ВЛАДЕЛЬЦА
+                if (group.ravager != null && !group.ravager.isDead()) {
+                    if (group.ravager.getTarget() != null && group.ravager.getTarget().equals(player)) {
+                        group.ravager.setTarget(null);
+                    }
+                }
+                if (group.evoker != null && !group.evoker.isDead()) {
+                    if (group.evoker.getTarget() != null && group.evoker.getTarget().equals(player)) {
+                        group.evoker.setTarget(null);
+                    }
+                }
+                if (group.illusioner != null && !group.illusioner.isDead()) {
+                    if (group.illusioner.getTarget() != null && group.illusioner.getTarget().equals(player)) {
+                        group.illusioner.setTarget(null);
+                    }
                 }
 
                 // Если есть цель
@@ -175,18 +186,19 @@ public class RavagerHornHandler implements Listener {
                     setGroupTarget(group, player);
                 }
 
-                // Управление разорителем, если на нём сидят
+                // УПРАВЛЕНИЕ РАЗОРИТЕЛЕМ ПРИ ЕЗДЕ
                 if (group.ravager != null && !group.ravager.isDead() && !group.ravager.getPassengers().isEmpty()) {
                     Player rider = (Player) group.ravager.getPassengers().get(0);
                     if (rider.equals(player)) {
-                        // Движение по WASD
+                        // Движение по направлению взгляда
                         Vector direction = rider.getLocation().getDirection().normalize();
                         Vector velocity = new Vector(direction.getX() * 0.5, 0, direction.getZ() * 0.5);
                         group.ravager.setVelocity(velocity);
                         
-                        // Поворот в сторону движения
+                        // ПОВОРОТ ВСЕГО ТЕЛА
                         Location loc = group.ravager.getLocation();
                         loc.setYaw(rider.getLocation().getYaw());
+                        loc.setPitch(0);
                         group.ravager.teleport(loc);
                     }
                 }
@@ -299,6 +311,30 @@ public class RavagerHornHandler implements Listener {
                         ((Player) event.getTarget()).getUniqueId().equals(group.ownerId)) {
                         event.setCancelled(true);
                         return;
+                    }
+                }
+            }
+        }
+    }
+
+    @EventHandler
+    public void onEntityDamage(EntityDamageByEntityEvent event) {
+        // Защита от урона по владельцу
+        if (event.getDamager() instanceof Ravager || 
+            event.getDamager() instanceof Evoker || 
+            event.getDamager() instanceof Illusioner) {
+            
+            if (event.getEntity() instanceof Player) {
+                Player player = (Player) event.getEntity();
+                
+                for (RavagerGroup group : activeGroups.values()) {
+                    if (group.ownerId.equals(player.getUniqueId())) {
+                        if ((group.ravager != null && group.ravager.equals(event.getDamager())) ||
+                            (group.evoker != null && group.evoker.equals(event.getDamager())) ||
+                            (group.illusioner != null && group.illusioner.equals(event.getDamager()))) {
+                            event.setCancelled(true);
+                            return;
+                        }
                     }
                 }
             }

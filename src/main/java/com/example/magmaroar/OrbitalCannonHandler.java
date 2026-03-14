@@ -60,18 +60,35 @@ public class OrbitalCannonHandler implements Listener {
             return;
         }
 
-        Location targetLoc = player.getTargetBlock(null, 200).getLocation().add(0.5, 1, 0.5);
+        Location targetLoc = player.getTargetBlock(null, 200).getLocation().add(0.5, 0, 0.5);
         World world = player.getWorld();
 
-        // 8 взрывов по вертикали (шаг 3 блока)
-        for (int i = 0; i < 8; i++) {
-            Location blastLoc = targetLoc.clone().add(0, i * 3, 0);
-            world.createExplosion(blastLoc, 4.0f, false, false, player);
+        // 8 уровней по 3 ТНТ = 24 ТНТ
+        int tntCount = 3; // 3 ТНТ на уровень
+        double spread = 1.5; // Разброс по горизонтали
+
+        for (int level = 0; level < 8; level++) {
+            double yOffset = level * 3; // Каждый уровень через 3 блока
+
+            for (int i = 0; i < tntCount; i++) {
+                // Небольшой разброс по горизонтали
+                double xOffset = (Math.random() - 0.5) * spread;
+                double zOffset = (Math.random() - 0.5) * spread;
+
+                Location tntLoc = targetLoc.clone().add(xOffset, yOffset, zOffset);
+                
+                TNTPrimed tnt = world.spawn(tntLoc, TNTPrimed.class);
+                tnt.setFuseTicks(0); // Мгновенный взрыв
+                tnt.setYield(4.0f);
+                tnt.setIsIncendiary(false);
+                tnt.setGlowing(true);
+            }
         }
 
-        // Эффекты
+        // Звук и сообщение
         world.playSound(player.getLocation(), Sound.ENTITY_FIREWORK_ROCKET_BLAST, 1.0f, 0.5f);
-        player.sendMessage("§5Орбитальная пушка: 8 взрывов по вертикали!");
+        player.sendMessage("§5Орбитальная пушка: 24 ТНТ (3 на уровень × 8 уровней)!");
+        
         lastUseTimeNormal.put(player.getUniqueId(), now);
     }
 
@@ -90,10 +107,9 @@ public class OrbitalCannonHandler implements Listener {
         World world = player.getWorld();
         double height = 30.0;
 
-        // Увеличенное количество ТНТ (в 1.5 раза)
-        int[] tntPerRing = {72, 90, 108, 126, 144}; // Было: 48, 60, 72, 84, 96
+        int[] tntPerRing = {72, 90, 108, 126, 144};
         double[] radii = {15.0, 21.0, 27.0, 33.0, 39.0};
-        float yield = 6.0f; // Увеличенный урон (было 4.0)
+        float yield = 6.0f;
 
         player.sendMessage("§5§lКОЛЬЦЕВОЙ РЕЖИМ! " + (72+90+108+126+144) + " ТНТ ПАДАЕТ С НЕБА!");
 
@@ -117,7 +133,6 @@ public class OrbitalCannonHandler implements Listener {
             }
         }
 
-        // Центральный мощный ТНТ
         Location centerLoc = new Location(world, center.getX(), center.getY() + height + 5, center.getZ());
         TNTPrimed centerTNT = world.spawn(centerLoc, TNTPrimed.class);
         centerTNT.setFuseTicks(50);

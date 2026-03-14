@@ -5,7 +5,6 @@ import org.bukkit.Material;
 import org.bukkit.Particle;
 import org.bukkit.Sound;
 import org.bukkit.World;
-import org.bukkit.entity.LivingEntity;
 import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.Listener;
@@ -24,10 +23,7 @@ public class VillagerStaffHandler implements Listener {
     private final Map<UUID, Long> cooldowns = new HashMap<>();
     private final Map<UUID, Boolean> charging = new HashMap<>();
     private static final long COOLDOWN = 2 * 60 * 1000; // 2 минуты
-    private static final int RADIUS_1 = 5;  // Ближняя зона
-    private static final int RADIUS_2 = 10; // Дальняя зона
-    private static final double DAMAGE_1 = 30.0; // 15 сердец
-    private static final double DAMAGE_2 = 10.0; // 5 сердец
+    private static final int EXPLOSION_POWER = 20; // Уровень взрыва 20
 
     @EventHandler
     public void onPlayerInteract(PlayerInteractEvent event) {
@@ -56,9 +52,11 @@ public class VillagerStaffHandler implements Listener {
 
             Location targetLoc = player.getTargetBlock(null, 200).getLocation().add(0.5, 1, 0.5);
 
+            // Звук активации
             player.getWorld().playSound(player.getLocation(), Sound.BLOCK_BEACON_ACTIVATE, 1.0f, 1.0f);
-            player.sendMessage("§aПосох жителя заряжается... 1.5 секунды до взрыва!");
+            player.sendMessage("§aПосох жителя заряжается... 1.5 секунды до взрыва уровня 20!");
 
+            // Частицы подготовки
             player.getWorld().spawnParticle(Particle.END_ROD, targetLoc, 50, 1, 1, 1, 0.1);
 
             charging.put(player.getUniqueId(), true);
@@ -68,54 +66,24 @@ public class VillagerStaffHandler implements Listener {
                 public void run() {
                     World world = player.getWorld();
 
-                    // Эффекты взрыва
-                    world.spawnParticle(Particle.EXPLOSION, targetLoc, 5, 3, 2, 3, 0);
-                    world.spawnParticle(Particle.FLASH, targetLoc, 10, 2, 1, 2, 0);
-                    world.spawnParticle(Particle.SONIC_BOOM, targetLoc, 50, 4, 3, 4, 0);
-                    world.spawnParticle(Particle.END_ROD, targetLoc, 200, 5, 3, 5, 0.2);
-                    world.spawnParticle(Particle.LAVA, targetLoc, 100, 3, 2, 3, 0.1);
+                    // ВЗРЫВ УРОВНЯ 20 (без разрушения блоков)
+                    world.createExplosion(targetLoc, EXPLOSION_POWER, false, false, player);
 
-                    world.playSound(targetLoc, Sound.ENTITY_GENERIC_EXPLODE, 2.0f, 0.5f);
+                    // Эпичные частицы
+                    world.spawnParticle(Particle.EXPLOSION, targetLoc, 10, 5, 3, 5, 0);
+                    world.spawnParticle(Particle.FLASH, targetLoc, 20, 3, 2, 3, 0);
+                    world.spawnParticle(Particle.SONIC_BOOM, targetLoc, 100, 6, 4, 6, 0);
+                    world.spawnParticle(Particle.END_ROD, targetLoc, 300, 7, 5, 7, 0.2);
+                    world.spawnParticle(Particle.LAVA, targetLoc, 150, 5, 3, 5, 0.1);
 
-                    // УРОН ПО ЗОНАМ
-                    int zone1 = 0;
-                    int zone2 = 0;
+                    world.playSound(targetLoc, Sound.ENTITY_GENERIC_EXPLODE, 3.0f, 0.5f);
 
-                    for (org.bukkit.entity.Entity entity : world.getNearbyEntities(targetLoc, RADIUS_2, RADIUS_2, RADIUS_2)) {
-                        if (entity instanceof LivingEntity && !entity.equals(player)) {
-                            LivingEntity target = (LivingEntity) entity;
-                            double distance = target.getLocation().distance(targetLoc);
-
-                            if (distance <= RADIUS_1) {
-                                // Ближняя зона - 15 сердец
-                                target.damage(DAMAGE_1, player);
-                                zone1++;
-                                if (target instanceof Player) {
-                                    target.sendMessage("§c§lВЫ В ЭПИЦЕНТРЕ! -15 сердец");
-                                }
-                            } else if (distance <= RADIUS_2) {
-                                // Дальняя зона - 5 сердец
-                                target.damage(DAMAGE_2, player);
-                                zone2++;
-                                if (target instanceof Player) {
-                                    target.sendMessage("§cВас задело взрывом! -5 сердец");
-                                }
-                            }
-
-                            // Эффекты на цели
-                            target.getWorld().spawnParticle(Particle.SONIC_BOOM, 
-                                target.getLocation().add(0, 1, 0), 10, 0.5, 0.5, 0.5, 0);
-                        }
-                    }
-
-                    player.sendMessage("§a§lМОЩНЫЙ ВЗРЫВ!");
-                    player.sendMessage("§cБлижняя зона (до 5 блоков): " + zone1 + " целей (-15♥)");
-                    player.sendMessage("§eДальняя зона (5-10 блоков): " + zone2 + " целей (-5♥)");
+                    player.sendMessage("§a§lВЗРЫВ УРОВНЯ 20!");
 
                     charging.remove(player.getUniqueId());
                     cooldowns.put(player.getUniqueId(), now);
                 }
-            }.runTaskLater(MagmaRoarPlugin.getInstance(), 30L);
+            }.runTaskLater(MagmaRoarPlugin.getInstance(), 30L); // 1.5 секунды
 
             event.setCancelled(true);
         }

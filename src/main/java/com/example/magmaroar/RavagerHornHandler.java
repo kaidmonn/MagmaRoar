@@ -28,24 +28,22 @@ import java.util.UUID;
 
 public class RavagerHornHandler implements Listener {
 
-    private final Map<UUID, RavagerInfo> activeRavagers = new HashMap<>();
+    private final Map<UUID, HorseInfo> activeHorses = new HashMap<>();
     private final Map<UUID, Long> cooldowns = new HashMap<>();
     private final Map<UUID, Long> stompCooldowns = new HashMap<>();
     
     private static final long COOLDOWN = 2 * 60 * 1000;
     private static final long STOMP_COOLDOWN = 5 * 1000;
-    private static final int RAVAGER_LIFETIME = 60 * 1000;
+    private static final int HORSE_LIFETIME = 60 * 1000;
     private static final int STOMP_RADIUS = 5;
     private static final double STOMP_DAMAGE = 8.0;
 
-    private static class RavagerInfo {
-        Ravager ravager;
+    private static class HorseInfo {
         Horse horse;
         long spawnTime;
         UUID ownerId;
 
-        RavagerInfo(Ravager ravager, Horse horse, long spawnTime, UUID ownerId) {
-            this.ravager = ravager;
+        HorseInfo(Horse horse, long spawnTime, UUID ownerId) {
             this.horse = horse;
             this.spawnTime = spawnTime;
             this.ownerId = ownerId;
@@ -71,99 +69,75 @@ public class RavagerHornHandler implements Listener {
                 return;
             }
 
-            RavagerInfo oldRavager = activeRavagers.remove(player.getUniqueId());
-            if (oldRavager != null) {
-                if (oldRavager.ravager != null && !oldRavager.ravager.isDead()) oldRavager.ravager.remove();
-                if (oldRavager.horse != null && !oldRavager.horse.isDead()) oldRavager.horse.remove();
+            HorseInfo oldHorse = activeHorses.remove(player.getUniqueId());
+            if (oldHorse != null && oldHorse.horse != null && !oldHorse.horse.isDead()) {
+                oldHorse.horse.remove();
             }
 
             Location spawnLoc = player.getLocation();
             World world = player.getWorld();
 
-            // 1. СОЗДАЁМ НЕВИДИМУЮ ЛОШАДЬ (водитель)
+            // СОЗДАЁМ КОНЯ
             Horse horse = world.spawn(spawnLoc, Horse.class);
-            horse.setAI(false);
-            horse.addPotionEffect(new PotionEffect(PotionEffectType.INVISIBILITY, Integer.MAX_VALUE, 0, false, false)); // Невидимость
-            horse.setInvulnerable(true);
-            horse.setGravity(false);
-            horse.setSilent(true);
-            horse.setCollidable(false);
-            horse.getAttribute(Attribute.MAX_HEALTH).setBaseValue(1);
-            horse.setHealth(1);
             
-            // 2. СОЗДАЁМ ВИДИМОГО РАЗОРИТЕЛЯ (марионетка)
-            Ravager ravager = world.spawn(spawnLoc, Ravager.class);
-            ravager.setAI(false);
-            ravager.setTarget(null);
-            ravager.getAttribute(Attribute.MAX_HEALTH).setBaseValue(200);
-            ravager.setHealth(200);
-            ravager.getAttribute(Attribute.MOVEMENT_SPEED).setBaseValue(0);
-            ravager.setRemoveWhenFarAway(false);
-            ravager.setPersistent(true);
+            // Настраиваем под разорителя
+            horse.setAdult();
+            horse.setTamed(true);
+            horse.setOwner(player);
+            horse.setDomestication(100);
+            horse.getInventory().setSaddle(new ItemStack(Material.SADDLE));
             
-            // 3. САЖАЕМ ЛОШАДЬ НА РАЗОРИТЕЛЯ
-            horse.addPassenger(ravager);
+            // Делаем похожим на разорителя
+            horse.setColor(Horse.Color.DARK_BROWN);
+            horse.setStyle(Horse.Style.NONE);
+            
+            // Характеристики разорителя
+            horse.getAttribute(Attribute.MAX_HEALTH).setBaseValue(200);
+            horse.setHealth(200);
+            horse.getAttribute(Attribute.MOVEMENT_SPEED).setBaseValue(0.4);
+            horse.getAttribute(Attribute.JUMP_STRENGTH).setBaseValue(1.0);
+            
+            // Эффекты
+            horse.addPotionEffect(new PotionEffect(PotionEffectType.SPEED, Integer.MAX_VALUE, 3));
+            horse.addPotionEffect(new PotionEffect(PotionEffectType.RESISTANCE, Integer.MAX_VALUE, 1));
 
-            RavagerInfo info = new RavagerInfo(ravager, horse, now, player.getUniqueId());
-            activeRavagers.put(player.getUniqueId(), info);
+            HorseInfo info = new HorseInfo(horse, now, player.getUniqueId());
+            activeHorses.put(player.getUniqueId(), info);
             cooldowns.put(player.getUniqueId(), now);
 
-            world.playSound(spawnLoc, Sound.ENTITY_RAVAGER_ROAR, 1.0f, 1.0f);
-            player.sendMessage("§cРазоритель призван! Живёт 60 секунд.");
-
-            // Запускаем синхронизацию
-            startSyncTask(player, info);
+            world.playSound(spawnLoc, Sound.ENTITY_HORSE_GALLOP, 1.0f, 1.0f);
+            player.sendMessage("§cБоевой конь призван! Живёт 60 секунд. ПКМ по коню - сесть.");
 
             new BukkitRunnable() {
                 @Override
                 public void run() {
-                    RavagerInfo current = activeRavagers.get(player.getUniqueId());
+                    HorseInfo current = activeHorses.get(player.getUniqueId());
                     if (current != null && current == info) {
-                        if (current.ravager != null && !current.ravager.isDead()) current.ravager.remove();
-                        if (current.horse != null && !current.horse.isDead()) current.horse.remove();
-                        activeRavagers.remove(player.getUniqueId());
-                        player.sendMessage("§cРазоритель исчез.");
+                        if (current.horse != null && !current.horse.isDead()) {
+                            current.horse.remove();
+                        }
+                        activeHorses.remove(player.getUniqueId());
+                        player.sendMessage("§cБоевой конь исчез.");
                     }
                 }
-            }.runTaskLater(MagmaRoarPlugin.getInstance(), RAVAGER_LIFETIME / 50);
+            }.runTaskLater(MagmaRoarPlugin.getInstance(), HORSE_LIFETIME / 50);
 
             event.setCancelled(true);
         }
-    }
-
-    private void startSyncTask(Player player, RavagerInfo info) {
-        new BukkitRunnable() {
-            @Override
-            public void run() {
-                if (info.horse == null || info.horse.isDead() || 
-                    info.ravager == null || info.ravager.isDead()) {
-                    this.cancel();
-                    return;
-                }
-
-                // Синхронизируем позиции
-                info.ravager.teleport(info.horse.getLocation());
-                
-                // Синхронизируем поворот
-                Location loc = info.ravager.getLocation();
-                loc.setYaw(info.horse.getLocation().getYaw());
-                info.ravager.teleport(loc);
-            }
-        }.runTaskTimer(MagmaRoarPlugin.getInstance(), 0L, 1L);
     }
 
     @EventHandler
     public void onPlayerInteractEntity(PlayerInteractEntityEvent event) {
         Player player = event.getPlayer();
         
-        if (event.getRightClicked() instanceof Ravager) {
-            Ravager ravager = (Ravager) event.getRightClicked();
-            RavagerInfo info = findRavager(ravager);
+        if (event.getRightClicked() instanceof Horse) {
+            Horse horse = (Horse) event.getRightClicked();
+            HorseInfo info = findHorse(horse);
             
             if (info != null && info.ownerId.equals(player.getUniqueId())) {
-                if (info.horse != null && !info.horse.isDead() && info.horse.getPassengers().isEmpty()) {
-                    info.horse.addPassenger(player);
-                    player.sendMessage("§cВы сели на разорителя! WASD - движение, Пробел - прыжок, ПКМ - топот");
+                if (horse.getPassengers().isEmpty()) {
+                    horse.addPassenger(player);
+                    player.sendMessage("§cВы сели на коня! WASD - движение, Пробел - прыжок, ПКМ - топот");
                 }
                 event.setCancelled(true);
             }
@@ -176,7 +150,7 @@ public class RavagerHornHandler implements Listener {
         
         if (event.isSneaking() && player.getVehicle() instanceof Horse) {
             player.getVehicle().removePassenger(player);
-            player.sendMessage("§cВы слезли с разорителя");
+            player.sendMessage("§cВы слезли с коня");
         }
     }
 
@@ -186,7 +160,7 @@ public class RavagerHornHandler implements Listener {
         
         if (player.getVehicle() instanceof Horse) {
             Horse horse = (Horse) player.getVehicle();
-            RavagerInfo info = findRavagerByHorse(horse);
+            HorseInfo info = findHorse(horse);
             
             if (info != null && (event.getAction() == Action.RIGHT_CLICK_AIR || 
                 event.getAction() == Action.RIGHT_CLICK_BLOCK)) {
@@ -201,17 +175,16 @@ public class RavagerHornHandler implements Listener {
                     return;
                 }
 
-                Ravager ravager = info.ravager;
-                Location stompLoc = ravager.getLocation();
+                Location stompLoc = horse.getLocation();
                 World world = stompLoc.getWorld();
                 
                 world.playSound(stompLoc, Sound.ENTITY_RAVAGER_STEP, 2.0f, 0.5f);
                 world.spawnParticle(Particle.EXPLOSION, stompLoc, 30, 2, 1, 2, 0);
                 
                 for (Entity e : world.getNearbyEntities(stompLoc, STOMP_RADIUS, STOMP_RADIUS, STOMP_RADIUS)) {
-                    if (e instanceof LivingEntity && !e.equals(player) && !e.equals(ravager)) {
+                    if (e instanceof LivingEntity && !e.equals(player) && !e.equals(horse)) {
                         LivingEntity target = (LivingEntity) e;
-                        target.damage(STOMP_DAMAGE, ravager);
+                        target.damage(STOMP_DAMAGE, horse);
                         target.addPotionEffect(new PotionEffect(PotionEffectType.SLOWNESS, 40, 3));
                     }
                 }
@@ -224,42 +197,18 @@ public class RavagerHornHandler implements Listener {
     }
 
     @EventHandler
-    public void onEntityTarget(EntityTargetEvent event) {
-        if (event.getEntity() instanceof Ravager) {
-            event.setCancelled(true);
-        }
-    }
-
-    @EventHandler
     public void onEntityDamage(EntityDamageEvent event) {
-        if (event.getEntity() instanceof Ravager) {
-            Ravager ravager = (Ravager) event.getEntity();
-            RavagerInfo info = findRavager(ravager);
-            if (info != null) {
-                event.setCancelled(true);
-            }
-        }
-        
         if (event.getEntity() instanceof Horse) {
             Horse horse = (Horse) event.getEntity();
-            RavagerInfo info = findRavagerByHorse(horse);
+            HorseInfo info = findHorse(horse);
             if (info != null) {
                 event.setCancelled(true);
             }
         }
     }
 
-    private RavagerInfo findRavager(Ravager ravager) {
-        for (RavagerInfo info : activeRavagers.values()) {
-            if (info.ravager != null && info.ravager.equals(ravager)) {
-                return info;
-            }
-        }
-        return null;
-    }
-
-    private RavagerInfo findRavagerByHorse(Horse horse) {
-        for (RavagerInfo info : activeRavagers.values()) {
+    private HorseInfo findHorse(Horse horse) {
+        for (HorseInfo info : activeHorses.values()) {
             if (info.horse != null && info.horse.equals(horse)) {
                 return info;
             }

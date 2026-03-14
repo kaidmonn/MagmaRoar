@@ -1,4 +1,4 @@
-package com.example.magmaroar;
+]package com.example.magmaroar;
 
 import org.bukkit.Location;
 import org.bukkit.Material;
@@ -29,12 +29,11 @@ public class HellMeteorHandler implements Listener {
 
     private final Map<UUID, Long> cooldowns = new HashMap<>();
     private final Map<UUID, UUID> meteorOwners = new HashMap<>();
-    private final Set<UUID> charging = new HashSet<>(); // Для защиты от спама
+    private final Set<UUID> charging = new HashSet<>();
     
-    private static final long COOLDOWN = 60 * 1000; // 60 секунд
-    private static final int METEOR_HEIGHT = 20;
+    private static final long COOLDOWN = 60 * 1000;
+    private static final int METEOR_HEIGHT = 25;
     private static final float EXPLOSION_POWER = 10.0f;
-    private static final int METEOR_SCALE = 6;
 
     @EventHandler
     public void onPlayerInteract(PlayerInteractEvent event) {
@@ -45,7 +44,6 @@ public class HellMeteorHandler implements Listener {
 
         if (event.getAction() == Action.RIGHT_CLICK_AIR || event.getAction() == Action.RIGHT_CLICK_BLOCK) {
             
-            // Защита от спама
             if (charging.contains(player.getUniqueId())) {
                 player.sendMessage("§cМетеорит уже падает!");
                 event.setCancelled(true);
@@ -63,6 +61,8 @@ public class HellMeteorHandler implements Listener {
             }
 
             Location targetLoc = player.getTargetBlock(null, 200).getLocation().add(0.5, 1, 0.5);
+            Location spawnLoc = targetLoc.clone().add(0, METEOR_HEIGHT, 0);
+            
             World world = player.getWorld();
             
             // Звук запуска
@@ -71,93 +71,92 @@ public class HellMeteorHandler implements Listener {
             
             charging.add(player.getUniqueId());
 
-            // Запускаем падение
+            // СОЗДАЁМ РЕАЛЬНЫЙ FIREBALL (увеличенный)
+            LargeFireball meteor = world.spawn(spawnLoc, LargeFireball.class);
+            meteor.setVelocity(new Vector(0, -0.8, 0)); // Падает вниз
+            meteor.setYield(0); // Сам не взрывается
+            meteor.setIsIncendiary(false);
+            meteor.setGlowing(true);
+            
+            // Увеличиваем визуально (нельзя реально изменить размер, но можно добавить частицы)
+
             new BukkitRunnable() {
                 int ticks = 0;
                 
                 @Override
                 public void run() {
-                    if (ticks >= 40) { // 2 секунды
+                    if (meteor == null || meteor.isDead() || meteor.isOnGround() || ticks >= 40) {
                         
-                        // ВЗРЫВ (без разрушения блоков)
-                        world.createExplosion(targetLoc, EXPLOSION_POWER, false, true, player);
-                        
-                        // Эффекты взрыва
-                        world.spawnParticle(Particle.EXPLOSION, targetLoc, 30, 3, 3, 3, 0);
-                        world.spawnParticle(Particle.FLASH, targetLoc, 20, 3, 3, 3, 0);
-                        world.spawnParticle(Particle.LAVA, targetLoc, 300, 5, 4, 5, 0.1);
-                        world.spawnParticle(Particle.FLAME, targetLoc, 400, 6, 5, 6, 0.05);
-                        
-                        world.playSound(targetLoc, Sound.ENTITY_GENERIC_EXPLODE, 3.0f, 0.5f);
-                        world.playSound(targetLoc, Sound.ENTITY_WITHER_SPAWN, 2.0f, 0.8f);
-                        
-                        // Поджигаем блоки (только воздух)
-                        for (int x = -3; x <= 3; x++) {
-                            for (int z = -3; z <= 3; z++) {
-                                if (Math.sqrt(x*x + z*z) <= 3.5) {
-                                    Location fireLoc = targetLoc.clone().add(x, 0, z);
-                                    if (fireLoc.getBlock().getType() == Material.AIR) {
-                                        fireLoc.getBlock().setType(Material.FIRE);
+                        if (meteor != null && !meteor.isDead()) {
+                            Location hitLoc = meteor.getLocation();
+                            
+                            // ВЗРЫВ (БЕЗ РАЗРУШЕНИЯ БЛОКОВ)
+                            world.createExplosion(hitLoc, EXPLOSION_POWER, false, true, player);
+                            
+                            // ВИЗУАЛ ВЗРЫВА
+                            world.spawnParticle(Particle.EXPLOSION, hitLoc, 30, 4, 4, 4, 0);
+                            world.spawnParticle(Particle.FLASH, hitLoc, 20, 4, 4, 4, 0);
+                            world.spawnParticle(Particle.LAVA, hitLoc, 300, 5, 4, 5, 0.1);
+                            world.spawnParticle(Particle.FLAME, hitLoc, 400, 6, 5, 6, 0.05);
+                            
+                            world.playSound(hitLoc, Sound.ENTITY_GENERIC_EXPLODE, 3.0f, 0.5f);
+                            world.playSound(hitLoc, Sound.ENTITY_WITHER_SPAWN, 2.0f, 0.8f);
+                            
+                            // ПОДЖИГАЕМ БЛОКИ (5x5)
+                            for (int x = -2; x <= 2; x++) {
+                                for (int z = -2; z <= 2; z++) {
+                                    if (Math.sqrt(x*x + z*z) <= 2.5) {
+                                        Location fireLoc = hitLoc.clone().add(x, 0, z);
+                                        if (fireLoc.getBlock().getType() == Material.AIR) {
+                                            fireLoc.getBlock().setType(Material.FIRE);
+                                        }
                                     }
                                 }
                             }
-                        }
-                        
-                        // СПАВНИМ 4 ВИЗЕР-СКЕЛЕТОВ
-                        for (int i = 0; i < 4; i++) {
-                            Location skeletonLoc = targetLoc.clone().add(
-                                (Math.random() - 0.5) * 4,
-                                0,
-                                (Math.random() - 0.5) * 4
-                            );
                             
-                            WitherSkeleton wither = world.spawn(skeletonLoc, WitherSkeleton.class);
-                            wither.setTarget(null);
-                            wither.getAttribute(org.bukkit.attribute.Attribute.MAX_HEALTH).setBaseValue(30);
-                            wither.setHealth(30);
-                            wither.addPotionEffect(new PotionEffect(PotionEffectType.FIRE_RESISTANCE, Integer.MAX_VALUE, 0));
+                            // СПАВНИМ 4 ВИЗЕР-СКЕЛЕТОВ
+                            for (int i = 0; i < 4; i++) {
+                                Location skeletonLoc = hitLoc.clone().add(
+                                    (Math.random() - 0.5) * 4,
+                                    0,
+                                    (Math.random() - 0.5) * 4
+                                );
+                                
+                                WitherSkeleton wither = world.spawn(skeletonLoc, WitherSkeleton.class);
+                                wither.setTarget(null);
+                                wither.getAttribute(org.bukkit.attribute.Attribute.MAX_HEALTH).setBaseValue(30);
+                                wither.setHealth(30);
+                                wither.addPotionEffect(new PotionEffect(PotionEffectType.FIRE_RESISTANCE, Integer.MAX_VALUE, 0));
+                                
+                                meteorOwners.put(wither.getUniqueId(), player.getUniqueId());
+                            }
                             
-                            meteorOwners.put(wither.getUniqueId(), player.getUniqueId());
+                            meteor.remove();
                         }
                         
                         cooldowns.put(player.getUniqueId(), now);
                         charging.remove(player.getUniqueId());
-                        
                         this.cancel();
                         return;
                     }
                     
-                    // ВИЗУАЛ МЕТЕОРИТА (огненный шар x6)
-                    double progress = (double) ticks / 40.0;
-                    double height = METEOR_HEIGHT * (1 - progress);
-                    
-                    // Основная позиция метеорита
-                    Location meteorLoc = targetLoc.clone().add(0, height, 0);
-                    
-                    // ОГНЕННЫЙ ШАР (визуально увеличенный)
-                    for (int i = 0; i < 20; i++) {
-                        double offsetX = (Math.random() - 0.5) * METEOR_SCALE;
-                        double offsetY = (Math.random() - 0.5) * METEOR_SCALE;
-                        double offsetZ = (Math.random() - 0.5) * METEOR_SCALE;
+                    // ДОБАВЛЯЕМ ЧАСТИЦЫ ДЛЯ УВЕЛИЧЕНИЯ
+                    for (int i = 0; i < 15; i++) {
+                        double offsetX = (Math.random() - 0.5) * 3;
+                        double offsetY = (Math.random() - 0.5) * 3;
+                        double offsetZ = (Math.random() - 0.5) * 3;
                         
-                        Location particleLoc = meteorLoc.clone().add(offsetX, offsetY, offsetZ);
+                        Location particleLoc = meteor.getLocation().clone().add(offsetX, offsetY, offsetZ);
                         world.spawnParticle(Particle.FLAME, particleLoc, 1, 0, 0, 0, 0);
                         world.spawnParticle(Particle.LAVA, particleLoc, 1, 0, 0, 0, 0);
                     }
                     
-                    // ХВОСТ МЕТЕОРИТА
-                    for (int i = 0; i < 10; i++) {
-                        double trailOffset = i * 0.5;
-                        Location trailLoc = meteorLoc.clone().subtract(0, trailOffset, 0);
-                        
-                        world.spawnParticle(Particle.FLAME, trailLoc, 5, 1, 1, 1, 0.02);
-                        world.spawnParticle(Particle.LAVA, trailLoc, 3, 0.8, 0.8, 0.8, 0.01);
-                        world.spawnParticle(Particle.CAMPFIRE_SIGNAL_SMOKE, trailLoc, 10, 1.5, 1.5, 1.5, 0.01);
-                    }
-                    
-                    // Звук падения
-                    if (ticks % 10 == 0) {
-                        world.playSound(meteorLoc, Sound.ENTITY_GHAST_SHOOT, 1.0f, 0.8f);
+                    // ХВОСТ
+                    for (int i = 0; i < 8; i++) {
+                        Location trailLoc = meteor.getLocation().clone().subtract(0, i * 0.7, 0);
+                        world.spawnParticle(Particle.FLAME, trailLoc, 5, 0.8, 0.8, 0.8, 0.02);
+                        world.spawnParticle(Particle.LAVA, trailLoc, 3, 0.6, 0.6, 0.6, 0.01);
+                        world.spawnParticle(Particle.CAMPFIRE_SIGNAL_SMOKE, trailLoc, 8, 1.2, 1.2, 1.2, 0.01);
                     }
                     
                     ticks++;

@@ -5,6 +5,7 @@ import org.bukkit.Material;
 import org.bukkit.Particle;
 import org.bukkit.Sound;
 import org.bukkit.World;
+import org.bukkit.entity.Entity; // ← ДОБАВЛЕН ЭТОТ ИМПОРТ
 import org.bukkit.entity.LivingEntity;
 import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;
@@ -236,4 +237,4 @@ public class LaserHandler implements Listener {
         return meta != null && meta.displayName() != null &&
                meta.displayName().toString().contains("Лазер");
     }
-} 
+}

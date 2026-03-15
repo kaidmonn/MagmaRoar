@@ -12,7 +12,6 @@ import org.bukkit.event.Listener;
 import org.bukkit.event.block.Action;
 import org.bukkit.event.entity.EntityDamageByEntityEvent;
 import org.bukkit.event.entity.EntityDamageEvent;
-import org.bukkit.event.entity.ProjectileHitEvent;
 import org.bukkit.event.player.PlayerInteractEvent;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.inventory.meta.ItemMeta;
@@ -25,52 +24,37 @@ import java.util.*;
 
 public class LudoSwordHandler implements Listener {
 
-    private final Map<UUID, LudoMode> activeModes = new HashMap<>();
-    private final Map<UUID, Long> globalCooldowns = new HashMap<>();
     private final Map<UUID, LudoStats> stats = new HashMap<>();
+    private final Map<UUID, Long> globalCooldowns = new HashMap<>();
     private final Random random = new Random();
     
-    private static final long GLOBAL_COOLDOWN = 1000; // 1 секунда между активациями
+    private static final long GLOBAL_COOLDOWN = 1000;
     
-    // Способности
     private enum LudoMode {
         NONE,
-        FROST,          // Морозный меч
-        SHADOW,         // Теневой меч
-        SPIDER,         // Паучий клинок
-        MJOLNIR,        // Мьёльнир
-        DEATH_SCYTHE,   // Коса смерти
-        STORM,          // Клинок бури
-        REAPER,         // Коса жнеца
-        DRAGON,         // Катана дракона
-        EXCALIBUR,      // Экскалибур
-        LIGHT_MACE,     // Легкая булава
-        JACKPOT         // Джекпот
+        FROST, SHADOW, SPIDER, MJOLNIR, DEATH_SCYTHE,
+        STORM, REAPER, DRAGON, EXCALIBUR, LIGHT_MACE, JACKPOT
     }
     
     private static class LudoStats {
         LudoMode currentMode = LudoMode.NONE;
         long modeEndTime = 0;
-        int hitsLeft = 0; // Для способностей с ограничением по ударам
-        Map<UUID, Long> abilityCooldowns = new HashMap<>();
-        Map<UUID, Integer> frostHits = new HashMap<>(); // Для Морозного меча
-        boolean isInvulnerable = false; // Для Экскалибура и Джекпота
+        int hitsLeft = 0;
+        Map<LudoMode, Long> abilityCooldowns = new HashMap<>();
+        Map<UUID, Integer> frostHits = new HashMap<>();
+        boolean isInvulnerable = false;
     }
     
-    // Длительности и кулдауны (в секундах)
     private static final Map<LudoMode, Integer> DURATIONS = new HashMap<>();
     private static final Map<LudoMode, Integer> COOLDOWNS = new HashMap<>();
+    
     static {
-        // Длительности
         DURATIONS.put(LudoMode.FROST, 20);
         DURATIONS.put(LudoMode.SHADOW, 20);
         DURATIONS.put(LudoMode.SPIDER, 15);
         DURATIONS.put(LudoMode.MJOLNIR, 15);
-        DURATIONS.put(LudoMode.STORM, 0); // По ударам
-        DURATIONS.put(LudoMode.LIGHT_MACE, 0); // По ударам
         DURATIONS.put(LudoMode.JACKPOT, 40);
         
-        // Кулдауны после окончания
         COOLDOWNS.put(LudoMode.FROST, 45);
         COOLDOWNS.put(LudoMode.SHADOW, 40);
         COOLDOWNS.put(LudoMode.SPIDER, 30);
@@ -96,23 +80,19 @@ public class LudoSwordHandler implements Listener {
             long now = System.currentTimeMillis();
             LudoStats playerStats = stats.computeIfAbsent(player.getUniqueId(), k -> new LudoStats());
             
-            // Проверяем, не активен ли уже режим
             if (playerStats.currentMode != LudoMode.NONE) {
                 player.sendMessage("§cЛудо-меч уже активен!");
                 event.setCancelled(true);
                 return;
             }
             
-            // Проверяем глобальный кулдаун
             Long lastGlobal = globalCooldowns.get(player.getUniqueId());
             if (lastGlobal != null && now - lastGlobal < GLOBAL_COOLDOWN) {
                 event.setCancelled(true);
                 return;
             }
 
-            // Запускаем рулетку
             startRoulette(player);
-            
             event.setCancelled(true);
         }
     }
@@ -125,12 +105,8 @@ public class LudoSwordHandler implements Listener {
             
             @Override
             public void run() {
-                if (ticks >= 20) { // 1 секунда
-                    
-                    // Выбираем способность
+                if (ticks >= 20) {
                     LudoMode selected = selectRandomMode();
-                    
-                    // Сообщение
                     String modeName = getModeName(selected);
                     player.sendMessage("§6§lВЫПАЛО: " + modeName + "§6§l!");
                     
@@ -138,14 +114,11 @@ public class LudoSwordHandler implements Listener {
                         player.sendMessage("§d§lДЖЕКПОТ! ПОЛНАЯ НЕУЯЗВИМОСТЬ НА 40 СЕКУНД!");
                     }
                     
-                    // Активируем способность
                     activateMode(player, selected);
-                    
                     this.cancel();
                     return;
                 }
                 
-                // Эффект рулетки (быстрая смена сообщений)
                 if (ticks % 4 == 0) {
                     String randomName = getRandomModeName();
                     player.sendMessage("§8> " + randomName);
@@ -159,10 +132,9 @@ public class LudoSwordHandler implements Listener {
     private LudoMode selectRandomMode() {
         double r = random.nextDouble() * 100;
         
-        if (r < 5) { // 5% джекпот
+        if (r < 5) {
             return LudoMode.JACKPOT;
         } else {
-            // 9.5% на каждую из 10 способностей
             int index = (int) ((r - 5) / 9.5);
             LudoMode[] modes = {
                 LudoMode.FROST, LudoMode.SHADOW, LudoMode.SPIDER, LudoMode.MJOLNIR,
@@ -243,7 +215,6 @@ public class LudoSwordHandler implements Listener {
                 break;
                 
             case DRAGON:
-                // Телепортация сразу
                 Location targetLoc = player.getTargetBlock(null, 15).getLocation().add(0.5, 1, 0.5);
                 player.teleport(targetLoc);
                 player.getWorld().playSound(player.getLocation(), Sound.ENTITY_ENDERMAN_TELEPORT, 1.0f, 1.0f);
@@ -275,8 +246,7 @@ public class LudoSwordHandler implements Listener {
                 break;
         }
         
-        // Запускаем таймер окончания для режимов с длительностью
-        if (DURATIONS.getOrDefault(mode, 0) > 0) {
+        if (DURATIONS.getOrDefault(mode, 0) > 0 && mode != LudoMode.DRAGON) {
             startModeTimer(player, mode);
         }
     }
@@ -296,12 +266,12 @@ public class LudoSwordHandler implements Listener {
     private void startCooldown(Player player, LudoMode mode) {
         int cooldown = COOLDOWNS.get(mode);
         LudoStats playerStats = stats.get(player.getUniqueId());
-        playerStats.abilityCooldowns.put(player.getUniqueId(), System.currentTimeMillis() + cooldown * 1000);
+        playerStats.abilityCooldowns.put(mode, System.currentTimeMillis() + cooldown * 1000);
         
         new BukkitRunnable() {
             @Override
             public void run() {
-                playerStats.abilityCooldowns.remove(player.getUniqueId());
+                playerStats.abilityCooldowns.remove(mode);
                 player.sendMessage("§a" + getModeName(mode) + " снова доступен!");
             }
         }.runTaskLater(MagmaRoarPlugin.getInstance(), cooldown * 20L);
@@ -316,7 +286,6 @@ public class LudoSwordHandler implements Listener {
         playerStats.hitsLeft = 0;
         playerStats.isInvulnerable = false;
         
-        // Снимаем эффекты
         player.removePotionEffect(PotionEffectType.INVISIBILITY);
         player.removePotionEffect(PotionEffectType.SPEED);
         player.removePotionEffect(PotionEffectType.WEAVING);
@@ -342,7 +311,7 @@ public class LudoSwordHandler implements Listener {
                                     webLoc.getBlock().setType(Material.AIR);
                                 }
                             }
-                        }.runTaskLater(MagmaRoarPlugin.getInstance(), 300L); // 15 секунд
+                        }.runTaskLater(MagmaRoarPlugin.getInstance(), 300L);
                     }
                 }
             }
@@ -509,7 +478,18 @@ public class LudoSwordHandler implements Listener {
 
     private void stealEffects(LivingEntity from, Player to) {
         for (PotionEffect effect : from.getActivePotionEffects()) {
-            if (effect.getType().getEffectCategory() == PotionEffectType.EffectCategory.BENEFICIAL) {
+            // Проверяем, является ли эффект положительным
+            // Временное решение - копируем все эффекты, кроме отрицательных
+            if (effect.getType() != PotionEffectType.POISON && 
+                effect.getType() != PotionEffectType.WITHER && 
+                effect.getType() != PotionEffectType.WEAKNESS && 
+                effect.getType() != PotionEffectType.SLOWNESS && 
+                effect.getType() != PotionEffectType.MINING_FATIGUE && 
+                effect.getType() != PotionEffectType.INSTANT_DAMAGE && 
+                effect.getType() != PotionEffectType.HARM && 
+                effect.getType() != PotionEffectType.UNLUCK && 
+                effect.getType() != PotionEffectType.BAD_OMEN) {
+                
                 to.addPotionEffect(new PotionEffect(effect));
                 from.removePotionEffect(effect.getType());
             }

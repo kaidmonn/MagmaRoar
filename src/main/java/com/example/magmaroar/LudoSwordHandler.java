@@ -5,8 +5,8 @@ import org.bukkit.Material;
 import org.bukkit.Particle;
 import org.bukkit.Sound;
 import org.bukkit.World;
-import org.bukkit.attribute.Attribute;
-import org.bukkit.entity.*;
+import org.bukkit.entity.LivingEntity;
+import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.Listener;
 import org.bukkit.event.block.Action;
@@ -28,7 +28,7 @@ public class LudoSwordHandler implements Listener {
     private final Map<UUID, Long> globalCooldowns = new HashMap<>();
     private final Random random = new Random();
     
-    private static final long GLOBAL_COOLDOWN = 2000; // 2 секунды
+    private static final long GLOBAL_COOLDOWN = 2000;
     
     private enum LudoMode {
         NONE,
@@ -41,12 +41,14 @@ public class LudoSwordHandler implements Listener {
         long modeEndTime = 0;
         int hitsLeft = 0;
         Map<LudoMode, Long> abilityCooldowns = new HashMap<>();
-        Map<UUID, Integer> frostHits = new HashMap<>();
+        int frostHits = 0; // Для Морозного меча
         boolean isInvulnerable = false;
+        ItemStack originalItem = null; // Сохраняем оригинальный предмет
     }
     
     private static final Map<LudoMode, Integer> DURATIONS = new HashMap<>();
     private static final Map<LudoMode, Integer> COOLDOWNS = new HashMap<>();
+    private static final Map<LudoMode, Material> MODE_MATERIALS = new HashMap<>();
     private static final Map<LudoMode, Sound> MODE_SOUNDS = new HashMap<>();
     private static final Map<LudoMode, Float> SOUND_PITCHES = new HashMap<>();
     
@@ -68,6 +70,19 @@ public class LudoSwordHandler implements Listener {
         COOLDOWNS.put(LudoMode.EXCALIBUR, 50);
         COOLDOWNS.put(LudoMode.LIGHT_MACE, 45);
         COOLDOWNS.put(LudoMode.JACKPOT, 60);
+        
+        // Материалы для превращения
+        MODE_MATERIALS.put(LudoMode.FROST, Material.NETHERITE_SWORD); // Морозный меч
+        MODE_MATERIALS.put(LudoMode.SHADOW, Material.NETHERITE_SWORD); // Теневой меч
+        MODE_MATERIALS.put(LudoMode.SPIDER, Material.NETHERITE_SWORD); // Паучий клинок
+        MODE_MATERIALS.put(LudoMode.MJOLNIR, Material.IRON_AXE); // Мьёльнир
+        MODE_MATERIALS.put(LudoMode.DEATH_SCYTHE, Material.NETHERITE_HOE); // Коса смерти
+        MODE_MATERIALS.put(LudoMode.STORM, Material.NETHERITE_SWORD); // Клинок бури
+        MODE_MATERIALS.put(LudoMode.REAPER, Material.NETHERITE_HOE); // Коса жнеца
+        MODE_MATERIALS.put(LudoMode.DRAGON, Material.NETHERITE_SWORD); // Катана дракона
+        MODE_MATERIALS.put(LudoMode.EXCALIBUR, Material.NETHERITE_SWORD); // Экскалибур
+        MODE_MATERIALS.put(LudoMode.LIGHT_MACE, Material.MACE); // Легкая булава
+        MODE_MATERIALS.put(LudoMode.JACKPOT, Material.NETHERITE_SWORD); // Джекпот
         
         MODE_SOUNDS.put(LudoMode.FROST, Sound.BLOCK_GLASS_BREAK);
         SOUND_PITCHES.put(LudoMode.FROST, 1.5f);
@@ -142,6 +157,9 @@ public class LudoSwordHandler implements Listener {
                 return;
             }
             
+            // Сохраняем оригинальный предмет
+            playerStats.originalItem = item.clone();
+            
             Long lastGlobal = globalCooldowns.get(player.getUniqueId());
             if (lastGlobal != null && now - lastGlobal < GLOBAL_COOLDOWN) {
                 event.setCancelled(true);
@@ -174,12 +192,7 @@ public class LudoSwordHandler implements Listener {
                     player.sendMessage("§6§l═══════════════════════");
                     
                     if (selected == LudoMode.JACKPOT) {
-                        player.sendMessage("§d§l░█████╗░░█████╗░███████╗██╗░░██╗██████╗░░█████╗░████████╗");
-                        player.sendMessage("§d§l██╔══██╗██╔══██╗██╔════╝██║░██╔╝██╔══██╗██╔══██╗╚══██╔══╝");
-                        player.sendMessage("§d§l██║░░╚═╝██║░░██║█████╗░░█████═╝░██████╔╝██║░░██║░░░██║░░░");
-                        player.sendMessage("§d§l██║░░██╗██║░░██║██╔══╝░░██╔═██╗░██╔═══╝░██║░░██║░░░██║░░░");
-                        player.sendMessage("§d§l╚█████╔╝╚█████╔╝██║░░░░░██║░╚██╗██║░░░░░╚█████╔╝░░░██║░░░");
-                        player.sendMessage("§d§l░╚════╝░░╚════╝░╚═╝░░░░░╚═╝░░╚═╝╚═╝░░░░░░╚════╝░░░░╚═╝░░░");
+                        sendJackpotArt(player);
                     }
                     
                     activateMode(player, selected);
@@ -202,6 +215,15 @@ public class LudoSwordHandler implements Listener {
                 ticks++;
             }
         }.runTaskTimer(MagmaRoarPlugin.getInstance(), 0L, 1L);
+    }
+
+    private void sendJackpotArt(Player player) {
+        player.sendMessage("§d§l░█████╗░░█████╗░███████╗██╗░░██╗██████╗░░█████╗░████████╗");
+        player.sendMessage("§d§l██╔══██╗██╔══██╗██╔════╝██║░██╔╝██╔══██╗██╔══██╗╚══██╔══╝");
+        player.sendMessage("§d§l██║░░╚═╝██║░░██║█████╗░░█████═╝░██████╔╝██║░░██║░░░██║░░░");
+        player.sendMessage("§d§l██║░░██╗██║░░██║██╔══╝░░██╔═██╗░██╔═══╝░██║░░██║░░░██║░░░");
+        player.sendMessage("§d§l╚█████╔╝╚█████╔╝██║░░░░░██║░╚██╗██║░░░░░╚█████╔╝░░░██║░░░");
+        player.sendMessage("§d§l░╚════╝░░╚════╝░╚═╝░░░░░╚═╝░░╚═╝╚═╝░░░░░░╚════╝░░░░╚═╝░░░");
     }
 
     private void playModeSound(Player player, LudoMode mode, boolean final_) {
@@ -261,13 +283,29 @@ public class LudoSwordHandler implements Listener {
         LudoStats playerStats = stats.get(player.getUniqueId());
         playerStats.currentMode = mode;
         
+        // ПРЕВРАЩАЕМ ПРЕДМЕТ
+        ItemStack handItem = player.getInventory().getItemInMainHand();
+        if (isLudoSword(handItem)) {
+            Material newMaterial = MODE_MATERIALS.get(mode);
+            if (newMaterial != null) {
+                handItem.setType(newMaterial);
+                
+                // Обновляем название и лор
+                ItemMeta meta = handItem.getItemMeta();
+                if (meta != null) {
+                    meta.displayName(org.bukkit.ChatColor.translateAlternateColorCodes('&', getModeName(mode)));
+                    handItem.setItemMeta(meta);
+                }
+            }
+        }
+        
         long now = System.currentTimeMillis();
         
         switch (mode) {
             case FROST:
                 playerStats.modeEndTime = now + DURATIONS.get(mode) * 1000;
-                playerStats.frostHits.put(player.getUniqueId(), 0);
-                player.sendMessage("§bМорозный меч: замедление + заморозка (20 сек)");
+                playerStats.frostHits = 0;
+                player.sendMessage("§bМорозный меч: замедление при ударе, заморозка после 8 ударов (20 сек)");
                 break;
                 
             case SHADOW:
@@ -301,15 +339,14 @@ public class LudoSwordHandler implements Listener {
                 
             case REAPER:
                 playerStats.hitsLeft = 1;
-                player.sendMessage("§5Коса жнеца: следующий удар крадёт все эффекты");
+                player.sendMessage("§5Коса жнеца: следующий удар крадёт ВСЕ эффекты");
                 break;
                 
             case DRAGON:
                 Location targetLoc = player.getTargetBlock(null, 15).getLocation().add(0.5, 1, 0.5);
                 player.teleport(targetLoc);
                 player.sendMessage("§dКатана дракона: телепортация!");
-                playerStats.currentMode = LudoMode.NONE;
-                startCooldown(player, mode);
+                endMode(player);
                 return;
                 
             case EXCALIBUR:
@@ -391,10 +428,16 @@ public class LudoSwordHandler implements Listener {
         LudoStats playerStats = stats.get(player.getUniqueId());
         if (playerStats == null || playerStats.currentMode == LudoMode.NONE) return;
         
+        // ВОЗВРАЩАЕМ ОРИГИНАЛЬНЫЙ ПРЕДМЕТ
+        if (playerStats.originalItem != null) {
+            player.getInventory().setItemInMainHand(playerStats.originalItem);
+        }
+        
         LudoMode mode = playerStats.currentMode;
         playerStats.currentMode = LudoMode.NONE;
         playerStats.hitsLeft = 0;
         playerStats.isInvulnerable = false;
+        playerStats.frostHits = 0;
         
         player.removePotionEffect(PotionEffectType.INVISIBILITY);
         player.removePotionEffect(PotionEffectType.SPEED);
@@ -475,14 +518,16 @@ public class LudoSwordHandler implements Listener {
         
         switch (playerStats.currentMode) {
             case FROST:
-                int hits = playerStats.frostHits.getOrDefault(player.getUniqueId(), 0) + 1;
-                playerStats.frostHits.put(player.getUniqueId(), hits);
-                
+                // Замедление при каждом ударе
                 target.addPotionEffect(new PotionEffect(PotionEffectType.SLOWNESS, 60, 0));
                 
-                if (hits >= 15) {
+                // Счётчик для заморозки
+                playerStats.frostHits++;
+                player.sendMessage("§bУдаров до заморозки: " + playerStats.frostHits + "/8");
+                
+                if (playerStats.frostHits >= 8) {
                     freezeTarget(target);
-                    playerStats.frostHits.remove(player.getUniqueId());
+                    playerStats.frostHits = 0;
                     player.sendMessage("§bЦель заморожена!");
                 }
                 break;
@@ -504,11 +549,16 @@ public class LudoSwordHandler implements Listener {
                 
             case DEATH_SCYTHE:
                 if (playerStats.hitsLeft > 0) {
-                    double newHealth = Math.min(player.getHealth() + 10, player.getAttribute(Attribute.MAX_HEALTH).getValue());
+                    // ОДИН удар - ОДНО сообщение
+                    double playerHealth = player.getHealth();
+                    double maxHealth = player.getAttribute(org.bukkit.attribute.Attribute.MAX_HEALTH).getValue();
+                    double newHealth = Math.min(playerHealth + 10, maxHealth);
                     player.setHealth(newHealth);
+                    
                     target.damage(10.0, player);
+                    
                     playerStats.hitsLeft = 0;
-                    player.sendMessage("§cКоса смерти вытянула жизнь!");
+                    player.sendMessage("§cКоса смерти вытянула жизнь! +5♥");
                     endMode(player);
                 }
                 break;
@@ -530,7 +580,7 @@ public class LudoSwordHandler implements Listener {
                 
             case REAPER:
                 if (playerStats.hitsLeft > 0) {
-                    // Кража эффектов (как в Косе жнеца)
+                    // Кража ВСЕХ положительных эффектов
                     for (PotionEffect effect : target.getActivePotionEffects()) {
                         PotionEffectType type = effect.getType();
                         
@@ -547,7 +597,7 @@ public class LudoSwordHandler implements Listener {
                     }
                     
                     playerStats.hitsLeft = 0;
-                    player.sendMessage("§5Эффекты украдены!");
+                    player.sendMessage("§5Все положительные эффекты украдены!");
                     endMode(player);
                 }
                 break;

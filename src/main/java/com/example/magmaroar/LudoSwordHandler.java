@@ -20,6 +20,9 @@ import org.bukkit.potion.PotionEffectType;
 import org.bukkit.scheduler.BukkitRunnable;
 import org.bukkit.util.Vector;
 
+import net.kyori.adventure.text.Component;
+import net.kyori.adventure.text.format.TextColor;
+
 import java.util.*;
 
 public class LudoSwordHandler implements Listener {
@@ -29,6 +32,7 @@ public class LudoSwordHandler implements Listener {
     private final Random random = new Random();
     
     private static final long GLOBAL_COOLDOWN = 2000;
+    private static final long ROULETTE_LOCK = 2000; // Блокировка на время рулетки
     
     private enum LudoMode {
         NONE,
@@ -41,9 +45,10 @@ public class LudoSwordHandler implements Listener {
         long modeEndTime = 0;
         int hitsLeft = 0;
         Map<LudoMode, Long> abilityCooldowns = new HashMap<>();
-        int frostHits = 0; // Для Морозного меча
+        int frostHits = 0;
         boolean isInvulnerable = false;
-        ItemStack originalItem = null; // Сохраняем оригинальный предмет
+        ItemStack originalItem = null;
+        boolean isRolling = false; // Защита от спама
     }
     
     private static final Map<LudoMode, Integer> DURATIONS = new HashMap<>();
@@ -51,6 +56,7 @@ public class LudoSwordHandler implements Listener {
     private static final Map<LudoMode, Material> MODE_MATERIALS = new HashMap<>();
     private static final Map<LudoMode, Sound> MODE_SOUNDS = new HashMap<>();
     private static final Map<LudoMode, Float> SOUND_PITCHES = new HashMap<>();
+    private static final Map<LudoMode, String> MODE_NAMES = new HashMap<>();
     
     static {
         DURATIONS.put(LudoMode.FROST, 20);
@@ -71,18 +77,29 @@ public class LudoSwordHandler implements Listener {
         COOLDOWNS.put(LudoMode.LIGHT_MACE, 45);
         COOLDOWNS.put(LudoMode.JACKPOT, 60);
         
-        // Материалы для превращения
-        MODE_MATERIALS.put(LudoMode.FROST, Material.NETHERITE_SWORD); // Морозный меч
-        MODE_MATERIALS.put(LudoMode.SHADOW, Material.NETHERITE_SWORD); // Теневой меч
-        MODE_MATERIALS.put(LudoMode.SPIDER, Material.NETHERITE_SWORD); // Паучий клинок
-        MODE_MATERIALS.put(LudoMode.MJOLNIR, Material.IRON_AXE); // Мьёльнир
-        MODE_MATERIALS.put(LudoMode.DEATH_SCYTHE, Material.NETHERITE_HOE); // Коса смерти
-        MODE_MATERIALS.put(LudoMode.STORM, Material.NETHERITE_SWORD); // Клинок бури
-        MODE_MATERIALS.put(LudoMode.REAPER, Material.NETHERITE_HOE); // Коса жнеца
-        MODE_MATERIALS.put(LudoMode.DRAGON, Material.NETHERITE_SWORD); // Катана дракона
-        MODE_MATERIALS.put(LudoMode.EXCALIBUR, Material.NETHERITE_SWORD); // Экскалибур
-        MODE_MATERIALS.put(LudoMode.LIGHT_MACE, Material.MACE); // Легкая булава
-        MODE_MATERIALS.put(LudoMode.JACKPOT, Material.NETHERITE_SWORD); // Джекпот
+        MODE_NAMES.put(LudoMode.FROST, "§b❄️ Морозный меч");
+        MODE_NAMES.put(LudoMode.SHADOW, "§8🌑 Теневой меч");
+        MODE_NAMES.put(LudoMode.SPIDER, "§2🕷️ Паучий клинок");
+        MODE_NAMES.put(LudoMode.MJOLNIR, "§e⚡ Мьёльнир");
+        MODE_NAMES.put(LudoMode.DEATH_SCYTHE, "§c💀 Коса смерти");
+        MODE_NAMES.put(LudoMode.STORM, "§9🌪️ Клинок бури");
+        MODE_NAMES.put(LudoMode.REAPER, "§5💀 Коса жнеца");
+        MODE_NAMES.put(LudoMode.DRAGON, "§d🐉 Катана дракона");
+        MODE_NAMES.put(LudoMode.EXCALIBUR, "§6⚔️ Экскалибур");
+        MODE_NAMES.put(LudoMode.LIGHT_MACE, "§f🏏 Легкая булава");
+        MODE_NAMES.put(LudoMode.JACKPOT, "§d§l💰 ДЖЕКПОТ");
+        
+        MODE_MATERIALS.put(LudoMode.FROST, Material.NETHERITE_SWORD);
+        MODE_MATERIALS.put(LudoMode.SHADOW, Material.NETHERITE_SWORD);
+        MODE_MATERIALS.put(LudoMode.SPIDER, Material.NETHERITE_SWORD);
+        MODE_MATERIALS.put(LudoMode.MJOLNIR, Material.IRON_AXE);
+        MODE_MATERIALS.put(LudoMode.DEATH_SCYTHE, Material.NETHERITE_HOE);
+        MODE_MATERIALS.put(LudoMode.STORM, Material.NETHERITE_SWORD);
+        MODE_MATERIALS.put(LudoMode.REAPER, Material.NETHERITE_HOE);
+        MODE_MATERIALS.put(LudoMode.DRAGON, Material.NETHERITE_SWORD);
+        MODE_MATERIALS.put(LudoMode.EXCALIBUR, Material.NETHERITE_SWORD);
+        MODE_MATERIALS.put(LudoMode.LIGHT_MACE, Material.MACE);
+        MODE_MATERIALS.put(LudoMode.JACKPOT, Material.NETHERITE_SWORD);
         
         MODE_SOUNDS.put(LudoMode.FROST, Sound.BLOCK_GLASS_BREAK);
         SOUND_PITCHES.put(LudoMode.FROST, 1.5f);
@@ -151,6 +168,13 @@ public class LudoSwordHandler implements Listener {
             long now = System.currentTimeMillis();
             LudoStats playerStats = stats.computeIfAbsent(player.getUniqueId(), k -> new LudoStats());
             
+            // Защита от спама во время рулетки
+            if (playerStats.isRolling) {
+                player.sendMessage("§cРулетка уже крутится!");
+                event.setCancelled(true);
+                return;
+            }
+            
             if (playerStats.currentMode != LudoMode.NONE) {
                 player.sendMessage("§cЛудо-меч уже активен!");
                 event.setCancelled(true);
@@ -166,6 +190,7 @@ public class LudoSwordHandler implements Listener {
                 return;
             }
 
+            playerStats.isRolling = true;
             startRoulette(player);
             event.setCancelled(true);
         }
@@ -183,10 +208,15 @@ public class LudoSwordHandler implements Listener {
             public void run() {
                 if (ticks >= 40) {
                     
+                    LudoStats playerStats = stats.get(player.getUniqueId());
+                    if (playerStats != null) {
+                        playerStats.isRolling = false;
+                    }
+                    
                     LudoMode selected = selectRandomMode();
                     playModeSound(player, selected, true);
                     
-                    String modeName = getModeName(selected);
+                    String modeName = MODE_NAMES.get(selected);
                     player.sendMessage("§6§l═══════════════════════");
                     player.sendMessage("§6§l  ВЫПАЛО: " + modeName);
                     player.sendMessage("§6§l═══════════════════════");
@@ -215,6 +245,17 @@ public class LudoSwordHandler implements Listener {
                 ticks++;
             }
         }.runTaskTimer(MagmaRoarPlugin.getInstance(), 0L, 1L);
+        
+        // Автосброс если что-то пошло не так
+        new BukkitRunnable() {
+            @Override
+            public void run() {
+                LudoStats playerStats = stats.get(player.getUniqueId());
+                if (playerStats != null && playerStats.isRolling) {
+                    playerStats.isRolling = false;
+                }
+            }
+        }.runTaskLater(MagmaRoarPlugin.getInstance(), 50L);
     }
 
     private void sendJackpotArt(Player player) {
@@ -258,20 +299,7 @@ public class LudoSwordHandler implements Listener {
     }
 
     private String getModeName(LudoMode mode) {
-        switch (mode) {
-            case FROST: return "§b❄️ Морозный меч";
-            case SHADOW: return "§8🌑 Теневой меч";
-            case SPIDER: return "§2🕷️ Паучий клинок";
-            case MJOLNIR: return "§e⚡ Мьёльнир";
-            case DEATH_SCYTHE: return "§c💀 Коса смерти";
-            case STORM: return "§9🌪️ Клинок бури";
-            case REAPER: return "§5💀 Коса жнеца";
-            case DRAGON: return "§d🐉 Катана дракона";
-            case EXCALIBUR: return "§6⚔️ Экскалибур";
-            case LIGHT_MACE: return "§f🏏 Легкая булава";
-            case JACKPOT: return "§d§l💰 ДЖЕКПОТ";
-            default: return "Неизвестно";
-        }
+        return MODE_NAMES.get(mode);
     }
 
     private String getRandomModeName() {
@@ -290,10 +318,10 @@ public class LudoSwordHandler implements Listener {
             if (newMaterial != null) {
                 handItem.setType(newMaterial);
                 
-                // Обновляем название и лор
+                // Обновляем название (используем Component)
                 ItemMeta meta = handItem.getItemMeta();
                 if (meta != null) {
-                    meta.displayName(org.bukkit.ChatColor.translateAlternateColorCodes('&', getModeName(mode)));
+                    meta.displayName(Component.text(getModeName(mode).replace('§', '&')));
                     handItem.setItemMeta(meta);
                 }
             }
@@ -419,7 +447,7 @@ public class LudoSwordHandler implements Listener {
             @Override
             public void run() {
                 playerStats.abilityCooldowns.remove(mode);
-                player.sendMessage("§a" + getModeName(mode) + " снова доступен!");
+                player.sendMessage("§a" + MODE_NAMES.get(mode) + " снова доступен!");
             }
         }.runTaskLater(MagmaRoarPlugin.getInstance(), cooldown * 20L);
     }
@@ -443,7 +471,7 @@ public class LudoSwordHandler implements Listener {
         player.removePotionEffect(PotionEffectType.SPEED);
         player.removePotionEffect(PotionEffectType.WEAVING);
         
-        player.sendMessage("§cЭффект " + getModeName(mode) + " закончился.");
+        player.sendMessage("§cЭффект " + MODE_NAMES.get(mode) + " закончился.");
         
         startCooldown(player, mode);
     }
@@ -518,10 +546,8 @@ public class LudoSwordHandler implements Listener {
         
         switch (playerStats.currentMode) {
             case FROST:
-                // Замедление при каждом ударе
                 target.addPotionEffect(new PotionEffect(PotionEffectType.SLOWNESS, 60, 0));
                 
-                // Счётчик для заморозки
                 playerStats.frostHits++;
                 player.sendMessage("§bУдаров до заморозки: " + playerStats.frostHits + "/8");
                 
@@ -549,7 +575,6 @@ public class LudoSwordHandler implements Listener {
                 
             case DEATH_SCYTHE:
                 if (playerStats.hitsLeft > 0) {
-                    // ОДИН удар - ОДНО сообщение
                     double playerHealth = player.getHealth();
                     double maxHealth = player.getAttribute(org.bukkit.attribute.Attribute.MAX_HEALTH).getValue();
                     double newHealth = Math.min(playerHealth + 10, maxHealth);
@@ -580,7 +605,6 @@ public class LudoSwordHandler implements Listener {
                 
             case REAPER:
                 if (playerStats.hitsLeft > 0) {
-                    // Кража ВСЕХ положительных эффектов
                     for (PotionEffect effect : target.getActivePotionEffects()) {
                         PotionEffectType type = effect.getType();
                         

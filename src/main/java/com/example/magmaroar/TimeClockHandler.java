@@ -26,7 +26,7 @@ public class TimeClockHandler implements Listener {
     private final Map<UUID, Long> cooldowns = new HashMap<>();
     private final Map<UUID, BubbleInfo> activeBubbles = new HashMap<>();
     private final Map<UUID, List<FrozenProjectile>> frozenProjectiles = new HashMap<>();
-    private final Map<UUID, Long> frozenEntities = new HashMap<>(); // Для отслеживания замороженных
+    private final Set<UUID> frozenEntities = new HashSet<>(); // Просто Set, без лишнего
     
     private static final long COOLDOWN = 90 * 1000;
     private static final int BUBBLE_DURATION = 7 * 20;
@@ -49,9 +49,10 @@ public class TimeClockHandler implements Listener {
         Location center;
         BukkitRunnable visualTask;
         BukkitRunnable projectileTask;
-        BukkitRunnable checkTask; // Новый таск для проверки входящих
+        BukkitRunnable checkTask;
         UUID ownerId;
         long endTime;
+        boolean isActive;
 
         BubbleInfo(Location center, BukkitRunnable visualTask, BukkitRunnable projectileTask, BukkitRunnable checkTask, UUID ownerId, long endTime) {
             this.center = center;
@@ -60,6 +61,7 @@ public class TimeClockHandler implements Listener {
             this.checkTask = checkTask;
             this.ownerId = ownerId;
             this.endTime = endTime;
+            this.isActive = true;
         }
     }
 
@@ -105,13 +107,52 @@ public class TimeClockHandler implements Listener {
             BukkitRunnable visualTask = drawBubbleOutline(center, world);
             
             // Сохраняем информацию о пузыре
-            activeBubbles.put(player.getUniqueId(), new BubbleInfo(
+            BubbleInfo bubbleInfo = new BubbleInfo(
                 center, visualTask, projectileTask, checkTask, player.getUniqueId(), 
                 System.currentTimeMillis() + (BUBBLE_DURATION * 50L)
-            ));
+            );
+            activeBubbles.put(player.getUniqueId(), bubbleInfo);
+            
+            // Таймер на удаление пузыря
+            new BukkitRunnable() {
+                @Override
+                public void run() {
+                    removeBubble(player.getUniqueId());
+                }
+            }.runTaskLater(MagmaRoarPlugin.getInstance(), BUBBLE_DURATION);
             
             cooldowns.put(player.getUniqueId(), now);
             event.setCancelled(true);
+        }
+    }
+
+    private void removeBubble(UUID ownerId) {
+        BubbleInfo bubble = activeBubbles.remove(ownerId);
+        if (bubble == null) return;
+        
+        // Останавливаем все таски
+        bubble.isActive = false;
+        if (bubble.visualTask != null) bubble.visualTask.cancel();
+        if (bubble.projectileTask != null) bubble.projectileTask.cancel();
+        if (bubble.checkTask != null) bubble.checkTask.cancel();
+        
+        // Размораживаем всех замороженных существ
+        for (UUID entityId : new HashSet<>(frozenEntities)) {
+            Entity e = findEntity(entityId);
+            if (e != null) {
+                unfreezeEntity(e);
+            }
+        }
+        frozenEntities.clear();
+        
+        // Размораживаем снаряды
+        List<FrozenProjectile> projectiles = frozenProjectiles.remove(ownerId);
+        if (projectiles != null) {
+            for (FrozenProjectile fp : projectiles) {
+                if (!fp.projectile.isDead()) {
+                    fp.projectile.setVelocity(fp.originalVelocity);
+                }
+            }
         }
     }
 
@@ -134,55 +175,7 @@ public class TimeClockHandler implements Listener {
         }
     }
 
-    private BukkitRunnable startEntityChecker(Location center, Player owner) {
-        BukkitRunnable task = new BukkitRunnable() {
-            int ticks = 0;
-            
-            @Override
-            public void run() {
-                if (ticks >= BUBBLE_DURATION) {
-                    // Размораживаем всех
-                    for (UUID id : frozenEntities.keySet()) {
-                        Entity e = findEntity(id);
-                        if (e instanceof Player) {
-                            Player p = (Player) e;
-                            p.setFreezeTicks(0);
-                            p.sendMessage("§aВременной пузырь исчез, вы снова можете двигаться!");
-                        } else if (e instanceof Mob) {
-                            Mob m = (Mob) e;
-                            m.setAI(true);
-                        }
-                    }
-                    frozenEntities.clear();
-                    this.cancel();
-                    return;
-                }
-                
-                // Проверяем новых существ, вошедших в пузырь
-                for (Entity e : center.getWorld().getEntities()) {
-                    if (e instanceof LivingEntity && !e.equals(owner) && isInBubble(e.getLocation(), center)) {
-                        LivingEntity le = (LivingEntity) e;
-                        
-                        // Если ещё не заморожен
-                        if (!frozenEntities.containsKey(e.getUniqueId())) {
-                            freezeEntity(le);
-                            
-                            if (e instanceof Player) {
-                                ((Player) e).sendMessage("§cВы вошли во временной пузырь! Всё замерло...");
-                            }
-                        }
-                    }
-                }
-                
-                ticks++;
-            }
-        };
-        
-        task.runTaskTimer(MagmaRoarPlugin.getInstance(), 0L, 5L); // Проверка каждые 5 тиков
-        return task;
-    }
-
-    private void freezeEntity(LivingEntity entity) {
+    private void freezeEntity(Entity entity) {
         if (entity instanceof Player) {
             Player p = (Player) entity;
             p.setFreezeTicks(FREEZE_TICKS);
@@ -197,7 +190,58 @@ public class TimeClockHandler implements Listener {
             }
         }
         
-        frozenEntities.put(entity.getUniqueId(), System.currentTimeMillis());
+        frozenEntities.add(entity.getUniqueId());
+    }
+
+    private void unfreezeEntity(Entity entity) {
+        if (entity == null || entity.isDead()) return;
+        
+        if (entity instanceof Player) {
+            Player p = (Player) entity;
+            p.setFreezeTicks(0);
+            p.setWalkSpeed(0.2f); // Стандартная скорость
+            p.setFlySpeed(0.1f); // Стандартная скорость полёта
+            p.setAllowFlight(false);
+            p.setFlying(false);
+            p.sendMessage("§aВременной пузырь исчез, вы снова можете двигаться!");
+        } else if (entity instanceof Mob) {
+            Mob m = (Mob) entity;
+            m.setAI(true);
+        }
+        
+        frozenEntities.remove(entity.getUniqueId());
+    }
+
+    private BukkitRunnable startEntityChecker(Location center, Player owner) {
+        BukkitRunnable task = new BukkitRunnable() {
+            @Override
+            public void run() {
+                BubbleInfo bubble = activeBubbles.get(owner.getUniqueId());
+                if (bubble == null || !bubble.isActive) {
+                    this.cancel();
+                    return;
+                }
+                
+                // Проверяем новых существ, вошедших в пузырь
+                for (Entity e : center.getWorld().getEntities()) {
+                    if (e instanceof LivingEntity && !e.equals(owner) && isInBubble(e.getLocation(), center)) {
+                        LivingEntity le = (LivingEntity) e;
+                        
+                        // Если ещё не заморожен
+                        if (!frozenEntities.contains(e.getUniqueId())) {
+                            freezeEntity(le);
+                            
+                            if (e instanceof Player) {
+                                ((Player) e).sendMessage("§cВы вошли во временной пузырь! Всё замерло...");
+                            }
+                        }
+                    }
+                }
+            }
+        };
+        
+        task.runTaskTimer(MagmaRoarPlugin.getInstance(), 0L, 5L);
+        return task;
     }
 
     @EventHandler
@@ -205,34 +249,32 @@ public class TimeClockHandler implements Listener {
         Player player = event.getPlayer();
         
         // Если игрок заморожен, отменяем движение
-        if (frozenEntities.containsKey(player.getUniqueId())) {
+        if (frozenEntities.contains(player.getUniqueId())) {
             event.setCancelled(true);
         }
     }
 
     private boolean isInBubble(Location loc, Location center) {
-        double dx = Math.abs(loc.getX() - center.getX());
-        double dy = Math.abs(loc.getY() - center.getY());
-        double dz = Math.abs(loc.getZ() - center.getZ());
-        
-        return dx <= BUBBLE_SIZE/2 && dy <= BUBBLE_SIZE/2 && dz <= BUBBLE_SIZE/2;
+        for (BubbleInfo bubble : activeBubbles.values()) {
+            if (!bubble.isActive) continue;
+            
+            double dx = Math.abs(loc.getX() - bubble.center.getX());
+            double dy = Math.abs(loc.getY() - bubble.center.getY());
+            double dz = Math.abs(loc.getZ() - bubble.center.getZ());
+            
+            if (dx <= BUBBLE_SIZE/2 && dy <= BUBBLE_SIZE/2 && dz <= BUBBLE_SIZE/2) {
+                return true;
+            }
+        }
+        return false;
     }
 
     private BukkitRunnable startProjectileChecker(Player player, Location center, List<FrozenProjectile> projectilesInBubble) {
         BukkitRunnable task = new BukkitRunnable() {
-            int ticks = 0;
-            
             @Override
             public void run() {
-                if (ticks >= BUBBLE_DURATION) {
-                    // Размораживаем снаряды
-                    for (FrozenProjectile fp : projectilesInBubble) {
-                        if (!fp.projectile.isDead()) {
-                            fp.projectile.setVelocity(fp.originalVelocity);
-                        }
-                    }
-                    projectilesInBubble.clear();
-                    frozenProjectiles.remove(player.getUniqueId());
+                BubbleInfo bubble = activeBubbles.get(player.getUniqueId());
+                if (bubble == null || !bubble.isActive) {
                     this.cancel();
                     return;
                 }
@@ -256,8 +298,6 @@ public class TimeClockHandler implements Listener {
                         }
                     }
                 }
-                
-                ticks++;
             }
         };
         
@@ -269,11 +309,14 @@ public class TimeClockHandler implements Listener {
         double half = BUBBLE_SIZE / 2.0;
         
         BukkitRunnable task = new BukkitRunnable() {
-            int ticks = 0;
-            
             @Override
             public void run() {
-                if (ticks >= BUBBLE_DURATION) {
+                BubbleInfo bubble = activeBubbles.values().stream()
+                    .filter(b -> b.center.equals(center))
+                    .findFirst()
+                    .orElse(null);
+                    
+                if (bubble == null || !bubble.isActive) {
                     this.cancel();
                     return;
                 }
@@ -297,8 +340,6 @@ public class TimeClockHandler implements Listener {
                 drawLine(center.clone().add(half, -half, -half), center.clone().add(half, half, -half), world, yellowDust);
                 drawLine(center.clone().add(half, -half, half), center.clone().add(half, half, half), world, yellowDust);
                 drawLine(center.clone().add(-half, -half, half), center.clone().add(-half, half, half), world, yellowDust);
-                
-                ticks++;
             }
         };
         
@@ -331,7 +372,7 @@ public class TimeClockHandler implements Listener {
                 }
                 
                 for (BubbleInfo bubble : activeBubbles.values()) {
-                    if (isInBubble(p.getLocation(), bubble.center)) {
+                    if (bubble.isActive && isInBubble(p.getLocation(), bubble.center)) {
                         Vector vel = p.getVelocity().clone();
                         p.setVelocity(new Vector(0, 0, 0));
                         
@@ -363,12 +404,10 @@ public class TimeClockHandler implements Listener {
         ItemStack item = event.getItem();
         
         if (item != null && item.getType() == Material.ENDER_PEARL) {
-            for (BubbleInfo bubble : activeBubbles.values()) {
-                if (isInBubble(player.getLocation(), bubble.center)) {
-                    player.sendMessage("§cЭндер-жемчуг не работает во временном пузыре!");
-                    event.setCancelled(true);
-                    return;
-                }
+            if (isInBubble(player.getLocation(), null)) {
+                player.sendMessage("§cЭндер-жемчуг не работает во временном пузыре!");
+                event.setCancelled(true);
+                return;
             }
         }
     }

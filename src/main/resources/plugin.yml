@@ -1,5 +1,5 @@
 name: MagmaRoar
-version: 8.0
+version: 9.0
 main: com.example.magmaroar.MagmaRoarPlugin
 api-version: 1.21
 commands:
@@ -75,3 +75,6 @@ commands:
   ludo:
     description: Дает Лудо-меч
     usage: /ludo
+  timeclock:
+    description: Дает Часы времени
+    usage: /timeclock

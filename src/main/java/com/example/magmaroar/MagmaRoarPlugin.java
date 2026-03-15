@@ -31,7 +31,8 @@ public class MagmaRoarPlugin extends JavaPlugin {
         getServer().getPluginManager().registerEvents(new LaserHandler(), this);
         getServer().getPluginManager().registerEvents(new StormBladeHandler(), this);
         getServer().getPluginManager().registerEvents(new ExcaliburHandler(), this);
-        getServer().getPluginManager().registerEvents(new LudoSwordHandler(), this); // Лудо-меч
+        getServer().getPluginManager().registerEvents(new KatanaHandler(), this); // Катана дракона
+        getServer().getPluginManager().registerEvents(new ReaperScytheHandler(), this); // Коса жнеца
         
         // Команда для Рога Магмы
         getCommand("roar").setExecutor((sender, command, label, args) -> {
@@ -200,15 +201,23 @@ public class MagmaRoarPlugin extends JavaPlugin {
             return true;
         });
         
-        // Команда для Лудо-меча
-        getCommand("ludo").setExecutor((sender, command, label, args) -> {
+        // Команда для Катаны дракона
+        getCommand("katana").setExecutor((sender, command, label, args) -> {
             if (sender instanceof org.bukkit.entity.Player) {
-                ((org.bukkit.entity.Player) sender).getInventory().addItem(LudoSwordItem.createSword());
+                ((org.bukkit.entity.Player) sender).getInventory().addItem(KatanaItem.createKatana());
             }
             return true;
         });
         
-        getLogger().info("§aMagmaRoarPlugin включён! Загружено 25 предметов");
+        // Команда для Косы жнеца
+        getCommand("reaper").setExecutor((sender, command, label, args) -> {
+            if (sender instanceof org.bukkit.entity.Player) {
+                ((org.bukkit.entity.Player) sender).getInventory().addItem(ReaperScytheItem.createScythe());
+            }
+            return true;
+        });
+        
+        getLogger().info("§aMagmaRoarPlugin включён! Загружено 24 предмета (без Лудо-меча)");
     }
 
     public static MagmaRoarPlugin getInstance() {

@@ -66,6 +66,9 @@ commands:
   excalibur:
     description: Дает Экскалибур
     usage: /excalibur
-  ludo:
-    description: Дает Лудо-меч
-    usage: /ludo
+  katana:
+    description: Дает Катану дракона
+    usage: /katana
+  reaper:
+    description: Дает Косу жнеца
+    usage: /reaper

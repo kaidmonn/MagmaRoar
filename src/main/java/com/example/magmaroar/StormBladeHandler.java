@@ -27,12 +27,12 @@ public class StormBladeHandler implements Listener {
     private final Random random = new Random();
     
     private static final long ABILITY_COOLDOWN = 30 * 1000; // 30 секунд
-    private static final long PASSIVE_COOLDOWN = 100; // Минимальная задержка между пассивками
     private static final double PASSIVE_CHANCE = 0.15; // 15% шанс
     private static final double WEAPON_DAMAGE = 14.0;
     private static final float EXPLOSION_POWER = 4.0f;
-    private static final int LAUNCH_HEIGHT = 8;
-    private static final double PROJECTILE_SPREAD = 0.1; // Минимальный разброс
+    private static final double LAUNCH_VELOCITY = 1.5; // Как у легкой булавы (20 блоков)
+    private static final double PROJECTILE_SPREAD = 0.05; // Очень маленький разброс
+    private static final int PROJECTILE_COUNT = 7; // 7 молний
 
     @EventHandler
     public void onEntityDamage(EntityDamageByEntityEvent event) {
@@ -46,63 +46,35 @@ public class StormBladeHandler implements Listener {
         // Устанавливаем урон 14
         event.setDamage(WEAPON_DAMAGE);
 
-        // Проверяем, не в активном режиме ли (чтобы не спамить пассивки)
-        if (isActive.getOrDefault(player.getUniqueId(), false)) return;
-
         // Проверяем пассивный шанс
-        long now = System.currentTimeMillis();
-        Long lastPassive = passiveCooldowns.get(player.getUniqueId());
-        
-        if (random.nextDouble() < PASSIVE_CHANCE && 
-            (lastPassive == null || now - lastPassive > PASSIVE_COOLDOWN)) {
+        if (random.nextDouble() < PASSIVE_CHANCE) {
             
             if (event.getEntity() instanceof LivingEntity) {
                 LivingEntity target = (LivingEntity) event.getEntity();
                 activatePassive(player, target);
-                passiveCooldowns.put(player.getUniqueId(), now);
             }
         }
     }
 
     private void activatePassive(Player player, LivingEntity target) {
         World world = target.getWorld();
+        
+        // ПОДБРОС КАК У ЛЕГКОЙ БУЛАВЫ
+        Vector currentVel = target.getVelocity();
+        target.setVelocity(currentVel.add(new Vector(0, LAUNCH_VELOCITY, 0)));
+        
+        player.sendMessage("§b§lШТОРМ! Цель подброшена на 8 блоков!");
+        
+        // Молния бьёт сразу (не ждём падения)
         Location targetLoc = target.getLocation();
+        world.strikeLightningEffect(targetLoc);
+        world.playSound(targetLoc, Sound.ENTITY_LIGHTNING_BOLT_THUNDER, 1.0f, 1.0f);
         
-        // Подбрасываем на 8 блоков
-        Vector velocity = target.getVelocity();
-        velocity.setY(LAUNCH_HEIGHT * 0.4);
-        target.setVelocity(velocity);
+        // Урон от молнии (2.5 сердца)
+        target.damage(5.0, player);
         
-        player.sendMessage("§b§lШТОРМ! Цель подброшена!");
-        
-        // Запускаем таймер на молнию в момент падения
-        new BukkitRunnable() {
-            int ticks = 0;
-            
-            @Override
-            public void run() {
-                if (target == null || target.isDead() || target.isOnGround() || ticks > 60) {
-                    
-                    if (target != null && !target.isDead()) {
-                        // Молния в момент падения
-                        Location strikeLoc = target.getLocation();
-                        world.strikeLightningEffect(strikeLoc);
-                        world.playSound(strikeLoc, Sound.ENTITY_LIGHTNING_BOLT_THUNDER, 1.0f, 1.0f);
-                        
-                        // Урон от молнии (2.5 сердца)
-                        target.damage(5.0, player);
-                        
-                        // Визуальные эффекты
-                        world.spawnParticle(Particle.ELECTRIC_SPARK, strikeLoc.add(0, 1, 0), 30, 0.5, 1, 0.5, 0.1);
-                        
-                        player.sendMessage("§bМолния поражает цель!");
-                    }
-                    
-                    this.cancel();
-                }
-                ticks++;
-            }
-        }.runTaskTimer(MagmaRoarPlugin.getInstance(), 20L, 1L); // Проверяем каждую секунду
+        // Визуальные эффекты
+        world.spawnParticle(Particle.ELECTRIC_SPARK, targetLoc.add(0, 1, 0), 30, 0.5, 1, 0.5, 0.1);
     }
 
     @EventHandler
@@ -136,15 +108,15 @@ public class StormBladeHandler implements Listener {
             Vector direction = player.getLocation().getDirection().normalize();
             World world = player.getWorld();
 
-            player.sendMessage("§b§lКЛИНОК БУРИ! 10 молний! (кулдаун 30 сек)");
+            player.sendMessage("§b§lКЛИНОК БУРИ! 7 молний! (кулдаун 30 сек)");
             isActive.put(player.getUniqueId(), true);
             
             // Звук начала
             world.playSound(player.getLocation(), Sound.ENTITY_LIGHTNING_BOLT_THUNDER, 2.0f, 0.8f);
 
-            // Запускаем 10 молний-снарядов
-            for (int i = 0; i < 10; i++) {
-                // Небольшой разброс для каждой молнии (0.1 блока)
+            // Запускаем 7 молний-снарядов с минимальным разбросом
+            for (int i = 0; i < PROJECTILE_COUNT; i++) {
+                // Очень маленький разброс (0.05)
                 double spreadX = (Math.random() - 0.5) * PROJECTILE_SPREAD * 2;
                 double spreadY = (Math.random() - 0.5) * PROJECTILE_SPREAD * 2;
                 double spreadZ = (Math.random() - 0.5) * PROJECTILE_SPREAD * 2;
@@ -157,7 +129,7 @@ public class StormBladeHandler implements Listener {
                 projectile.setGlowing(true);
                 projectile.setShooter(player);
                 
-                // Сохраняем, что это наш снаряд (можно через метадату)
+                // Сохраняем, что это наш снаряд
                 projectile.setCustomName("§bМолния");
             }
             

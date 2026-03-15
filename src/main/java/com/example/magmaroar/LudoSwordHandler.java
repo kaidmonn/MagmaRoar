@@ -28,7 +28,7 @@ public class LudoSwordHandler implements Listener {
     private final Map<UUID, Long> globalCooldowns = new HashMap<>();
     private final Random random = new Random();
     
-    private static final long GLOBAL_COOLDOWN = 2000; // 2 секунды на рулетку
+    private static final long GLOBAL_COOLDOWN = 2000; // 2 секунды
     
     private enum LudoMode {
         NONE,
@@ -51,14 +51,12 @@ public class LudoSwordHandler implements Listener {
     private static final Map<LudoMode, Float> SOUND_PITCHES = new HashMap<>();
     
     static {
-        // Длительности
         DURATIONS.put(LudoMode.FROST, 20);
         DURATIONS.put(LudoMode.SHADOW, 20);
         DURATIONS.put(LudoMode.SPIDER, 15);
         DURATIONS.put(LudoMode.MJOLNIR, 15);
         DURATIONS.put(LudoMode.JACKPOT, 40);
         
-        // Кулдауны
         COOLDOWNS.put(LudoMode.FROST, 45);
         COOLDOWNS.put(LudoMode.SHADOW, 40);
         COOLDOWNS.put(LudoMode.SPIDER, 30);
@@ -71,7 +69,6 @@ public class LudoSwordHandler implements Listener {
         COOLDOWNS.put(LudoMode.LIGHT_MACE, 45);
         COOLDOWNS.put(LudoMode.JACKPOT, 60);
         
-        // Звуки для каждой способности
         MODE_SOUNDS.put(LudoMode.FROST, Sound.BLOCK_GLASS_BREAK);
         SOUND_PITCHES.put(LudoMode.FROST, 1.5f);
         
@@ -106,6 +103,27 @@ public class LudoSwordHandler implements Listener {
         SOUND_PITCHES.put(LudoMode.JACKPOT, 1.0f);
     }
 
+    private boolean isBeneficial(PotionEffectType type) {
+        return type == PotionEffectType.SPEED ||
+               type == PotionEffectType.HASTE ||
+               type == PotionEffectType.STRENGTH ||
+               type == PotionEffectType.JUMP_BOOST ||
+               type == PotionEffectType.REGENERATION ||
+               type == PotionEffectType.RESISTANCE ||
+               type == PotionEffectType.FIRE_RESISTANCE ||
+               type == PotionEffectType.WATER_BREATHING ||
+               type == PotionEffectType.INVISIBILITY ||
+               type == PotionEffectType.NIGHT_VISION ||
+               type == PotionEffectType.HEALTH_BOOST ||
+               type == PotionEffectType.ABSORPTION ||
+               type == PotionEffectType.SATURATION ||
+               type == PotionEffectType.LUCK ||
+               type == PotionEffectType.SLOW_FALLING ||
+               type == PotionEffectType.CONDUIT_POWER ||
+               type == PotionEffectType.DOLPHINS_GRACE ||
+               type == PotionEffectType.HERO_OF_THE_VILLAGE;
+    }
+
     @EventHandler
     public void onPlayerInteract(PlayerInteractEvent event) {
         Player player = event.getPlayer();
@@ -137,8 +155,6 @@ public class LudoSwordHandler implements Listener {
 
     private void startRoulette(Player player) {
         player.sendMessage("§6§l🔄 ЛУДО-МЕЧ: КРУТИТСЯ РУЛЕТКА...");
-        
-        // Звук рулетки
         player.getWorld().playSound(player.getLocation(), Sound.BLOCK_NOTE_BLOCK_BIT, 1.0f, 1.0f);
         
         new BukkitRunnable() {
@@ -147,11 +163,9 @@ public class LudoSwordHandler implements Listener {
             
             @Override
             public void run() {
-                if (ticks >= 40) { // 2 секунды
+                if (ticks >= 40) {
                     
                     LudoMode selected = selectRandomMode();
-                    
-                    // Финальный звук
                     playModeSound(player, selected, true);
                     
                     String modeName = getModeName(selected);
@@ -173,14 +187,12 @@ public class LudoSwordHandler implements Listener {
                     return;
                 }
                 
-                // Каждые 2 тика меняем название
                 if (ticks % 2 == 0) {
                     String randomName = getRandomModeName();
                     if (!randomName.equals(lastMessage)) {
                         player.sendMessage("§8> " + randomName);
                         lastMessage = randomName;
                         
-                        // Звук рулетки
                         if (ticks % 8 == 0) {
                             player.getWorld().playSound(player.getLocation(), Sound.BLOCK_NOTE_BLOCK_HAT, 0.5f, 1.5f);
                         }
@@ -198,7 +210,6 @@ public class LudoSwordHandler implements Listener {
         
         if (sound != null) {
             if (mode == LudoMode.JACKPOT) {
-                // Джекпот - каскад звуков
                 player.getWorld().playSound(player.getLocation(), Sound.UI_TOAST_CHALLENGE_COMPLETE, 2.0f, 1.0f);
                 player.getWorld().playSound(player.getLocation(), Sound.ENTITY_FIREWORK_ROCKET_TWINKLE, 2.0f, 1.2f);
                 player.getWorld().playSound(player.getLocation(), Sound.ENTITY_PLAYER_LEVELUP, 2.0f, 1.5f);
@@ -340,7 +351,6 @@ public class LudoSwordHandler implements Listener {
                     return;
                 }
                 
-                // Каждые 2 секунды проигрываем звук джекпота
                 if (ticks % 40 == 0) {
                     player.getWorld().playSound(player.getLocation(), Sound.UI_TOAST_CHALLENGE_COMPLETE, 1.5f, 1.0f);
                     player.getWorld().playSound(player.getLocation(), Sound.ENTITY_FIREWORK_ROCKET_TWINKLE, 1.5f, 1.2f);
@@ -520,13 +530,22 @@ public class LudoSwordHandler implements Listener {
                 
             case REAPER:
                 if (playerStats.hitsLeft > 0) {
-                    // Кража эффектов (упрощенная версия)
+                    // Кража эффектов (как в Косе жнеца)
                     for (PotionEffect effect : target.getActivePotionEffects()) {
-                        if (isBeneficial(effect.getType())) {
-                            player.addPotionEffect(new PotionEffect(effect));
-                            target.removePotionEffect(effect.getType());
+                        PotionEffectType type = effect.getType();
+                        
+                        if (isBeneficial(type)) {
+                            player.addPotionEffect(new PotionEffect(type, 
+                                effect.getDuration(), 
+                                effect.getAmplifier(), 
+                                effect.isAmbient(), 
+                                effect.hasParticles(), 
+                                effect.hasIcon()));
+                            
+                            target.removePotionEffect(type);
                         }
                     }
+                    
                     playerStats.hitsLeft = 0;
                     player.sendMessage("§5Эффекты украдены!");
                     endMode(player);
@@ -580,27 +599,6 @@ public class LudoSwordHandler implements Listener {
                 target.setFreezeTicks(0);
             }
         }.runTaskLater(MagmaRoarPlugin.getInstance(), 80L);
-    }
-
-    private boolean isBeneficial(PotionEffectType type) {
-        return type == PotionEffectType.SPEED ||
-               type == PotionEffectType.HASTE ||
-               type == PotionEffectType.STRENGTH ||
-               type == PotionEffectType.JUMP_BOOST ||
-               type == PotionEffectType.REGENERATION ||
-               type == PotionEffectType.RESISTANCE ||
-               type == PotionEffectType.FIRE_RESISTANCE ||
-               type == PotionEffectType.WATER_BREATHING ||
-               type == PotionEffectType.INVISIBILITY ||
-               type == PotionEffectType.NIGHT_VISION ||
-               type == PotionEffectType.HEALTH_BOOST ||
-               type == PotionEffectType.ABSORPTION ||
-               type == PotionEffectType.SATURATION ||
-               type == PotionEffectType.LUCK ||
-               type == PotionEffectType.SLOW_FALLING ||
-               type == PotionEffectType.CONDUIT_POWER ||
-               type == PotionEffectType.DOLPHINS_GRACE ||
-               type == PotionEffectType.HERO_OF_THE_VILLAGE;
     }
 
     private boolean isLudoSword(ItemStack item) {

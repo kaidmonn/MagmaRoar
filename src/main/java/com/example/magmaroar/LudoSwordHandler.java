@@ -5,23 +5,14 @@ import org.bukkit.Material;
 import org.bukkit.Particle;
 import org.bukkit.Sound;
 import org.bukkit.World;
-import org.bukkit.attribute.Attribute;
-import org.bukkit.entity.LivingEntity;
 import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.Listener;
 import org.bukkit.event.block.Action;
-import org.bukkit.event.entity.EntityDamageByEntityEvent;
-import org.bukkit.event.entity.EntityDamageEvent;
 import org.bukkit.event.player.PlayerInteractEvent;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.inventory.meta.ItemMeta;
-import org.bukkit.potion.PotionEffect;
-import org.bukkit.potion.PotionEffectType;
 import org.bukkit.scheduler.BukkitRunnable;
-import org.bukkit.util.Vector;
-
-import net.kyori.adventure.text.Component;
 
 import java.util.*;
 
@@ -30,47 +21,26 @@ public class LudoSwordHandler implements Listener {
     private final Map<UUID, LudoStats> stats = new HashMap<>();
     private final Random random = new Random();
     
+    private static final int ITEM_DURATION = 30; // 30 секунд предмет
+    private static final int COOLDOWN_DURATION = 35; // 35 секунд кулдаун
+    
     private enum LudoMode {
-        NONE, FROST, SHADOW, SPIDER, MJOLNIR, DEATH_SCYTHE,
+        FROST, SHADOW, SPIDER, MJOLNIR, DEATH_SCYTHE,
         STORM, REAPER, DRAGON, EXCALIBUR, LIGHT_MACE, JACKPOT
     }
     
     private static class LudoStats {
-        LudoMode currentMode = LudoMode.NONE;
+        LudoMode currentMode = null;
         long modeEndTime = 0;
-        int hitsLeft = 0;
-        int frostHits = 0;
-        boolean isInvulnerable = false;
+        long cooldownEndTime = 0;
         boolean isRolling = false;
-        int slot = -1;
         ItemStack originalItem = null;
+        int slot = -1;
     }
     
-    private static final Map<LudoMode, Integer> DURATIONS = new HashMap<>();
-    private static final Map<LudoMode, Integer> COOLDOWNS = new HashMap<>();
-    private static final Map<LudoMode, Material> MODE_MATERIALS = new HashMap<>();
     private static final Map<LudoMode, String> MODE_NAMES = new HashMap<>();
     
     static {
-        DURATIONS.put(LudoMode.FROST, 20);
-        DURATIONS.put(LudoMode.SHADOW, 20);
-        DURATIONS.put(LudoMode.SPIDER, 15);
-        DURATIONS.put(LudoMode.MJOLNIR, 15);
-        DURATIONS.put(LudoMode.STORM, 15);
-        DURATIONS.put(LudoMode.JACKPOT, 40);
-        
-        COOLDOWNS.put(LudoMode.FROST, 45);
-        COOLDOWNS.put(LudoMode.SHADOW, 40);
-        COOLDOWNS.put(LudoMode.SPIDER, 30);
-        COOLDOWNS.put(LudoMode.MJOLNIR, 40);
-        COOLDOWNS.put(LudoMode.DEATH_SCYTHE, 40);
-        COOLDOWNS.put(LudoMode.STORM, 45);
-        COOLDOWNS.put(LudoMode.REAPER, 40);
-        COOLDOWNS.put(LudoMode.DRAGON, 20);
-        COOLDOWNS.put(LudoMode.EXCALIBUR, 50);
-        COOLDOWNS.put(LudoMode.LIGHT_MACE, 45);
-        COOLDOWNS.put(LudoMode.JACKPOT, 60);
-        
         MODE_NAMES.put(LudoMode.FROST, "§bМорозный меч");
         MODE_NAMES.put(LudoMode.SHADOW, "§8Теневой меч");
         MODE_NAMES.put(LudoMode.SPIDER, "§2Паучий клинок");
@@ -82,18 +52,6 @@ public class LudoSwordHandler implements Listener {
         MODE_NAMES.put(LudoMode.EXCALIBUR, "§6Экскалибур");
         MODE_NAMES.put(LudoMode.LIGHT_MACE, "§fЛегкая булава");
         MODE_NAMES.put(LudoMode.JACKPOT, "§d§lДЖЕКПОТ");
-        
-        MODE_MATERIALS.put(LudoMode.FROST, Material.NETHERITE_SWORD);
-        MODE_MATERIALS.put(LudoMode.SHADOW, Material.NETHERITE_SWORD);
-        MODE_MATERIALS.put(LudoMode.SPIDER, Material.NETHERITE_SWORD);
-        MODE_MATERIALS.put(LudoMode.MJOLNIR, Material.IRON_AXE);
-        MODE_MATERIALS.put(LudoMode.DEATH_SCYTHE, Material.NETHERITE_HOE);
-        MODE_MATERIALS.put(LudoMode.STORM, Material.NETHERITE_SWORD);
-        MODE_MATERIALS.put(LudoMode.REAPER, Material.NETHERITE_HOE);
-        MODE_MATERIALS.put(LudoMode.DRAGON, Material.NETHERITE_SWORD);
-        MODE_MATERIALS.put(LudoMode.EXCALIBUR, Material.NETHERITE_SWORD);
-        MODE_MATERIALS.put(LudoMode.LIGHT_MACE, Material.MACE);
-        MODE_MATERIALS.put(LudoMode.JACKPOT, Material.NETHERITE_SWORD);
     }
 
     @EventHandler
@@ -105,23 +63,29 @@ public class LudoSwordHandler implements Listener {
 
         if (event.getAction() == Action.RIGHT_CLICK_AIR || event.getAction() == Action.RIGHT_CLICK_BLOCK) {
             
+            long now = System.currentTimeMillis();
             LudoStats playerStats = stats.computeIfAbsent(player.getUniqueId(), k -> new LudoStats());
+            
+            // Проверяем кулдаун
+            if (playerStats.cooldownEndTime > now) {
+                long secondsLeft = (playerStats.cooldownEndTime - now) / 1000;
+                player.sendMessage("§cЛудо-меч перезаряжается! Осталось: " + secondsLeft + " сек.");
+                event.setCancelled(true);
+                return;
+            }
+            
+            // Проверяем, не активен ли уже режим
+            if (playerStats.currentMode != null) {
+                player.sendMessage("§cУ вас уже есть активный предмет!");
+                event.setCancelled(true);
+                return;
+            }
             
             if (playerStats.isRolling) {
                 player.sendMessage("§cРулетка уже крутится!");
                 event.setCancelled(true);
                 return;
             }
-            
-            if (playerStats.currentMode != LudoMode.NONE) {
-                player.sendMessage("§cЛудо-меч уже активен!");
-                event.setCancelled(true);
-                return;
-            }
-            
-            // Даём зелья при активации
-            player.addPotionEffect(new PotionEffect(PotionEffectType.SPEED, 3600, 1, true, true, true));
-            player.addPotionEffect(new PotionEffect(PotionEffectType.STRENGTH, 3600, 1, true, true, true));
             
             playerStats.slot = player.getInventory().getHeldItemSlot();
             playerStats.originalItem = item.clone();
@@ -154,7 +118,7 @@ public class LudoSwordHandler implements Listener {
                     player.sendMessage("§6§l═══════════════════════");
                     
                     playModeSound(player, selected);
-                    activateMode(player, selected);
+                    giveOriginalItem(player, selected);
                     
                     this.cancel();
                     return;
@@ -202,320 +166,85 @@ public class LudoSwordHandler implements Listener {
         }
     }
 
-    private void activateMode(Player player, LudoMode mode) {
+    private void giveOriginalItem(Player player, LudoMode mode) {
         LudoStats playerStats = stats.get(player.getUniqueId());
         playerStats.currentMode = mode;
         
-        // Меняем предмет
-        ItemStack handItem = player.getInventory().getItemInMainHand();
-        if (handItem != null) {
-            Material newMaterial = MODE_MATERIALS.get(mode);
-            if (newMaterial != null) {
-                handItem.setType(newMaterial);
-                
-                ItemMeta meta = handItem.getItemMeta();
-                if (meta != null) {
-                    meta.displayName(Component.text(MODE_NAMES.get(mode)));
-                    handItem.setItemMeta(meta);
-                }
-            }
-        }
+        ItemStack newItem = null;
         
-        long now = System.currentTimeMillis();
-        
+        // СОЗДАЁМ ОРИГИНАЛЬНЫЙ ПРЕДМЕТ
         switch (mode) {
             case FROST:
-                playerStats.modeEndTime = now + 20000;
-                playerStats.frostHits = 0;
-                player.sendMessage("§bМорозный меч: замедление при ударе, заморозка после 8 ударов (20 сек)");
+                newItem = FrostSwordItem.createFrostSword();
                 break;
-                
             case SHADOW:
-                playerStats.modeEndTime = now + 20000;
-                player.addPotionEffect(new PotionEffect(PotionEffectType.INVISIBILITY, 400, 0, true, true, true));
-                player.sendMessage("§8Теневой меч: невидимость (20 сек)");
+                newItem = ShadowSwordItem.createShadowSword();
                 break;
-                
             case SPIDER:
-                playerStats.modeEndTime = now + 15000;
-                player.addPotionEffect(new PotionEffect(PotionEffectType.WEAVING, 300, 0, true, true, true));
-                spawnSpiderWeb(player.getLocation());
-                player.sendMessage("§2Паучий клинок: следующий удар отравляет (15 сек)");
+                newItem = SpiderBladeItem.createBlade();
                 break;
-                
             case MJOLNIR:
-                playerStats.modeEndTime = now + 15000;
-                player.sendMessage("§eМьёльнир: броски молота (15 сек)");
+                newItem = MjolnirItem.createMjolnir();
                 break;
-                
             case DEATH_SCYTHE:
-                playerStats.hitsLeft = 1;
-                player.sendMessage("§cКоса смерти: следующий удар вампиризм 5♥");
+                newItem = DeathScytheItem.createScythe();
                 break;
-                
             case STORM:
-                playerStats.modeEndTime = now + 15000;
-                playerStats.hitsLeft = 3;
-                player.sendMessage("§9Клинок бури: следующие 3 удара подбрасывают + молния");
+                newItem = StormBladeItem.createBlade();
                 break;
-                
             case REAPER:
-                playerStats.hitsLeft = 1;
-                player.sendMessage("§5Коса жнеца: следующий удар крадёт ВСЕ эффекты");
+                newItem = ReaperScytheItem.createScythe();
                 break;
-                
             case DRAGON:
-                Location targetLoc = player.getTargetBlock(null, 15).getLocation().add(0.5, 1, 0.5);
-                player.teleport(targetLoc);
-                player.getWorld().playSound(player.getLocation(), Sound.ENTITY_ENDERMAN_TELEPORT, 1.0f, 1.0f);
-                player.getWorld().spawnParticle(Particle.DRAGON_BREATH, player.getLocation(), 30, 0.5, 0.5, 0.5, 0.1);
-                player.sendMessage("§dКатана дракона: телепортация!");
-                endMode(player);
-                return;
-                
+                newItem = KatanaItem.createKatana();
+                break;
             case EXCALIBUR:
-                playerStats.hitsLeft = 15;
-                playerStats.isInvulnerable = true;
-                player.sendMessage("§6Экскалибур: неуязвимость на 15 ударов!");
+                newItem = ExcaliburItem.createExcalibur();
                 break;
-                
             case LIGHT_MACE:
-                playerStats.hitsLeft = 3;
-                player.setVelocity(player.getVelocity().add(new Vector(0, 1.5, 0)));
-                player.sendMessage("§fЛегкая булава: следующие 3 удара с подбросом");
+                newItem = LightMaceItem.createMace();
                 break;
-                
             case JACKPOT:
-                playerStats.modeEndTime = now + 40000;
-                playerStats.isInvulnerable = true;
-                player.sendMessage("§d§l💰 ДЖЕКПОТ! ПОЛНАЯ НЕУЯЗВИМОСТЬ 40 СЕКУНД!");
-                startJackpotEffects(player);
+                // Для джекпота даём Экскалибур с особым названием
+                newItem = ExcaliburItem.createExcalibur();
+                ItemMeta meta = newItem.getItemMeta();
+                if (meta != null) {
+                    meta.displayName(net.kyori.adventure.text.Component.text("§d§lДЖЕКПОТ"));
+                    newItem.setItemMeta(meta);
+                }
                 break;
         }
         
-        if (mode != LudoMode.DRAGON && mode != LudoMode.DEATH_SCYTHE && mode != LudoMode.REAPER) {
-            startModeTimer(player, mode);
+        if (newItem != null) {
+            player.getInventory().setItem(playerStats.slot, newItem);
+            player.sendMessage("§aВы получили " + MODE_NAMES.get(mode) + " на " + ITEM_DURATION + " секунд!");
         }
-    }
-
-    private void startModeTimer(Player player, LudoMode mode) {
-        int duration = DURATIONS.getOrDefault(mode, 20) * 20;
         
+        // Таймер возврата Лудо-меча
         new BukkitRunnable() {
             @Override
             public void run() {
-                LudoStats playerStats = stats.get(player.getUniqueId());
-                if (playerStats != null && playerStats.currentMode == mode) {
-                    endMode(player);
-                }
+                returnToLudoSword(player);
             }
-        }.runTaskLater(MagmaRoarPlugin.getInstance(), duration);
+        }.runTaskLater(MagmaRoarPlugin.getInstance(), ITEM_DURATION * 20L);
     }
 
-    private void endMode(Player player) {
+    private void returnToLudoSword(Player player) {
         LudoStats playerStats = stats.get(player.getUniqueId());
-        if (playerStats == null || playerStats.currentMode == LudoMode.NONE) return;
+        if (playerStats == null || playerStats.currentMode == null) return;
         
         LudoMode mode = playerStats.currentMode;
         
-        // Возвращаем оригинальный предмет
-        if (playerStats.originalItem != null && playerStats.slot >= 0) {
+        if (playerStats.originalItem != null) {
             player.getInventory().setItem(playerStats.slot, playerStats.originalItem);
+            player.sendMessage("§c" + MODE_NAMES.get(mode) + " исчез. Лудо-меч вернулся!");
         }
         
-        playerStats.currentMode = LudoMode.NONE;
-        playerStats.hitsLeft = 0;
-        playerStats.isInvulnerable = false;
-        playerStats.frostHits = 0;
+        // Сбрасываем режим и ставим кулдаун
+        playerStats.currentMode = null;
+        playerStats.cooldownEndTime = System.currentTimeMillis() + (COOLDOWN_DURATION * 1000L);
         
-        player.removePotionEffect(PotionEffectType.INVISIBILITY);
-        player.removePotionEffect(PotionEffectType.WEAVING);
-        
-        player.sendMessage("§cЭффект " + MODE_NAMES.get(mode) + " закончился.");
-    }
-
-    private void spawnSpiderWeb(Location center) {
-        World world = center.getWorld();
-        if (world == null) return;
-        
-        for (int x = -2; x <= 2; x++) {
-            for (int z = -2; z <= 2; z++) {
-                if (Math.sqrt(x*x + z*z) <= 2.5) {
-                    Location webLoc = center.clone().add(x, 0, z);
-                    if (webLoc.getBlock().getType() == Material.AIR) {
-                        webLoc.getBlock().setType(Material.COBWEB);
-                        
-                        new BukkitRunnable() {
-                            @Override
-                            public void run() {
-                                if (webLoc.getBlock().getType() == Material.COBWEB) {
-                                    webLoc.getBlock().setType(Material.AIR);
-                                }
-                            }
-                        }.runTaskLater(MagmaRoarPlugin.getInstance(), 300L);
-                    }
-                }
-            }
-        }
-    }
-
-    private void startJackpotEffects(Player player) {
-        new BukkitRunnable() {
-            @Override
-            public void run() {
-                LudoStats playerStats = stats.get(player.getUniqueId());
-                if (playerStats == null || playerStats.currentMode != LudoMode.JACKPOT) {
-                    this.cancel();
-                    return;
-                }
-                
-                for (int i = 0; i < 5; i++) {
-                    player.getWorld().spawnParticle(Particle.TOTEM_OF_UNDYING, 
-                        player.getLocation().add(random.nextDouble()*2-1, random.nextDouble()*2, random.nextDouble()*2-1), 
-                        1, 0, 0, 0, 0);
-                }
-            }
-        }.runTaskTimer(MagmaRoarPlugin.getInstance(), 0L, 5L);
-    }
-
-    @EventHandler
-    public void onEntityDamage(EntityDamageByEntityEvent event) {
-        if (!(event.getDamager() instanceof Player)) return;
-        
-        Player player = (Player) event.getDamager();
-        LudoStats playerStats = stats.get(player.getUniqueId());
-        
-        if (playerStats == null || playerStats.currentMode == LudoMode.NONE) return;
-        if (!(event.getEntity() instanceof LivingEntity)) return;
-        
-        LivingEntity target = (LivingEntity) event.getEntity();
-        
-        switch (playerStats.currentMode) {
-            case FROST:
-                target.addPotionEffect(new PotionEffect(PotionEffectType.SLOWNESS, 60, 0));
-                
-                playerStats.frostHits++;
-                if (playerStats.frostHits >= 8) {
-                    freezeTarget(target);
-                    playerStats.frostHits = 0;
-                    player.sendMessage("§bЦель заморожена!");
-                }
-                break;
-                
-            case SPIDER:
-                if (playerStats.hitsLeft > 0) {
-                    target.addPotionEffect(new PotionEffect(PotionEffectType.POISON, 140, 1));
-                    playerStats.hitsLeft = 0;
-                    player.sendMessage("§2Яд сработал!");
-                }
-                break;
-                
-            case MJOLNIR:
-                if (random.nextDouble() < 0.3) {
-                    target.getWorld().strikeLightningEffect(target.getLocation());
-                    target.damage(5.0, player);
-                }
-                break;
-                
-            case DEATH_SCYTHE:
-                if (playerStats.hitsLeft > 0) {
-                    double playerHealth = player.getHealth();
-                    double maxHealth = player.getAttribute(Attribute.MAX_HEALTH).getValue();
-                    double newHealth = Math.min(playerHealth + 10, maxHealth);
-                    player.setHealth(newHealth);
-                    
-                    target.damage(10.0, player);
-                    
-                    playerStats.hitsLeft = 0;
-                    player.sendMessage("§cКоса смерти вытянула жизнь! +5♥");
-                    endMode(player);
-                }
-                break;
-                
-            case STORM:
-                if (playerStats.hitsLeft > 0) {
-                    target.setVelocity(target.getVelocity().add(new Vector(0, 1.5, 0)));
-                    target.getWorld().strikeLightningEffect(target.getLocation());
-                    target.damage(5.0, player);
-                    
-                    playerStats.hitsLeft--;
-                    if (playerStats.hitsLeft <= 0) {
-                        endMode(player);
-                    }
-                }
-                break;
-                
-            case REAPER:
-                if (playerStats.hitsLeft > 0) {
-                    List<PotionEffect> stolen = new ArrayList<>();
-                    
-                    for (PotionEffect effect : target.getActivePotionEffects()) {
-                        stolen.add(new PotionEffect(effect.getType(), 
-                            effect.getDuration(), 
-                            effect.getAmplifier(), 
-                            effect.isAmbient(), 
-                            effect.hasParticles(), 
-                            effect.hasIcon()));
-                        target.removePotionEffect(effect.getType());
-                    }
-                    
-                    for (PotionEffect effect : stolen) {
-                        player.addPotionEffect(effect);
-                    }
-                    
-                    playerStats.hitsLeft = 0;
-                    player.sendMessage("§5§l" + stolen.size() + " эффектов украдено!");
-                    endMode(player);
-                }
-                break;
-                
-            case LIGHT_MACE:
-                if (playerStats.hitsLeft > 0) {
-                    target.setVelocity(target.getVelocity().add(new Vector(0, 1.5, 0)));
-                    playerStats.hitsLeft--;
-                    
-                    if (playerStats.hitsLeft <= 0) {
-                        endMode(player);
-                    }
-                }
-                break;
-        }
-    }
-
-    @EventHandler
-    public void onEntityDamagePlayer(EntityDamageEvent event) {
-        if (!(event.getEntity() instanceof Player)) return;
-        
-        Player player = (Player) event.getEntity();
-        LudoStats playerStats = stats.get(player.getUniqueId());
-        
-        if (playerStats != null && playerStats.isInvulnerable) {
-            event.setCancelled(true);
-            
-            if (playerStats.currentMode == LudoMode.EXCALIBUR) {
-                playerStats.hitsLeft--;
-                player.getWorld().playSound(player.getLocation(), Sound.BLOCK_ANVIL_PLACE, 0.5f, 1.0f);
-                
-                if (playerStats.hitsLeft <= 0) {
-                    endMode(player);
-                }
-            }
-        }
-    }
-
-    private void freezeTarget(LivingEntity target) {
-        target.addPotionEffect(new PotionEffect(PotionEffectType.SLOWNESS, 80, 254));
-        target.addPotionEffect(new PotionEffect(PotionEffectType.JUMP_BOOST, 80, 128));
-        target.setFreezeTicks(80);
-        
-        new BukkitRunnable() {
-            @Override
-            public void run() {
-                target.removePotionEffect(PotionEffectType.SLOWNESS);
-                target.removePotionEffect(PotionEffectType.JUMP_BOOST);
-                target.setFreezeTicks(0);
-            }
-        }.runTaskLater(MagmaRoarPlugin.getInstance(), 80L);
+        player.sendMessage("§6Лудо-меч перезаряжается " + COOLDOWN_DURATION + " секунд.");
     }
 
     private boolean isLudoSword(ItemStack item) {

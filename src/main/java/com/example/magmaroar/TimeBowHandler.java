@@ -81,9 +81,8 @@ public class TimeBowHandler implements Listener {
             activeMarks.put(shooter.getUniqueId(), 
                 new TimeMark(target.getUniqueId(), System.currentTimeMillis(), System.currentTimeMillis()));
             
-            // Зелёное свечение (как спектральная стрела)
+            // Зелёное свечение (используем обычный glowing)
             target.setGlowing(true);
-            target.setGlowColor(org.bukkit.Color.LIME);
             
             shooter.sendMessage("§aМетка времени поставлена на " + (target instanceof Player ? target.getName() : "цель") + " (20 сек)");
             

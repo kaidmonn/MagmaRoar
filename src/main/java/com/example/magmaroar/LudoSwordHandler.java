@@ -420,7 +420,45 @@ public class LudoSwordHandler implements Listener {
                 
             case REAPER:
                 if (playerStats.hitsLeft > 0) {
-                    stealEffects(target, player);
+                    // Простая кража - копируем все эффекты
+                    for (PotionEffect effect : target.getActivePotionEffects()) {
+                        player.addPotionEffect(new PotionEffect(effect));
+                    }
+                    // Убираем все эффекты с цели
+                    for (PotionEffectType type : Arrays.asList(
+                        PotionEffectType.SPEED,
+                        PotionEffectType.SLOWNESS,
+                        PotionEffectType.HASTE,
+                        PotionEffectType.MINING_FATIGUE,
+                        PotionEffectType.STRENGTH,
+                        PotionEffectType.JUMP_BOOST,
+                        PotionEffectType.NAUSEA,
+                        PotionEffectType.REGENERATION,
+                        PotionEffectType.RESISTANCE,
+                        PotionEffectType.FIRE_RESISTANCE,
+                        PotionEffectType.WATER_BREATHING,
+                        PotionEffectType.INVISIBILITY,
+                        PotionEffectType.BLINDNESS,
+                        PotionEffectType.NIGHT_VISION,
+                        PotionEffectType.HUNGER,
+                        PotionEffectType.WEAKNESS,
+                        PotionEffectType.POISON,
+                        PotionEffectType.WITHER,
+                        PotionEffectType.HEALTH_BOOST,
+                        PotionEffectType.ABSORPTION,
+                        PotionEffectType.SATURATION,
+                        PotionEffectType.LUCK,
+                        PotionEffectType.UNLUCK,
+                        PotionEffectType.SLOW_FALLING,
+                        PotionEffectType.CONDUIT_POWER,
+                        PotionEffectType.DOLPHINS_GRACE,
+                        PotionEffectType.BAD_OMEN,
+                        PotionEffectType.HERO_OF_THE_VILLAGE,
+                        PotionEffectType.DARKNESS
+                    )) {
+                        target.removePotionEffect(type);
+                    }
+                    
                     playerStats.hitsLeft = 0;
                     player.sendMessage("§5Эффекты украдены!");
                     endMode(player);
@@ -474,26 +512,6 @@ public class LudoSwordHandler implements Listener {
                 target.setFreezeTicks(0);
             }
         }.runTaskLater(MagmaRoarPlugin.getInstance(), 80L);
-    }
-
-    private void stealEffects(LivingEntity from, Player to) {
-        for (PotionEffect effect : from.getActivePotionEffects()) {
-            // Проверяем, является ли эффект положительным
-            // Временное решение - копируем все эффекты, кроме отрицательных
-            if (effect.getType() != PotionEffectType.POISON && 
-                effect.getType() != PotionEffectType.WITHER && 
-                effect.getType() != PotionEffectType.WEAKNESS && 
-                effect.getType() != PotionEffectType.SLOWNESS && 
-                effect.getType() != PotionEffectType.MINING_FATIGUE && 
-                effect.getType() != PotionEffectType.INSTANT_DAMAGE && 
-                effect.getType() != PotionEffectType.HARM && 
-                effect.getType() != PotionEffectType.UNLUCK && 
-                effect.getType() != PotionEffectType.BAD_OMEN) {
-                
-                to.addPotionEffect(new PotionEffect(effect));
-                from.removePotionEffect(effect.getType());
-            }
-        }
     }
 
     private boolean isLudoSword(ItemStack item) {

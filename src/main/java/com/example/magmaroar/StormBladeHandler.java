@@ -28,9 +28,8 @@ public class StormBladeHandler implements Listener {
     private static final double PASSIVE_CHANCE = 0.15; // 15% шанс
     private static final double WEAPON_DAMAGE = 14.0;
     private static final float EXPLOSION_POWER = 4.0f;
-    private static final double LAUNCH_VELOCITY = 1.5; // 20 блоков как у легкой булавы
-    private static final double PROJECTILE_SPREAD = 0.05; // Минимальный разброс
-    private static final int PROJECTILE_COUNT = 7; // 7 молний
+    private static final double PROJECTILE_SPREAD = 0.05;
+    private static final int PROJECTILE_COUNT = 7;
 
     @EventHandler
     public void onEntityDamage(EntityDamageByEntityEvent event) {
@@ -51,16 +50,21 @@ public class StormBladeHandler implements Listener {
                 LivingEntity target = (LivingEntity) event.getEntity();
                 
                 World world = target.getWorld();
+                Location targetLoc = target.getLocation();
                 
-                // ПРЯМОЙ ПОДБРОС (как у легкой булавы)
-                Vector velocity = target.getVelocity();
-                velocity.setY(LAUNCH_VELOCITY);
-                target.setVelocity(velocity);
+                // СПАВНИМ 2 ПОРЫВА ВЕТРА ПОД ЦЕЛЬЮ
+                for (int i = 0; i < 2; i++) {
+                    // Спавним breeze wind charge projectiles
+                    // В Paper 1.21.4 есть специальный тип снаряда для порывов ветра
+                    WindCharge windCharge = world.spawn(targetLoc, WindCharge.class);
+                    windCharge.setVelocity(new Vector(0, 1.5, 0)); // Взрывной импульс вверх
+                    windCharge.setShooter(player);
+                    windCharge.setYield(2.0f); // Сила взрыва
+                }
                 
-                player.sendMessage("§b§lШТОРМ! Цель подброшена на 8 блоков!");
+                player.sendMessage("§b§lШТОРМ! Цель подброшена порывами ветра!");
                 
                 // Молния сразу
-                Location targetLoc = target.getLocation();
                 world.strikeLightningEffect(targetLoc);
                 world.playSound(targetLoc, Sound.ENTITY_LIGHTNING_BOLT_THUNDER, 1.0f, 1.0f);
                 
@@ -69,6 +73,7 @@ public class StormBladeHandler implements Listener {
                 
                 // Визуальные эффекты
                 world.spawnParticle(Particle.ELECTRIC_SPARK, targetLoc.add(0, 1, 0), 30, 0.5, 1, 0.5, 0.1);
+                world.spawnParticle(Particle.SONIC_BOOM, targetLoc, 10, 0.5, 0.5, 0.5, 0);
             }
         }
     }
@@ -104,20 +109,16 @@ public class StormBladeHandler implements Listener {
 
             // Запускаем 7 молний-снарядов
             for (int i = 0; i < PROJECTILE_COUNT; i++) {
-                // Минимальный разброс
                 double spreadX = (Math.random() - 0.5) * PROJECTILE_SPREAD * 2;
                 double spreadY = (Math.random() - 0.5) * PROJECTILE_SPREAD * 2;
                 double spreadZ = (Math.random() - 0.5) * PROJECTILE_SPREAD * 2;
                 
                 Vector shotDirection = direction.clone().add(new Vector(spreadX, spreadY, spreadZ)).normalize();
                 
-                // Создаём снежок как снаряд
                 Snowball projectile = world.spawn(eyeLoc, Snowball.class);
                 projectile.setVelocity(shotDirection.multiply(2.5));
                 projectile.setGlowing(true);
                 projectile.setShooter(player);
-                
-                // Сохраняем, что это наш снаряд
                 projectile.setCustomName("§bМолния");
             }
             
@@ -135,23 +136,15 @@ public class StormBladeHandler implements Listener {
         
         Player player = (Player) snowball.getShooter();
         
-        // Проверяем, что это наш снаряд
         if (snowball.getCustomName() == null || !snowball.getCustomName().contains("Молния")) return;
         
         Location hitLoc = snowball.getLocation();
         World world = hitLoc.getWorld();
         
-        // Визуал молнии
         world.strikeLightningEffect(hitLoc);
-        
-        // ВЗРЫВ УРОВНЯ 4 (без разрушения блоков)
         world.createExplosion(hitLoc, EXPLOSION_POWER, false, true, player);
-        
-        // Визуальные эффекты
         world.spawnParticle(Particle.ELECTRIC_SPARK, hitLoc, 30, 1, 1, 1, 0.1);
         world.spawnParticle(Particle.FLASH, hitLoc, 5, 1, 1, 1, 0);
-        
-        // Звук
         world.playSound(hitLoc, Sound.ENTITY_LIGHTNING_BOLT_IMPACT, 0.8f, 1.0f);
         
         snowball.remove();

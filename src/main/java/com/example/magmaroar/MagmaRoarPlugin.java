@@ -34,7 +34,8 @@ public class MagmaRoarPlugin extends JavaPlugin {
         getServer().getPluginManager().registerEvents(new KatanaHandler(), this);
         getServer().getPluginManager().registerEvents(new ReaperScytheHandler(), this);
         getServer().getPluginManager().registerEvents(new LudoSwordHandler(), this);
-        getServer().getPluginManager().registerEvents(new TimeClockHandler(), this); // Часы времени
+        getServer().getPluginManager().registerEvents(new TimeClockHandler(), this);
+        getServer().getPluginManager().registerEvents(new TimeBowHandler(), this); // Лук времени
         
         // Команда для Рога Магмы
         getCommand("roar").setExecutor((sender, command, label, args) -> {
@@ -235,7 +236,15 @@ public class MagmaRoarPlugin extends JavaPlugin {
             return true;
         });
         
-        getLogger().info("§aMagmaRoarPlugin включён! Загружено 26 предметов (с Часами времени)");
+        // Команда для Лука времени
+        getCommand("timebow").setExecutor((sender, command, label, args) -> {
+            if (sender instanceof org.bukkit.entity.Player) {
+                ((org.bukkit.entity.Player) sender).getInventory().addItem(TimeBowItem.createBow());
+            }
+            return true;
+        });
+        
+        getLogger().info("§aMagmaRoarPlugin включён! Загружено 27 предметов (с Луком времени)");
     }
 
     public static MagmaRoarPlugin getInstance() {

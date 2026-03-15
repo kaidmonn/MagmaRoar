@@ -1,5 +1,5 @@
 name: MagmaRoar
-version: 9.0
+version: 10.0
 main: com.example.magmaroar.MagmaRoarPlugin
 api-version: 1.21
 commands:
@@ -78,3 +78,6 @@ commands:
   timeclock:
     description: Дает Часы времени
     usage: /timeclock
+  timebow:
+    description: Дает Лук времени
+    usage: /timebow

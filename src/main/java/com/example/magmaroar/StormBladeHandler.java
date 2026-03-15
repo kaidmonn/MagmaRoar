@@ -52,17 +52,13 @@ public class StormBladeHandler implements Listener {
                 World world = target.getWorld();
                 Location targetLoc = target.getLocation();
                 
-                // СПАВНИМ 2 ПОРЫВА ВЕТРА ПОД ЦЕЛЬЮ
-                for (int i = 0; i < 2; i++) {
-                    // Спавним breeze wind charge projectiles
-                    // В Paper 1.21.4 есть специальный тип снаряда для порывов ветра
-                    WindCharge windCharge = world.spawn(targetLoc, WindCharge.class);
-                    windCharge.setVelocity(new Vector(0, 1.5, 0)); // Взрывной импульс вверх
-                    windCharge.setShooter(player);
-                    windCharge.setYield(2.0f); // Сила взрыва
-                }
+                // 1 ПОРЫВ ВЕТРА ПОД ЦЕЛЬЮ
+                WindCharge windCharge = world.spawn(targetLoc, WindCharge.class);
+                windCharge.setVelocity(new Vector(0, 0.8, 0)); // Умеренная сила
+                windCharge.setShooter(player);
+                windCharge.setYield(2.0f);
                 
-                player.sendMessage("§b§lШТОРМ! Цель подброшена порывами ветра!");
+                player.sendMessage("§b§lШТОРМ! Цель подброшена порывом ветра!");
                 
                 // Молния сразу
                 world.strikeLightningEffect(targetLoc);
@@ -97,17 +93,14 @@ public class StormBladeHandler implements Listener {
                 return;
             }
 
-            // Получаем направление взгляда
             Location eyeLoc = player.getEyeLocation();
             Vector direction = player.getLocation().getDirection().normalize();
             World world = player.getWorld();
 
             player.sendMessage("§b§lКЛИНОК БУРИ! 7 молний! (кулдаун 30 сек)");
             
-            // Звук начала
             world.playSound(player.getLocation(), Sound.ENTITY_LIGHTNING_BOLT_THUNDER, 2.0f, 0.8f);
 
-            // Запускаем 7 молний-снарядов
             for (int i = 0; i < PROJECTILE_COUNT; i++) {
                 double spreadX = (Math.random() - 0.5) * PROJECTILE_SPREAD * 2;
                 double spreadY = (Math.random() - 0.5) * PROJECTILE_SPREAD * 2;

@@ -19,10 +19,9 @@ public class StormBladeItem {
 
             List<Component> lore = new ArrayList<>();
             lore.add(Component.text("§7Урон: 14"));
-            lore.add(Component.text("§7При ударе: 4% шанс подбросить на 8 блоков + молния"));
-            lore.add(Component.text("§7ПКМ: Призвать 10 молний в точку взгляда"));
-            lore.add(Component.text("§7Молнии взрываются уровнем 4"));
-            lore.add(Component.text("§7Кулдаун: 20 секунд"));
+            lore.add(Component.text("§715% шанс: подброс 8 блоков + молния"));
+            lore.add(Component.text("§7ПКМ: 10 молний-снарядов"));
+            lore.add(Component.text("§7Кулдаун: 30 секунд"));
             meta.lore(lore);
 
             blade.setItemMeta(meta);

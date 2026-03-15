@@ -63,3 +63,6 @@ commands:
   storm:
     description: Дает Клинок бури
     usage: /storm
+  excalibur:
+    description: Дает Экскалибур
+    usage: /excalibur

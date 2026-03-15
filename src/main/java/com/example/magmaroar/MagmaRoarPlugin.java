@@ -29,7 +29,8 @@ public class MagmaRoarPlugin extends JavaPlugin {
         getServer().getPluginManager().registerEvents(new RavagerHornHandler(), this);
         getServer().getPluginManager().registerEvents(new HellMeteorHandler(), this);
         getServer().getPluginManager().registerEvents(new LaserHandler(), this);
-        getServer().getPluginManager().registerEvents(new StormBladeHandler(), this); // Клинок бури
+        getServer().getPluginManager().registerEvents(new StormBladeHandler(), this);
+        getServer().getPluginManager().registerEvents(new ExcaliburHandler(), this); // Экскалибур
         
         // Команда для Рога Магмы
         getCommand("roar").setExecutor((sender, command, label, args) -> {
@@ -190,7 +191,15 @@ public class MagmaRoarPlugin extends JavaPlugin {
             return true;
         });
         
-        getLogger().info("§aMagmaRoarPlugin V3 включён! Загружено 20 предметов");
+        // Команда для Экскалибура
+        getCommand("excalibur").setExecutor((sender, command, label, args) -> {
+            if (sender instanceof org.bukkit.entity.Player) {
+                ((org.bukkit.entity.Player) sender).getInventory().addItem(ExcaliburItem.createExcalibur());
+            }
+            return true;
+        });
+        
+        getLogger().info("§aMagmaRoarPlugin включён! Загружено 24 предмета");
     }
 
     public static MagmaRoarPlugin getInstance() {

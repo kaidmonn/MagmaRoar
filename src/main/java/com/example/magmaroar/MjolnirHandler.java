@@ -21,168 +21,127 @@ import java.util.*;
 
 public class MjolnirHandler implements Listener {
 
-    private final Map<UUID, Long> meleeCooldowns = new HashMap<>();
     private final Map<UUID, Long> throwCooldowns = new HashMap<>();
+    private final Map<UUID, Long> lastSwingTime = new HashMap<>();
     private final Map<UUID, ItemStack> thrownWeapons = new HashMap<>();
-    private final Map<UUID, BukkitRunnable> returnTimers = new HashMap<>();
+    
+    private static final long THROW_COOLDOWN = 20 * 1000; // 20 секунд
+    private static final long FULL_SWING_TIME = 500; // 0.5 секунды для полного замаха
 
-    private static final long MELEE_COOLDOWN = 3000;        // 3 секунды между ударами
-    private static final long THROW_COOLDOWN = 20000;       // 20 секунд на бросок
-    private static final long RETURN_DELAY = 10000;         // 10 секунд до автовозврата
-    private static final double DAMAGE = 5.0;               // 2.5 сердца
-    private static final int RADIUS = 5;                    // Радиус поражения
-
-    // ====================== ЛКМ УДАР ======================
     @EventHandler
     public void onEntityDamage(EntityDamageByEntityEvent event) {
         if (!(event.getDamager() instanceof Player)) return;
-
+        
         Player player = (Player) event.getDamager();
         ItemStack item = player.getInventory().getItemInMainHand();
 
         if (!isMjolnir(item)) return;
 
-        event.setCancelled(true); // Отменяем обычный урон
-
         long now = System.currentTimeMillis();
-        Long lastMelee = meleeCooldowns.get(player.getUniqueId());
-
-        if (lastMelee != null && now - lastMelee < MELEE_COOLDOWN) {
-            player.sendMessage("§cМьёльнир перезаряжается! Подождите.");
-            return;
+        Long lastSwing = lastSwingTime.get(player.getUniqueId());
+        
+        // Отменяем обычный урон топора
+        event.setCancelled(true);
+        
+        // ВАНИЛЬНАЯ МОЛНИЯ только при полном замахе
+        if (lastSwing != null && now - lastSwing >= FULL_SWING_TIME) {
+            if (event.getEntity() instanceof LivingEntity) {
+                LivingEntity target = (LivingEntity) event.getEntity();
+                
+                // Настоящая ванильная молния
+                target.getWorld().strikeLightning(target.getLocation());
+                
+                // Эффекты
+                target.getWorld().playSound(target.getLocation(), Sound.ENTITY_LIGHTNING_BOLT_THUNDER, 1.0f, 1.0f);
+                target.getWorld().spawnParticle(Particle.ELECTRIC_SPARK, target.getLocation().add(0, 1, 0), 30, 0.5, 1, 0.5, 0.1);
+                
+                player.sendMessage("§b§l⚡ МОЛНИЯ РАЗИТ ВРАГА! ⚡");
+            }
         }
-
-        if (!(event.getEntity() instanceof LivingEntity)) return;
-
-        LivingEntity target = (LivingEntity) event.getEntity();
-        Location center = target.getLocation();
-
-        // Урон по области
-        applyAreaDamage(player, center);
-
-        // Молния (визуал)
-        strikeVisualLightning(center);
-
-        // Обновляем кулдаун
-        meleeCooldowns.put(player.getUniqueId(), now);
+        
+        // Запоминаем время удара
+        lastSwingTime.put(player.getUniqueId(), now);
     }
 
-    // ====================== ПКМ БРОСОК ======================
     @EventHandler
     public void onPlayerInteract(PlayerInteractEvent event) {
         Player player = event.getPlayer();
         ItemStack item = event.getItem();
 
         if (!isMjolnir(item)) return;
-        if (event.getAction() != Action.RIGHT_CLICK_AIR && event.getAction() != Action.RIGHT_CLICK_BLOCK) return;
 
-        long now = System.currentTimeMillis();
-        Long lastThrow = throwCooldowns.get(player.getUniqueId());
-
-        if (lastThrow != null && now - lastThrow < THROW_COOLDOWN) {
-            long secondsLeft = (THROW_COOLDOWN - (now - lastThrow)) / 1000;
-            player.sendMessage("§cБросок перезаряжается! Осталось: " + secondsLeft + " сек.");
-            event.setCancelled(true);
-            return;
-        }
-
-        // Сохраняем предмет и удаляем из руки
-        ItemStack thrownItem = item.clone();
-        player.getInventory().setItemInMainHand(null);
-
-        World world = player.getWorld();
-        Location eyeLoc = player.getEyeLocation();
-        Vector direction = player.getLocation().getDirection().normalize();
-
-        // Создаём снаряд (снежок)
-        Snowball projectile = world.spawn(eyeLoc, Snowball.class);
-        projectile.setVelocity(direction.multiply(2.5));
-        projectile.setGlowing(true);
-        projectile.setShooter(player);
-
-        UUID projId = projectile.getUniqueId();
-        thrownWeapons.put(projId, thrownItem);
-
-        // Таймер автовозврата
-        BukkitRunnable returnTask = new BukkitRunnable() {
-            @Override
-            public void run() {
-                if (thrownWeapons.containsKey(projId)) {
-                    returnMjolnir(player, projId);
-                }
+        if (event.getAction() == Action.RIGHT_CLICK_AIR || event.getAction() == Action.RIGHT_CLICK_BLOCK) {
+            
+            long now = System.currentTimeMillis();
+            Long lastThrow = throwCooldowns.get(player.getUniqueId());
+            
+            if (lastThrow != null && now - lastThrow < THROW_COOLDOWN) {
+                long secondsLeft = (THROW_COOLDOWN - (now - lastThrow)) / 1000;
+                player.sendMessage("§cБросок перезаряжается! Осталось: " + secondsLeft + " сек.");
+                event.setCancelled(true);
+                return;
             }
-        };
-        returnTask.runTaskLater(MagmaRoarPlugin.getInstance(), RETURN_DELAY / 50);
-        returnTimers.put(projId, returnTask);
-
-        throwCooldowns.put(player.getUniqueId(), now);
-        player.sendMessage("§bМьёльнир брошен!");
-        event.setCancelled(true);
+            
+            // Сохраняем копию предмета
+            ItemStack thrownItem = item.clone();
+            
+            // Удаляем предмет из руки
+            player.getInventory().setItemInMainHand(null);
+            
+            World world = player.getWorld();
+            Location eyeLoc = player.getEyeLocation();
+            Vector direction = player.getLocation().getDirection().normalize();
+            
+            // Снежок как снаряд
+            Snowball projectile = world.spawn(eyeLoc, Snowball.class);
+            projectile.setVelocity(direction.multiply(2.5));
+            projectile.setGlowing(true);
+            projectile.setShooter(player);
+            projectile.setCustomName("§eМьёльнир");
+            
+            // Сохраняем связь
+            thrownWeapons.put(projectile.getUniqueId(), thrownItem);
+            
+            throwCooldowns.put(player.getUniqueId(), now);
+            player.sendMessage("§eМьёльнир брошен!");
+            event.setCancelled(true);
+        }
     }
 
-    // ====================== ПОПАДАНИЕ СНАРЯДА ======================
     @EventHandler
     public void onProjectileHit(ProjectileHitEvent event) {
         if (!(event.getEntity() instanceof Snowball)) return;
-
+        
         Snowball snowball = (Snowball) event.getEntity();
         if (!(snowball.getShooter() instanceof Player)) return;
-
+        
         Player player = (Player) snowball.getShooter();
-        UUID projId = snowball.getUniqueId();
-
-        if (!thrownWeapons.containsKey(projId)) return;
-
-        // Отменяем таймер возврата
-        BukkitRunnable timer = returnTimers.remove(projId);
-        if (timer != null) timer.cancel();
-
+        UUID projectileId = snowball.getUniqueId();
+        
+        if (!thrownWeapons.containsKey(projectileId)) return;
+        
         Location hitLoc = snowball.getLocation();
-
-        // Урон по области в точке попадания
-        applyAreaDamage(player, hitLoc);
-
-        // Молния (визуал)
-        strikeVisualLightning(hitLoc);
-
-        // Возвращаем топор
-        returnMjolnir(player, projId);
-    }
-
-    // ====================== УРОН ПО ОБЛАСТИ ======================
-    private void applyAreaDamage(Player owner, Location center) {
-        World world = center.getWorld();
-        for (Entity e : world.getNearbyEntities(center, RADIUS, RADIUS, RADIUS)) {
-            if (e instanceof LivingEntity && !e.equals(owner)) {
-                LivingEntity target = (LivingEntity) e;
-                double newHealth = target.getHealth() - DAMAGE;
-                if (newHealth <= 0) {
-                    target.setHealth(0);
-                    target.damage(1);
-                } else {
-                    target.setHealth(newHealth);
-                }
+        World world = hitLoc.getWorld();
+        
+        // Ванильная молния при попадании
+        world.strikeLightning(hitLoc);
+        
+        // Эффекты
+        world.spawnParticle(Particle.ELECTRIC_SPARK, hitLoc, 50, 2, 1, 2, 0.1);
+        world.spawnParticle(Particle.FLASH, hitLoc, 10, 1, 1, 1, 0);
+        world.playSound(hitLoc, Sound.ENTITY_LIGHTNING_BOLT_THUNDER, 1.0f, 1.0f);
+        
+        // Возврат молота
+        ItemStack returningItem = thrownWeapons.remove(projectileId);
+        if (returningItem != null) {
+            HashMap<Integer, ItemStack> leftover = player.getInventory().addItem(returningItem);
+            if (!leftover.isEmpty()) {
+                world.dropItemNaturally(player.getLocation(), returningItem);
             }
+            player.sendMessage("§e⚡ Мьёльнир вернулся! ⚡");
         }
-    }
-
-    // ====================== ВИЗУАЛ МОЛНИИ ======================
-    private void strikeVisualLightning(Location loc) {
-        loc.getWorld().strikeLightningEffect(loc);
-        loc.getWorld().playSound(loc, Sound.ENTITY_LIGHTNING_BOLT_IMPACT, 0.5f, 1.0f);
-        loc.getWorld().spawnParticle(Particle.ELECTRIC_SPARK, loc, 50, 2, 2, 2, 0.1);
-    }
-
-    // ====================== ВОЗВРАТ ПРЕДМЕТА ======================
-    private void returnMjolnir(Player player, UUID projId) {
-        ItemStack item = thrownWeapons.remove(projId);
-        if (item == null) return;
-
-        HashMap<Integer, ItemStack> leftover = player.getInventory().addItem(item);
-        if (!leftover.isEmpty()) {
-            player.getWorld().dropItemNaturally(player.getLocation(), item);
-        }
-        player.sendMessage("§b⚡ Мьёльнир вернулся!");
+        
+        snowball.remove();
     }
 
     private boolean isMjolnir(ItemStack item) {

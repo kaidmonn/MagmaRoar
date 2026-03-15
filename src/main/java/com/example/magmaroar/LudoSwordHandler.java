@@ -5,6 +5,7 @@ import org.bukkit.Material;
 import org.bukkit.Particle;
 import org.bukkit.Sound;
 import org.bukkit.World;
+import org.bukkit.attribute.Attribute;
 import org.bukkit.entity.LivingEntity;
 import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;
@@ -21,7 +22,6 @@ import org.bukkit.scheduler.BukkitRunnable;
 import org.bukkit.util.Vector;
 
 import net.kyori.adventure.text.Component;
-import net.kyori.adventure.text.format.TextColor;
 
 import java.util.*;
 
@@ -32,7 +32,6 @@ public class LudoSwordHandler implements Listener {
     private final Random random = new Random();
     
     private static final long GLOBAL_COOLDOWN = 2000;
-    private static final long ROULETTE_LOCK = 2000; // Блокировка на время рулетки
     
     private enum LudoMode {
         NONE,
@@ -48,7 +47,8 @@ public class LudoSwordHandler implements Listener {
         int frostHits = 0;
         boolean isInvulnerable = false;
         ItemStack originalItem = null;
-        boolean isRolling = false; // Защита от спама
+        boolean isRolling = false;
+        int slot = -1; // Запоминаем слот
     }
     
     private static final Map<LudoMode, Integer> DURATIONS = new HashMap<>();
@@ -64,6 +64,7 @@ public class LudoSwordHandler implements Listener {
         DURATIONS.put(LudoMode.SPIDER, 15);
         DURATIONS.put(LudoMode.MJOLNIR, 15);
         DURATIONS.put(LudoMode.JACKPOT, 40);
+        DURATIONS.put(LudoMode.STORM, 15); // Клинок бури тоже на время
         
         COOLDOWNS.put(LudoMode.FROST, 45);
         COOLDOWNS.put(LudoMode.SHADOW, 40);
@@ -168,7 +169,6 @@ public class LudoSwordHandler implements Listener {
             long now = System.currentTimeMillis();
             LudoStats playerStats = stats.computeIfAbsent(player.getUniqueId(), k -> new LudoStats());
             
-            // Защита от спама во время рулетки
             if (playerStats.isRolling) {
                 player.sendMessage("§cРулетка уже крутится!");
                 event.setCancelled(true);
@@ -181,7 +181,8 @@ public class LudoSwordHandler implements Listener {
                 return;
             }
             
-            // Сохраняем оригинальный предмет
+            // Запоминаем слот и сохраняем предмет
+            playerStats.slot = player.getInventory().getHeldItemSlot();
             playerStats.originalItem = item.clone();
             
             Long lastGlobal = globalCooldowns.get(player.getUniqueId());
@@ -246,7 +247,6 @@ public class LudoSwordHandler implements Listener {
             }
         }.runTaskTimer(MagmaRoarPlugin.getInstance(), 0L, 1L);
         
-        // Автосброс если что-то пошло не так
         new BukkitRunnable() {
             @Override
             public void run() {
@@ -311,6 +311,10 @@ public class LudoSwordHandler implements Listener {
         LudoStats playerStats = stats.get(player.getUniqueId());
         playerStats.currentMode = mode;
         
+        // Даём зелья всем (как от взрывных зелий)
+        player.addPotionEffect(new PotionEffect(PotionEffectType.SPEED, 3600, 1)); // Скорость 2 на 3 минуты
+        player.addPotionEffect(new PotionEffect(PotionEffectType.STRENGTH, 3600, 1)); // Сила 2 на 3 минуты
+        
         // ПРЕВРАЩАЕМ ПРЕДМЕТ
         ItemStack handItem = player.getInventory().getItemInMainHand();
         if (isLudoSword(handItem)) {
@@ -318,7 +322,6 @@ public class LudoSwordHandler implements Listener {
             if (newMaterial != null) {
                 handItem.setType(newMaterial);
                 
-                // Обновляем название (используем Component)
                 ItemMeta meta = handItem.getItemMeta();
                 if (meta != null) {
                     meta.displayName(Component.text(getModeName(mode).replace('§', '&')));
@@ -339,8 +342,7 @@ public class LudoSwordHandler implements Listener {
             case SHADOW:
                 playerStats.modeEndTime = now + DURATIONS.get(mode) * 1000;
                 player.addPotionEffect(new PotionEffect(PotionEffectType.INVISIBILITY, DURATIONS.get(mode) * 20, 0, false, false));
-                player.addPotionEffect(new PotionEffect(PotionEffectType.SPEED, DURATIONS.get(mode) * 20, 2, false, false));
-                player.sendMessage("§8Теневой меч: невидимость + скорость 3 (20 сек)");
+                player.sendMessage("§8Теневой меч: невидимость (20 сек)");
                 break;
                 
             case SPIDER:
@@ -361,6 +363,7 @@ public class LudoSwordHandler implements Listener {
                 break;
                 
             case STORM:
+                playerStats.modeEndTime = now + DURATIONS.get(mode) * 1000;
                 playerStats.hitsLeft = 3;
                 player.sendMessage("§9Клинок бури: следующие 3 удара подбрасывают + молния");
                 break;
@@ -456,19 +459,19 @@ public class LudoSwordHandler implements Listener {
         LudoStats playerStats = stats.get(player.getUniqueId());
         if (playerStats == null || playerStats.currentMode == LudoMode.NONE) return;
         
-        // ВОЗВРАЩАЕМ ОРИГИНАЛЬНЫЙ ПРЕДМЕТ
-        if (playerStats.originalItem != null) {
-            player.getInventory().setItemInMainHand(playerStats.originalItem);
+        LudoMode mode = playerStats.currentMode;
+        
+        // Возвращаем предмет в тот же слот
+        if (playerStats.originalItem != null && playerStats.slot >= 0) {
+            player.getInventory().setItem(playerStats.slot, playerStats.originalItem);
         }
         
-        LudoMode mode = playerStats.currentMode;
         playerStats.currentMode = LudoMode.NONE;
         playerStats.hitsLeft = 0;
         playerStats.isInvulnerable = false;
         playerStats.frostHits = 0;
         
         player.removePotionEffect(PotionEffectType.INVISIBILITY);
-        player.removePotionEffect(PotionEffectType.SPEED);
         player.removePotionEffect(PotionEffectType.WEAVING);
         
         player.sendMessage("§cЭффект " + MODE_NAMES.get(mode) + " закончился.");
@@ -576,7 +579,7 @@ public class LudoSwordHandler implements Listener {
             case DEATH_SCYTHE:
                 if (playerStats.hitsLeft > 0) {
                     double playerHealth = player.getHealth();
-                    double maxHealth = player.getAttribute(org.bukkit.attribute.Attribute.MAX_HEALTH).getValue();
+                    double maxHealth = player.getAttribute(Attribute.MAX_HEALTH).getValue();
                     double newHealth = Math.min(playerHealth + 10, maxHealth);
                     player.setHealth(newHealth);
                     
@@ -605,11 +608,14 @@ public class LudoSwordHandler implements Listener {
                 
             case REAPER:
                 if (playerStats.hitsLeft > 0) {
+                    // КРАЖА ВСЕХ ПОЛОЖИТЕЛЬНЫХ ЭФФЕКТОВ (ВКЛЮЧАЯ НАШИ ЗЕЛЬЯ)
+                    List<PotionEffect> effectsToSteal = new ArrayList<>();
+                    
                     for (PotionEffect effect : target.getActivePotionEffects()) {
                         PotionEffectType type = effect.getType();
                         
                         if (isBeneficial(type)) {
-                            player.addPotionEffect(new PotionEffect(type, 
+                            effectsToSteal.add(new PotionEffect(type, 
                                 effect.getDuration(), 
                                 effect.getAmplifier(), 
                                 effect.isAmbient(), 
@@ -620,8 +626,13 @@ public class LudoSwordHandler implements Listener {
                         }
                     }
                     
+                    // Даём украденные эффекты игроку
+                    for (PotionEffect effect : effectsToSteal) {
+                        player.addPotionEffect(effect);
+                    }
+                    
                     playerStats.hitsLeft = 0;
-                    player.sendMessage("§5Все положительные эффекты украдены!");
+                    player.sendMessage("§5§l" + effectsToSteal.size() + " положительных эффектов украдено!");
                     endMode(player);
                 }
                 break;

@@ -22,22 +22,38 @@ import java.util.*;
 public class TimeClockHandler implements Listener {
 
     private final Map<UUID, Long> cooldowns = new HashMap<>();
-    private final Set<UUID> frozenProjectiles = new HashSet<>();
     private final Map<UUID, BubbleInfo> activeBubbles = new HashMap<>();
+    private final Map<UUID, List<FrozenProjectile>> frozenProjectiles = new HashMap<>();
     
-    private static final long COOLDOWN = 90 * 1000; // 90 секунд
-    private static final int BUBBLE_DURATION = 7 * 20; // 7 секунд в тиках
-    private static final int BUBBLE_SIZE = 7; // 7×7×7
-    private static final int FREEZE_TICKS = 140; // 7 секунд заморозки
+    private static final long COOLDOWN = 90 * 1000;
+    private static final int BUBBLE_DURATION = 7 * 20;
+    private static final int BUBBLE_SIZE = 7;
+    private static final int FREEZE_TICKS = 140;
+
+    private static class FrozenProjectile {
+        Entity projectile;
+        Vector originalVelocity;
+        Location frozenLocation;
+
+        FrozenProjectile(Entity projectile, Vector originalVelocity, Location frozenLocation) {
+            this.projectile = projectile;
+            this.originalVelocity = originalVelocity;
+            this.frozenLocation = frozenLocation;
+        }
+    }
 
     private static class BubbleInfo {
         Location center;
         BukkitRunnable visualTask;
+        BukkitRunnable projectileTask;
+        UUID ownerId;
         long endTime;
 
-        BubbleInfo(Location center, BukkitRunnable visualTask, long endTime) {
+        BubbleInfo(Location center, BukkitRunnable visualTask, BukkitRunnable projectileTask, UUID ownerId, long endTime) {
             this.center = center;
             this.visualTask = visualTask;
+            this.projectileTask = projectileTask;
+            this.ownerId = ownerId;
             this.endTime = endTime;
         }
     }
@@ -56,20 +72,18 @@ public class TimeClockHandler implements Listener {
             
             if (lastUse != null && now - lastUse < COOLDOWN) {
                 long secondsLeft = (COOLDOWN - (now - lastUse)) / 1000;
-                player.sendMessage("§cЧасы времени перезаряжаются! Осталось: " + secondsLeft + " сек.");
+                player.sendMessage("§cЧасы времени перезаряжается! Осталось: " + secondsLeft + " сек.");
                 event.setCancelled(true);
                 return;
             }
 
-            // Получаем точку взгляда
             Location center = player.getTargetBlock(null, 100).getLocation().add(0.5, 1, 0.5);
             World world = player.getWorld();
             
-            // Звук активации
             world.playSound(center, Sound.BLOCK_BEACON_ACTIVATE, 1.0f, 1.0f);
             player.sendMessage("§6Часы времени создают временной пузырь!");
             
-            // 1. ЗАМОРАЖИВАЕМ ИГРОКОВ
+            // Замораживаем игроков
             for (Player p : world.getPlayers()) {
                 if (!p.equals(player) && isInBubble(p.getLocation(), center)) {
                     p.setFreezeTicks(FREEZE_TICKS);
@@ -77,7 +91,7 @@ public class TimeClockHandler implements Listener {
                 }
             }
             
-            // 2. ОСТАНАВЛИВАЕМ МОБОВ
+            // Останавливаем мобов
             for (Entity e : world.getEntities()) {
                 if (e instanceof Mob && !e.equals(player) && isInBubble(e.getLocation(), center)) {
                     Mob mob = (Mob) e;
@@ -96,14 +110,21 @@ public class TimeClockHandler implements Listener {
                 }
             }
             
-            // 3. ЗАПУСКАЕМ ПРОВЕРКУ СНАРЯДОВ
-            startProjectileChecker(player, center);
+            // Создаём список для замороженных снарядов этого пузыря
+            List<FrozenProjectile> projectilesInBubble = new ArrayList<>();
+            frozenProjectiles.put(player.getUniqueId(), projectilesInBubble);
             
-            // 4. ВИЗУАЛ КУБА (ТОЛЬКО РЁБРА)
+            // Запускаем проверку снарядов
+            BukkitRunnable projectileTask = startProjectileChecker(player, center, projectilesInBubble);
+            
+            // Визуал куба (жёлтые рёбра)
             BukkitRunnable visualTask = drawBubbleOutline(center, world);
             
             // Сохраняем информацию о пузыре
-            activeBubbles.put(player.getUniqueId(), new BubbleInfo(center, visualTask, now + (BUBBLE_DURATION * 50L)));
+            activeBubbles.put(player.getUniqueId(), new BubbleInfo(
+                center, visualTask, projectileTask, player.getUniqueId(), 
+                System.currentTimeMillis() + (BUBBLE_DURATION * 50L)
+            ));
             
             cooldowns.put(player.getUniqueId(), now);
             event.setCancelled(true);
@@ -118,27 +139,52 @@ public class TimeClockHandler implements Listener {
         return dx <= BUBBLE_SIZE/2 && dy <= BUBBLE_SIZE/2 && dz <= BUBBLE_SIZE/2;
     }
 
-    private void startProjectileChecker(Player player, Location center) {
-        new BukkitRunnable() {
+    private BukkitRunnable startProjectileChecker(Player player, Location center, List<FrozenProjectile> projectilesInBubble) {
+        BukkitRunnable task = new BukkitRunnable() {
             int ticks = 0;
             
             @Override
             public void run() {
                 if (ticks >= BUBBLE_DURATION) {
+                    // Размораживаем снаряды
+                    for (FrozenProjectile fp : projectilesInBubble) {
+                        if (!fp.projectile.isDead()) {
+                            fp.projectile.setVelocity(fp.originalVelocity);
+                        }
+                    }
+                    projectilesInBubble.clear();
+                    frozenProjectiles.remove(player.getUniqueId());
                     this.cancel();
                     return;
                 }
                 
+                // Проверяем новые снаряды
                 for (Entity e : center.getWorld().getEntities()) {
                     if (e instanceof Projectile && isInBubble(e.getLocation(), center)) {
-                        e.setVelocity(new Vector(0, 0, 0));
-                        frozenProjectiles.add(e.getUniqueId());
+                        boolean alreadyFrozen = false;
+                        for (FrozenProjectile fp : projectilesInBubble) {
+                            if (fp.projectile.equals(e)) {
+                                alreadyFrozen = true;
+                                break;
+                            }
+                        }
+                        
+                        if (!alreadyFrozen) {
+                            // Запоминаем скорость и позицию, затем останавливаем
+                            Vector vel = e.getVelocity().clone();
+                            Location loc = e.getLocation().clone();
+                            e.setVelocity(new Vector(0, 0, 0));
+                            projectilesInBubble.add(new FrozenProjectile(e, vel, loc));
+                        }
                     }
                 }
                 
                 ticks++;
             }
-        }.runTaskTimer(MagmaRoarPlugin.getInstance(), 0L, 1L);
+        };
+        
+        task.runTaskTimer(MagmaRoarPlugin.getInstance(), 0L, 1L);
+        return task;
     }
 
     private BukkitRunnable drawBubbleOutline(Location center, World world) {
@@ -150,37 +196,31 @@ public class TimeClockHandler implements Listener {
             @Override
             public void run() {
                 if (ticks >= BUBBLE_DURATION) {
-                    // Останавливаем визуал
                     this.cancel();
-                    
-                    // Очищаем все активные пузыри этого мира
-                    activeBubbles.entrySet().removeIf(entry -> {
-                        if (entry.getValue().center.getWorld().equals(world)) {
-                            return true;
-                        }
-                        return false;
-                    });
                     return;
                 }
                 
-                // Рисуем только рёбра куба (желтые линии)
+                Particle.DustOptions yellowDust = new Particle.DustOptions(
+                    org.bukkit.Color.fromRGB(255, 215, 0), 1.5f
+                );
+                
                 // Нижние рёбра
-                drawLine(center.clone().add(-half, -half, -half), center.clone().add(half, -half, -half), world);
-                drawLine(center.clone().add(half, -half, -half), center.clone().add(half, -half, half), world);
-                drawLine(center.clone().add(half, -half, half), center.clone().add(-half, -half, half), world);
-                drawLine(center.clone().add(-half, -half, half), center.clone().add(-half, -half, -half), world);
+                drawLine(center.clone().add(-half, -half, -half), center.clone().add(half, -half, -half), world, yellowDust);
+                drawLine(center.clone().add(half, -half, -half), center.clone().add(half, -half, half), world, yellowDust);
+                drawLine(center.clone().add(half, -half, half), center.clone().add(-half, -half, half), world, yellowDust);
+                drawLine(center.clone().add(-half, -half, half), center.clone().add(-half, -half, -half), world, yellowDust);
                 
                 // Верхние рёбра
-                drawLine(center.clone().add(-half, half, -half), center.clone().add(half, half, -half), world);
-                drawLine(center.clone().add(half, half, -half), center.clone().add(half, half, half), world);
-                drawLine(center.clone().add(half, half, half), center.clone().add(-half, half, half), world);
-                drawLine(center.clone().add(-half, half, half), center.clone().add(-half, half, -half), world);
+                drawLine(center.clone().add(-half, half, -half), center.clone().add(half, half, -half), world, yellowDust);
+                drawLine(center.clone().add(half, half, -half), center.clone().add(half, half, half), world, yellowDust);
+                drawLine(center.clone().add(half, half, half), center.clone().add(-half, half, half), world, yellowDust);
+                drawLine(center.clone().add(-half, half, half), center.clone().add(-half, half, -half), world, yellowDust);
                 
                 // Вертикальные рёбра
-                drawLine(center.clone().add(-half, -half, -half), center.clone().add(-half, half, -half), world);
-                drawLine(center.clone().add(half, -half, -half), center.clone().add(half, half, -half), world);
-                drawLine(center.clone().add(half, -half, half), center.clone().add(half, half, half), world);
-                drawLine(center.clone().add(-half, -half, half), center.clone().add(-half, half, half), world);
+                drawLine(center.clone().add(-half, -half, -half), center.clone().add(-half, half, -half), world, yellowDust);
+                drawLine(center.clone().add(half, -half, -half), center.clone().add(half, half, -half), world, yellowDust);
+                drawLine(center.clone().add(half, -half, half), center.clone().add(half, half, half), world, yellowDust);
+                drawLine(center.clone().add(-half, -half, half), center.clone().add(-half, half, half), world, yellowDust);
                 
                 ticks++;
             }
@@ -190,16 +230,15 @@ public class TimeClockHandler implements Listener {
         return task;
     }
 
-    private void drawLine(Location start, Location end, World world) {
+    private void drawLine(Location start, Location end, World world, Particle.DustOptions color) {
         Vector direction = end.toVector().subtract(start.toVector()).normalize();
         double distance = start.distance(end);
         
-        for (double d = 0; d <= distance; d += 0.5) {
+        for (double d = 0; d <= distance; d += 0.3) {
             Vector step = direction.clone().multiply(d);
             Location point = start.clone().add(step);
             
-            // Жёлтые частицы (END_ROD даёт жёлтое свечение)
-            world.spawnParticle(Particle.END_ROD, point, 1, 0, 0, 0, 0);
+            world.spawnParticle(Particle.DUST, point, 1, 0, 0, 0, 0, color);
         }
     }
 
@@ -217,19 +256,31 @@ public class TimeClockHandler implements Listener {
                 
                 for (BubbleInfo bubble : activeBubbles.values()) {
                     if (isInBubble(p.getLocation(), bubble.center)) {
+                        // Запоминаем скорость и останавливаем
+                        Vector vel = p.getVelocity().clone();
                         p.setVelocity(new Vector(0, 0, 0));
-                        frozenProjectiles.add(p.getUniqueId());
+                        
+                        // Добавляем в список замороженных
+                        List<FrozenProjectile> projectiles = frozenProjectiles.get(bubble.ownerId);
+                        if (projectiles != null) {
+                            boolean alreadyFrozen = false;
+                            for (FrozenProjectile fp : projectiles) {
+                                if (fp.projectile.equals(p)) {
+                                    alreadyFrozen = true;
+                                    break;
+                                }
+                            }
+                            if (!alreadyFrozen) {
+                                projectiles.add(new FrozenProjectile(p, vel, p.getLocation().clone()));
+                            }
+                        }
+                        
                         this.cancel();
                         return;
                     }
                 }
             }
         }.runTaskTimer(MagmaRoarPlugin.getInstance(), 0L, 1L);
-    }
-
-    @EventHandler
-    public void onProjectileHit(ProjectileHitEvent event) {
-        frozenProjectiles.remove(event.getEntity().getUniqueId());
     }
 
     @EventHandler

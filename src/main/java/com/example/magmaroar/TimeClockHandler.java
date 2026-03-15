@@ -9,9 +9,11 @@ import org.bukkit.entity.*;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.Listener;
 import org.bukkit.event.block.Action;
+import org.bukkit.event.entity.EntityDamageEvent;
 import org.bukkit.event.entity.ProjectileHitEvent;
 import org.bukkit.event.entity.ProjectileLaunchEvent;
 import org.bukkit.event.player.PlayerInteractEvent;
+import org.bukkit.event.player.PlayerMoveEvent;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.inventory.meta.ItemMeta;
 import org.bukkit.scheduler.BukkitRunnable;
@@ -24,6 +26,7 @@ public class TimeClockHandler implements Listener {
     private final Map<UUID, Long> cooldowns = new HashMap<>();
     private final Map<UUID, BubbleInfo> activeBubbles = new HashMap<>();
     private final Map<UUID, List<FrozenProjectile>> frozenProjectiles = new HashMap<>();
+    private final Map<UUID, Long> frozenEntities = new HashMap<>(); // Для отслеживания замороженных
     
     private static final long COOLDOWN = 90 * 1000;
     private static final int BUBBLE_DURATION = 7 * 20;
@@ -46,13 +49,15 @@ public class TimeClockHandler implements Listener {
         Location center;
         BukkitRunnable visualTask;
         BukkitRunnable projectileTask;
+        BukkitRunnable checkTask; // Новый таск для проверки входящих
         UUID ownerId;
         long endTime;
 
-        BubbleInfo(Location center, BukkitRunnable visualTask, BukkitRunnable projectileTask, UUID ownerId, long endTime) {
+        BubbleInfo(Location center, BukkitRunnable visualTask, BukkitRunnable projectileTask, BukkitRunnable checkTask, UUID ownerId, long endTime) {
             this.center = center;
             this.visualTask = visualTask;
             this.projectileTask = projectileTask;
+            this.checkTask = checkTask;
             this.ownerId = ownerId;
             this.endTime = endTime;
         }
@@ -83,50 +88,124 @@ public class TimeClockHandler implements Listener {
             world.playSound(center, Sound.BLOCK_BEACON_ACTIVATE, 1.0f, 1.0f);
             player.sendMessage("§6Часы времени создают временной пузырь!");
             
-            // Замораживаем игроков
-            for (Player p : world.getPlayers()) {
-                if (!p.equals(player) && isInBubble(p.getLocation(), center)) {
-                    p.setFreezeTicks(FREEZE_TICKS);
-                    p.sendMessage("§cВы попали во временной пузырь! Всё замерло...");
-                }
-            }
+            // Замораживаем всех, кто уже внутри
+            freezeAllInside(center, player);
             
-            // Останавливаем мобов
-            for (Entity e : world.getEntities()) {
-                if (e instanceof Mob && !e.equals(player) && isInBubble(e.getLocation(), center)) {
-                    Mob mob = (Mob) e;
-                    if (mob.hasAI()) {
-                        mob.setAI(false);
-                        
-                        new BukkitRunnable() {
-                            @Override
-                            public void run() {
-                                if (!mob.isDead()) {
-                                    mob.setAI(true);
-                                }
-                            }
-                        }.runTaskLater(MagmaRoarPlugin.getInstance(), BUBBLE_DURATION);
-                    }
-                }
-            }
-            
-            // Создаём список для замороженных снарядов этого пузыря
+            // Создаём список для замороженных снарядов
             List<FrozenProjectile> projectilesInBubble = new ArrayList<>();
             frozenProjectiles.put(player.getUniqueId(), projectilesInBubble);
             
             // Запускаем проверку снарядов
             BukkitRunnable projectileTask = startProjectileChecker(player, center, projectilesInBubble);
             
+            // Запускаем проверку входящих существ
+            BukkitRunnable checkTask = startEntityChecker(center, player);
+            
             // Визуал куба (жёлтые рёбра)
             BukkitRunnable visualTask = drawBubbleOutline(center, world);
             
             // Сохраняем информацию о пузыре
             activeBubbles.put(player.getUniqueId(), new BubbleInfo(
-                center, visualTask, projectileTask, player.getUniqueId(), 
+                center, visualTask, projectileTask, checkTask, player.getUniqueId(), 
                 System.currentTimeMillis() + (BUBBLE_DURATION * 50L)
             ));
             
             cooldowns.put(player.getUniqueId(), now);
+            event.setCancelled(true);
+        }
+    }
+
+    private void freezeAllInside(Location center, Player owner) {
+        World world = center.getWorld();
+        
+        // Замораживаем игроков
+        for (Player p : world.getPlayers()) {
+            if (!p.equals(owner) && isInBubble(p.getLocation(), center)) {
+                freezeEntity(p);
+                p.sendMessage("§cВы попали во временной пузырь! Всё замерло...");
+            }
+        }
+        
+        // Замораживаем мобов
+        for (Entity e : world.getEntities()) {
+            if (e instanceof Mob && !e.equals(owner) && isInBubble(e.getLocation(), center)) {
+                freezeEntity((LivingEntity) e);
+            }
+        }
+    }
+
+    private BukkitRunnable startEntityChecker(Location center, Player owner) {
+        BukkitRunnable task = new BukkitRunnable() {
+            int ticks = 0;
+            
+            @Override
+            public void run() {
+                if (ticks >= BUBBLE_DURATION) {
+                    // Размораживаем всех
+                    for (UUID id : frozenEntities.keySet()) {
+                        Entity e = findEntity(id);
+                        if (e instanceof Player) {
+                            Player p = (Player) e;
+                            p.setFreezeTicks(0);
+                            p.sendMessage("§aВременной пузырь исчез, вы снова можете двигаться!");
+                        } else if (e instanceof Mob) {
+                            Mob m = (Mob) e;
+                            m.setAI(true);
+                        }
+                    }
+                    frozenEntities.clear();
+                    this.cancel();
+                    return;
+                }
+                
+                // Проверяем новых существ, вошедших в пузырь
+                for (Entity e : center.getWorld().getEntities()) {
+                    if (e instanceof LivingEntity && !e.equals(owner) && isInBubble(e.getLocation(), center)) {
+                        LivingEntity le = (LivingEntity) e;
+                        
+                        // Если ещё не заморожен
+                        if (!frozenEntities.containsKey(e.getUniqueId())) {
+                            freezeEntity(le);
+                            
+                            if (e instanceof Player) {
+                                ((Player) e).sendMessage("§cВы вошли во временной пузырь! Всё замерло...");
+                            }
+                        }
+                    }
+                }
+                
+                ticks++;
+            }
+        };
+        
+        task.runTaskTimer(MagmaRoarPlugin.getInstance(), 0L, 5L); // Проверка каждые 5 тиков
+        return task;
+    }
+
+    private void freezeEntity(LivingEntity entity) {
+        if (entity instanceof Player) {
+            Player p = (Player) entity;
+            p.setFreezeTicks(FREEZE_TICKS);
+            p.setWalkSpeed(0);
+            p.setFlySpeed(0);
+            p.setAllowFlight(true);
+            p.setFlying(true);
+        } else if (entity instanceof Mob) {
+            Mob m = (Mob) entity;
+            if (m.hasAI()) {
+                m.setAI(false);
+            }
+        }
+        
+        frozenEntities.put(entity.getUniqueId(), System.currentTimeMillis());
+    }
+
+    @EventHandler
+    public void onPlayerMove(PlayerMoveEvent event) {
+        Player player = event.getPlayer();
+        
+        // Если игрок заморожен, отменяем движение
+        if (frozenEntities.containsKey(player.getUniqueId())) {
             event.setCancelled(true);
         }
     }
@@ -170,7 +249,6 @@ public class TimeClockHandler implements Listener {
                         }
                         
                         if (!alreadyFrozen) {
-                            // Запоминаем скорость и позицию, затем останавливаем
                             Vector vel = e.getVelocity().clone();
                             Location loc = e.getLocation().clone();
                             e.setVelocity(new Vector(0, 0, 0));
@@ -204,19 +282,17 @@ public class TimeClockHandler implements Listener {
                     org.bukkit.Color.fromRGB(255, 215, 0), 1.5f
                 );
                 
-                // Нижние рёбра
+                // Рисуем рёбра куба
                 drawLine(center.clone().add(-half, -half, -half), center.clone().add(half, -half, -half), world, yellowDust);
                 drawLine(center.clone().add(half, -half, -half), center.clone().add(half, -half, half), world, yellowDust);
                 drawLine(center.clone().add(half, -half, half), center.clone().add(-half, -half, half), world, yellowDust);
                 drawLine(center.clone().add(-half, -half, half), center.clone().add(-half, -half, -half), world, yellowDust);
                 
-                // Верхние рёбра
                 drawLine(center.clone().add(-half, half, -half), center.clone().add(half, half, -half), world, yellowDust);
                 drawLine(center.clone().add(half, half, -half), center.clone().add(half, half, half), world, yellowDust);
                 drawLine(center.clone().add(half, half, half), center.clone().add(-half, half, half), world, yellowDust);
                 drawLine(center.clone().add(-half, half, half), center.clone().add(-half, half, -half), world, yellowDust);
                 
-                // Вертикальные рёбра
                 drawLine(center.clone().add(-half, -half, -half), center.clone().add(-half, half, -half), world, yellowDust);
                 drawLine(center.clone().add(half, -half, -half), center.clone().add(half, half, -half), world, yellowDust);
                 drawLine(center.clone().add(half, -half, half), center.clone().add(half, half, half), world, yellowDust);
@@ -256,11 +332,9 @@ public class TimeClockHandler implements Listener {
                 
                 for (BubbleInfo bubble : activeBubbles.values()) {
                     if (isInBubble(p.getLocation(), bubble.center)) {
-                        // Запоминаем скорость и останавливаем
                         Vector vel = p.getVelocity().clone();
                         p.setVelocity(new Vector(0, 0, 0));
                         
-                        // Добавляем в список замороженных
                         List<FrozenProjectile> projectiles = frozenProjectiles.get(bubble.ownerId);
                         if (projectiles != null) {
                             boolean alreadyFrozen = false;
@@ -297,6 +371,17 @@ public class TimeClockHandler implements Listener {
                 }
             }
         }
+    }
+
+    private Entity findEntity(UUID id) {
+        for (World world : MagmaRoarPlugin.getInstance().getServer().getWorlds()) {
+            for (Entity e : world.getEntities()) {
+                if (e.getUniqueId().equals(id)) {
+                    return e;
+                }
+            }
+        }
+        return null;
     }
 
     private boolean isTimeClock(ItemStack item) {

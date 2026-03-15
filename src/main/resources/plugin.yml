@@ -1,5 +1,5 @@
 name: MagmaRoar
-version: 11.0
+version: 12.0
 main: com.example.magmaroar.MagmaRoarPlugin
 api-version: 1.21
 commands:
@@ -84,3 +84,6 @@ commands:
   artemis:
     description: Дает Лук Артемиды
     usage: /artemis
+  creationbow:
+    description: Дает Лук сотворения
+    usage: /creationbow

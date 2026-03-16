@@ -1,6 +1,7 @@
 package com.example.magmaroar;
 
 import org.bukkit.entity.Player;
+import org.bukkit.entity.Zombie;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.Listener;
 import org.bukkit.event.entity.EntityDamageEvent;
@@ -10,16 +11,16 @@ import org.bukkit.event.player.PlayerQuitEvent;
 
 public class EventListener implements Listener {
 
-    private final MythicNPC plugin;
+    private final MagmaRoarPlugin plugin;
 
-    public EventListener(MythicNPC plugin) {
+    public EventListener(MagmaRoarPlugin plugin) {
         this.plugin = plugin;
     }
 
     @EventHandler
     public void onPlayerInteractNPC(PlayerInteractEntityEvent event) {
-        if (event.getRightClicked() instanceof Player) {
-            Player clicked = (Player) event.getRightClicked();
+        if (event.getRightClicked() instanceof Zombie) {
+            Zombie clicked = (Zombie) event.getRightClicked();
             if (plugin.getNPCManager().isNPC(clicked)) {
                 plugin.getQueueManager().addToQueue(event.getPlayer());
                 event.setCancelled(true);
@@ -29,9 +30,9 @@ public class EventListener implements Listener {
 
     @EventHandler
     public void onEntityDamage(EntityDamageEvent event) {
-        if (event.getEntity() instanceof Player) {
-            Player player = (Player) event.getEntity();
-            if (plugin.getNPCManager().isNPC(player)) {
+        if (event.getEntity() instanceof Zombie) {
+            Zombie zombie = (Zombie) event.getEntity();
+            if (plugin.getNPCManager().isNPC(zombie)) {
                 event.setCancelled(true);
             }
         }

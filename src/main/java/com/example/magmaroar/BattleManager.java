@@ -1,5 +1,6 @@
 package com.example.magmaroar;
 
+import net.kyori.adventure.text.Component;
 import net.kyori.adventure.title.Title;
 import org.bukkit.Bukkit;
 import org.bukkit.Location;
@@ -7,16 +8,17 @@ import org.bukkit.Sound;
 import org.bukkit.entity.Player;
 import org.bukkit.scheduler.BukkitRunnable;
 
+import java.time.Duration;
 import java.util.*;
 
 public class BattleManager {
 
-    private final MythicNPC plugin;
+    private final MagmaRoarPlugin plugin;
     private final List<Player> battlePlayers = new ArrayList<>();
     private final Location battleLocation = new Location(Bukkit.getWorld("world"), 133, -32, 93);
     private boolean battleActive = false;
 
-    public BattleManager(MythicNPC plugin) {
+    public BattleManager(MagmaRoarPlugin plugin) {
         this.plugin = plugin;
     }
 
@@ -52,8 +54,9 @@ public class BattleManager {
             player.teleport(battleLocation);
             
             player.showTitle(Title.title(
-                "§c§lБОЙ НАЧАЛСЯ!",
-                "§eУдачи!"
+                Component.text("§c§lБОЙ НАЧАЛСЯ!"),
+                Component.text("§eУдачи!"),
+                Title.Times.times(Duration.ofMillis(500), Duration.ofSeconds(3), Duration.ofMillis(500))
             ));
             
             player.playSound(player.getLocation(), Sound.ENTITY_WITHER_SPAWN, 1, 1);
@@ -69,8 +72,9 @@ public class BattleManager {
             Player winner = battlePlayers.get(0);
             
             winner.showTitle(Title.title(
-                "§6§lВЫ ВЫИГРАЛИ!",
-                "§eПоздравляем!"
+                Component.text("§6§lВЫ ВЫИГРАЛИ!"),
+                Component.text("§eПоздравляем!"),
+                Title.Times.times(Duration.ofMillis(500), Duration.ofSeconds(3), Duration.ofMillis(500))
             ));
             
             winner.playSound(winner.getLocation(), Sound.ENTITY_ENDER_DRAGON_DEATH, 1, 1);

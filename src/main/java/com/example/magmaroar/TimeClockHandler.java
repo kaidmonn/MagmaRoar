@@ -317,6 +317,42 @@ public class TimeClockHandler implements Listener {
                 player.sendMessage("§cВы заморожены во времени и не можете кидать снаряды!");
             }
         }
+
+        Projectile p = event.getEntity();
+        
+        new BukkitRunnable() {
+            @Override
+            public void run() {
+                if (p.isDead() || p.isOnGround()) {
+                    this.cancel();
+                    return;
+                }
+                
+                for (BubbleInfo bubble : activeBubbles.values()) {
+                    if (bubble.isActive && isInBubble(p.getLocation(), bubble.center)) {
+                        Vector vel = p.getVelocity().clone();
+                        p.setVelocity(new Vector(0, 0, 0));
+                        
+                        List<FrozenProjectile> projectiles = frozenProjectiles.get(bubble.ownerId);
+                        if (projectiles != null) {
+                            boolean alreadyFrozen = false;
+                            for (FrozenProjectile fp : projectiles) {
+                                if (fp.projectile.equals(p)) {
+                                    alreadyFrozen = true;
+                                    break;
+                                }
+                            }
+                            if (!alreadyFrozen) {
+                                projectiles.add(new FrozenProjectile(p, vel, p.getLocation().clone()));
+                            }
+                        }
+                        
+                        this.cancel();
+                        return;
+                    }
+                }
+            }
+        }.runTaskTimer(MagmaRoarPlugin.getInstance(), 0L, 1L);
     }
 
     @EventHandler
@@ -445,45 +481,6 @@ public class TimeClockHandler implements Listener {
             
             world.spawnParticle(Particle.DUST, point, 1, 0, 0, 0, 0, color);
         }
-    }
-
-    @EventHandler
-    public void onProjectileLaunch(ProjectileLaunchEvent event) {
-        Projectile p = event.getEntity();
-        
-        new BukkitRunnable() {
-            @Override
-            public void run() {
-                if (p.isDead() || p.isOnGround()) {
-                    this.cancel();
-                    return;
-                }
-                
-                for (BubbleInfo bubble : activeBubbles.values()) {
-                    if (bubble.isActive && isInBubble(p.getLocation(), bubble.center)) {
-                        Vector vel = p.getVelocity().clone();
-                        p.setVelocity(new Vector(0, 0, 0));
-                        
-                        List<FrozenProjectile> projectiles = frozenProjectiles.get(bubble.ownerId);
-                        if (projectiles != null) {
-                            boolean alreadyFrozen = false;
-                            for (FrozenProjectile fp : projectiles) {
-                                if (fp.projectile.equals(p)) {
-                                    alreadyFrozen = true;
-                                    break;
-                                }
-                            }
-                            if (!alreadyFrozen) {
-                                projectiles.add(new FrozenProjectile(p, vel, p.getLocation().clone()));
-                            }
-                        }
-                        
-                        this.cancel();
-                        return;
-                    }
-                }
-            }
-        }.runTaskTimer(MagmaRoarPlugin.getInstance(), 0L, 1L);
     }
 
     private Entity findEntity(UUID id) {

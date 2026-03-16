@@ -10,7 +10,7 @@ import java.util.*;
 
 public class QueueManager {
 
-    private final MythicNPC plugin;
+    private final MagmaRoarPlugin plugin;
     private final List<Player> queue = new ArrayList<>();
     private final List<Player> confirmedPlayers = new ArrayList<>();
     private final Map<Player, Integer> playerPositions = new HashMap<>();
@@ -25,7 +25,7 @@ public class QueueManager {
         new Location(Bukkit.getWorld("world"), 8, -52, 9)
     };
 
-    public QueueManager(MythicNPC plugin) {
+    public QueueManager(MagmaRoarPlugin plugin) {
         this.plugin = plugin;
     }
 

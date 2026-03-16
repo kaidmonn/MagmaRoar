@@ -1,6 +1,9 @@
-package com.example.magmaroar;
+=package com.example.magmaroar;
 
 import org.bukkit.plugin.java.JavaPlugin;
+import java.util.Arrays;
+import java.util.List;
+import java.util.Random;
 
 public class MagmaRoarPlugin extends JavaPlugin {
 
@@ -37,7 +40,8 @@ public class MagmaRoarPlugin extends JavaPlugin {
         getServer().getPluginManager().registerEvents(new TimeClockHandler(), this);
         getServer().getPluginManager().registerEvents(new TimeBowHandler(), this);
         getServer().getPluginManager().registerEvents(new ArtemisBowHandler(), this);
-        getServer().getPluginManager().registerEvents(new CreationBowHandler(), this); // Лук сотворения
+        getServer().getPluginManager().registerEvents(new CreationBowHandler(), this);
+        getServer().getPluginManager().registerEvents(new FossilSwordHandler(), this);
         
         // Команда для Рога Магмы
         getCommand("roar").setExecutor((sender, command, label, args) -> {
@@ -262,7 +266,119 @@ public class MagmaRoarPlugin extends JavaPlugin {
             return true;
         });
         
-        getLogger().info("§aMagmaRoarPlugin включён! Загружено 29 предметов (с Луком сотворения)");
+        // Команда для Ископаемого меча
+        getCommand("fossil").setExecutor((sender, command, label, args) -> {
+            if (sender instanceof org.bukkit.entity.Player) {
+                ((org.bukkit.entity.Player) sender).getInventory().addItem(FossilSwordItem.createSword());
+            }
+            return true;
+        });
+        
+        // ========== РАНДОМНЫЕ КОМАНДЫ ==========
+        
+        // Команда для рандомного оружия себе (первая группа)
+        getCommand("randomweapon1").setExecutor((sender, command, label, args) -> {
+            if (!(sender instanceof org.bukkit.entity.Player)) return true;
+            
+            List<ItemStack> weapons = Arrays.asList(
+                BloodSwordItem.createBloodSword(),
+                FrostSwordItem.createFrostSword(),
+                ShadowSwordItem.createShadowSword(),
+                SpiderBladeItem.createBlade(),
+                MjolnirItem.createMjolnir(),
+                StormBladeItem.createBlade(),
+                ExcaliburItem.createExcalibur(),
+                KatanaItem.createKatana(),
+                LudoSwordItem.createSword(),
+                FossilSwordItem.createSword()
+            );
+            
+            Random random = new Random();
+            ItemStack randomWeapon = weapons.get(random.nextInt(weapons.size())).clone();
+            ((org.bukkit.entity.Player) sender).getInventory().addItem(randomWeapon);
+            ((org.bukkit.entity.Player) sender).sendMessage("§aВы получили рандомное оружие!");
+            return true;
+        });
+        
+        // Команда для рандомного оружия себе (вторая группа)
+        getCommand("randomweapon2").setExecutor((sender, command, label, args) -> {
+            if (!(sender instanceof org.bukkit.entity.Player)) return true;
+            
+            List<ItemStack> weapons = Arrays.asList(
+                LightMaceItem.createMace(),
+                OrbitalCannonItem.createCannon(),
+                SculkCrossbowItem.createCrossbow(),
+                VillagerStaffItem.createStaff(),
+                DeathScytheItem.createScythe(),
+                HellMeteorItem.createMeteor(),
+                ReaperScytheItem.createScythe(),
+                TimeClockItem.createClock(),
+                TimeBowItem.createBow(),
+                ArtemisBowItem.createBow()
+            );
+            
+            Random random = new Random();
+            ItemStack randomWeapon = weapons.get(random.nextInt(weapons.size())).clone();
+            ((org.bukkit.entity.Player) sender).getInventory().addItem(randomWeapon);
+            ((org.bukkit.entity.Player) sender).sendMessage("§aВы получили рандомное оружие!");
+            return true;
+        });
+        
+        // Команда для рандомного оружия ВСЕМ (первая группа)
+        getCommand("randomweaponall1").setExecutor((sender, command, label, args) -> {
+            List<ItemStack> weapons = Arrays.asList(
+                BloodSwordItem.createBloodSword(),
+                FrostSwordItem.createFrostSword(),
+                ShadowSwordItem.createShadowSword(),
+                SpiderBladeItem.createBlade(),
+                MjolnirItem.createMjolnir(),
+                StormBladeItem.createBlade(),
+                ExcaliburItem.createExcalibur(),
+                KatanaItem.createKatana(),
+                LudoSwordItem.createSword(),
+                FossilSwordItem.createSword()
+            );
+            
+            Random random = new Random();
+            
+            for (org.bukkit.entity.Player player : getServer().getOnlinePlayers()) {
+                ItemStack randomWeapon = weapons.get(random.nextInt(weapons.size())).clone();
+                player.getInventory().addItem(randomWeapon);
+                player.sendMessage("§aВы получили рандомное оружие!");
+            }
+            
+            sender.sendMessage("§aРандомное оружие выдано всем игрокам!");
+            return true;
+        });
+        
+        // Команда для рандомного оружия ВСЕМ (вторая группа)
+        getCommand("randomweaponall2").setExecutor((sender, command, label, args) -> {
+            List<ItemStack> weapons = Arrays.asList(
+                LightMaceItem.createMace(),
+                OrbitalCannonItem.createCannon(),
+                SculkCrossbowItem.createCrossbow(),
+                VillagerStaffItem.createStaff(),
+                DeathScytheItem.createScythe(),
+                HellMeteorItem.createMeteor(),
+                ReaperScytheItem.createScythe(),
+                TimeClockItem.createClock(),
+                TimeBowItem.createBow(),
+                ArtemisBowItem.createBow()
+            );
+            
+            Random random = new Random();
+            
+            for (org.bukkit.entity.Player player : getServer().getOnlinePlayers()) {
+                ItemStack randomWeapon = weapons.get(random.nextInt(weapons.size())).clone();
+                player.getInventory().addItem(randomWeapon);
+                player.sendMessage("§aВы получили рандомное оружие!");
+            }
+            
+            sender.sendMessage("§aРандомное оружие выдано всем игрокам!");
+            return true;
+        });
+        
+        getLogger().info("§aMagmaRoarPlugin включён! Загружено 30+ предметов и 4 рандомные команды");
     }
 
     public static MagmaRoarPlugin getInstance() {

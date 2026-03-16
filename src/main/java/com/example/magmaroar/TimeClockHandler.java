@@ -9,10 +9,14 @@ import org.bukkit.entity.*;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.Listener;
 import org.bukkit.event.block.Action;
+import org.bukkit.event.block.BlockBreakEvent;
+import org.bukkit.event.block.BlockPlaceEvent;
+import org.bukkit.event.entity.EntityDamageByEntityEvent;
 import org.bukkit.event.entity.EntityDamageEvent;
-import org.bukkit.event.entity.ProjectileHitEvent;
+import org.bukkit.event.entity.EntityShootBowEvent;
 import org.bukkit.event.entity.ProjectileLaunchEvent;
 import org.bukkit.event.player.PlayerInteractEvent;
+import org.bukkit.event.player.PlayerItemConsumeEvent;
 import org.bukkit.event.player.PlayerMoveEvent;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.inventory.meta.ItemMeta;
@@ -26,12 +30,13 @@ public class TimeClockHandler implements Listener {
     private final Map<UUID, Long> cooldowns = new HashMap<>();
     private final Map<UUID, BubbleInfo> activeBubbles = new HashMap<>();
     private final Map<UUID, List<FrozenProjectile>> frozenProjectiles = new HashMap<>();
-    private final Set<UUID> frozenEntities = new HashSet<>(); // Просто Set, без лишнего
+    private final Set<UUID> frozenEntities = new HashSet<>();
+    private final Map<UUID, Long> frozenUntil = new HashMap<>();
     
     private static final long COOLDOWN = 90 * 1000;
     private static final int BUBBLE_DURATION = 7 * 20;
     private static final int BUBBLE_SIZE = 7;
-    private static final int FREEZE_TICKS = 140;
+    private static final int FREEZE_DURATION = 7 * 1000; // 7 секунд
 
     private static class FrozenProjectile {
         Entity projectile;
@@ -126,36 +131,6 @@ public class TimeClockHandler implements Listener {
         }
     }
 
-    private void removeBubble(UUID ownerId) {
-        BubbleInfo bubble = activeBubbles.remove(ownerId);
-        if (bubble == null) return;
-        
-        // Останавливаем все таски
-        bubble.isActive = false;
-        if (bubble.visualTask != null) bubble.visualTask.cancel();
-        if (bubble.projectileTask != null) bubble.projectileTask.cancel();
-        if (bubble.checkTask != null) bubble.checkTask.cancel();
-        
-        // Размораживаем всех замороженных существ
-        for (UUID entityId : new HashSet<>(frozenEntities)) {
-            Entity e = findEntity(entityId);
-            if (e != null) {
-                unfreezeEntity(e);
-            }
-        }
-        frozenEntities.clear();
-        
-        // Размораживаем снаряды
-        List<FrozenProjectile> projectiles = frozenProjectiles.remove(ownerId);
-        if (projectiles != null) {
-            for (FrozenProjectile fp : projectiles) {
-                if (!fp.projectile.isDead()) {
-                    fp.projectile.setVelocity(fp.originalVelocity);
-                }
-            }
-        }
-    }
-
     private void freezeAllInside(Location center, Player owner) {
         World world = center.getWorld();
         
@@ -163,7 +138,9 @@ public class TimeClockHandler implements Listener {
         for (Player p : world.getPlayers()) {
             if (!p.equals(owner) && isInBubble(p.getLocation(), center)) {
                 freezeEntity(p);
-                p.sendMessage("§cВы попали во временной пузырь! Всё замерло...");
+                p.sendMessage("§c§lВЫ ВО ВРЕМЕННОМ ПУЗЫРЕ!");
+                p.sendMessage("§cВы не можете двигаться, атаковать, ставить блоки или стрелять.");
+                p.sendMessage("§eМожно только есть и вертеть камерой.");
             }
         }
         
@@ -175,10 +152,13 @@ public class TimeClockHandler implements Listener {
         }
     }
 
-    private void freezeEntity(Entity entity) {
+    private void freezeEntity(LivingEntity entity) {
+        UUID entityId = entity.getUniqueId();
+        frozenEntities.add(entityId);
+        frozenUntil.put(entityId, System.currentTimeMillis() + FREEZE_DURATION);
+        
         if (entity instanceof Player) {
             Player p = (Player) entity;
-            p.setFreezeTicks(FREEZE_TICKS);
             p.setWalkSpeed(0);
             p.setFlySpeed(0);
             p.setAllowFlight(true);
@@ -189,18 +169,19 @@ public class TimeClockHandler implements Listener {
                 m.setAI(false);
             }
         }
-        
-        frozenEntities.add(entity.getUniqueId());
     }
 
     private void unfreezeEntity(Entity entity) {
         if (entity == null || entity.isDead()) return;
         
+        UUID entityId = entity.getUniqueId();
+        frozenEntities.remove(entityId);
+        frozenUntil.remove(entityId);
+        
         if (entity instanceof Player) {
             Player p = (Player) entity;
-            p.setFreezeTicks(0);
-            p.setWalkSpeed(0.2f); // Стандартная скорость
-            p.setFlySpeed(0.1f); // Стандартная скорость полёта
+            p.setWalkSpeed(0.2f);
+            p.setFlySpeed(0.1f);
             p.setAllowFlight(false);
             p.setFlying(false);
             p.sendMessage("§aВременной пузырь исчез, вы снова можете двигаться!");
@@ -208,8 +189,11 @@ public class TimeClockHandler implements Listener {
             Mob m = (Mob) entity;
             m.setAI(true);
         }
-        
-        frozenEntities.remove(entity.getUniqueId());
+    }
+
+    private boolean isFrozen(UUID entityId) {
+        Long until = frozenUntil.get(entityId);
+        return until != null && System.currentTimeMillis() < until;
     }
 
     private BukkitRunnable startEntityChecker(Location center, Player owner) {
@@ -232,7 +216,9 @@ public class TimeClockHandler implements Listener {
                             freezeEntity(le);
                             
                             if (e instanceof Player) {
-                                ((Player) e).sendMessage("§cВы вошли во временной пузырь! Всё замерло...");
+                                ((Player) e).sendMessage("§c§lВЫ ВОШЛИ ВО ВРЕМЕННОЙ ПУЗЫРЬ!");
+                                ((Player) e).sendMessage("§cВы не можете двигаться, атаковать, ставить блоки или стрелять.");
+                                ((Player) e).sendMessage("§eМожно только есть и вертеть камерой.");
                             }
                         }
                     }
@@ -244,15 +230,118 @@ public class TimeClockHandler implements Listener {
         return task;
     }
 
+    private void removeBubble(UUID ownerId) {
+        BubbleInfo bubble = activeBubbles.remove(ownerId);
+        if (bubble == null) return;
+        
+        bubble.isActive = false;
+        if (bubble.visualTask != null) bubble.visualTask.cancel();
+        if (bubble.projectileTask != null) bubble.projectileTask.cancel();
+        if (bubble.checkTask != null) bubble.checkTask.cancel();
+        
+        // Размораживаем всех
+        for (UUID entityId : new HashSet<>(frozenEntities)) {
+            Entity e = findEntity(entityId);
+            unfreezeEntity(e);
+        }
+        frozenEntities.clear();
+        frozenUntil.clear();
+        
+        // Размораживаем снаряды
+        List<FrozenProjectile> projectiles = frozenProjectiles.remove(ownerId);
+        if (projectiles != null) {
+            for (FrozenProjectile fp : projectiles) {
+                if (!fp.projectile.isDead()) {
+                    fp.projectile.setVelocity(fp.originalVelocity);
+                }
+            }
+        }
+    }
+
+    // ==================== БЛОКИРОВКА ДЕЙСТВИЙ ====================
+
     @EventHandler
     public void onPlayerMove(PlayerMoveEvent event) {
         Player player = event.getPlayer();
-        
-        // Если игрок заморожен, отменяем движение
-        if (frozenEntities.contains(player.getUniqueId())) {
-            event.setCancelled(true);
+        if (isFrozen(player.getUniqueId())) {
+            event.setCancelled(true); // Не может двигаться
         }
     }
+
+    @EventHandler
+    public void onEntityDamageByEntity(EntityDamageByEntityEvent event) {
+        if (event.getDamager() instanceof Player) {
+            Player damager = (Player) event.getDamager();
+            if (isFrozen(damager.getUniqueId())) {
+                event.setCancelled(true); // Не может бить
+                damager.sendMessage("§cВы заморожены во времени и не можете атаковать!");
+            }
+        }
+    }
+
+    @EventHandler
+    public void onBlockBreak(BlockBreakEvent event) {
+        Player player = event.getPlayer();
+        if (isFrozen(player.getUniqueId())) {
+            event.setCancelled(true);
+            player.sendMessage("§cВы заморожены во времени и не можете ломать блоки!");
+        }
+    }
+
+    @EventHandler
+    public void onBlockPlace(BlockPlaceEvent event) {
+        Player player = event.getPlayer();
+        if (isFrozen(player.getUniqueId())) {
+            event.setCancelled(true);
+            player.sendMessage("§cВы заморожены во времени и не можете ставить блоки!");
+        }
+    }
+
+    @EventHandler
+    public void onEntityShootBow(EntityShootBowEvent event) {
+        if (event.getEntity() instanceof Player) {
+            Player player = (Player) event.getEntity();
+            if (isFrozen(player.getUniqueId())) {
+                event.setCancelled(true);
+                player.sendMessage("§cВы заморожены во времени и не можете стрелять!");
+            }
+        }
+    }
+
+    @EventHandler
+    public void onProjectileLaunch(ProjectileLaunchEvent event) {
+        if (event.getEntity().getShooter() instanceof Player) {
+            Player player = (Player) event.getEntity().getShooter();
+            if (isFrozen(player.getUniqueId())) {
+                event.setCancelled(true);
+                player.sendMessage("§cВы заморожены во времени и не можете кидать снаряды!");
+            }
+        }
+    }
+
+    @EventHandler
+    public void onPlayerInteractEnderPearl(PlayerInteractEvent event) {
+        Player player = event.getPlayer();
+        ItemStack item = event.getItem();
+        
+        if (item != null && item.getType() == Material.ENDER_PEARL) {
+            if (isFrozen(player.getUniqueId())) {
+                player.sendMessage("§cВы заморожены во времени и не можете использовать эндер-жемчуг!");
+                event.setCancelled(true);
+            }
+        }
+    }
+
+    @EventHandler
+    public void onPlayerItemConsume(PlayerItemConsumeEvent event) {
+        Player player = event.getPlayer();
+        // Есть можно даже замороженным
+        if (isFrozen(player.getUniqueId())) {
+            player.sendMessage("§aВы едите, несмотря на заморозку времени...");
+        }
+    }
+
+    // ==================== ПРОЧЕЕ ====================
 
     private boolean isInBubble(Location loc, Location center) {
         for (BubbleInfo bubble : activeBubbles.values()) {
@@ -279,7 +368,6 @@ public class TimeClockHandler implements Listener {
                     return;
                 }
                 
-                // Проверяем новые снаряды
                 for (Entity e : center.getWorld().getEntities()) {
                     if (e instanceof Projectile && isInBubble(e.getLocation(), center)) {
                         boolean alreadyFrozen = false;
@@ -396,20 +484,6 @@ public class TimeClockHandler implements Listener {
                 }
             }
         }.runTaskTimer(MagmaRoarPlugin.getInstance(), 0L, 1L);
-    }
-
-    @EventHandler
-    public void onPlayerInteractEnderPearl(PlayerInteractEvent event) {
-        Player player = event.getPlayer();
-        ItemStack item = event.getItem();
-        
-        if (item != null && item.getType() == Material.ENDER_PEARL) {
-            if (isInBubble(player.getLocation(), null)) {
-                player.sendMessage("§cЭндер-жемчуг не работает во временном пузыре!");
-                event.setCancelled(true);
-                return;
-            }
-        }
     }
 
     private Entity findEntity(UUID id) {

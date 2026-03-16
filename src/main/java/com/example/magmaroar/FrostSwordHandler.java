@@ -2,6 +2,9 @@ package com.example.magmaroar;
 
 import org.bukkit.Location;
 import org.bukkit.Material;
+import org.bukkit.Particle;
+import org.bukkit.Sound;
+import org.bukkit.World;
 import org.bukkit.entity.LivingEntity;
 import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;
@@ -21,6 +24,9 @@ public class FrostSwordHandler implements Listener {
 
     private final Map<UUID, Integer> hitCounters = new HashMap<>();
     private final Map<UUID, Long> frozenUntil = new HashMap<>();
+    private final Map<UUID, Boolean> frozenStatus = new HashMap<>();
+    
+    private static final int HITS_TO_FREEZE = 15; // 15 ударов до заморозки
 
     @EventHandler
     public void onEntityDamage(EntityDamageByEntityEvent event) {
@@ -35,13 +41,16 @@ public class FrostSwordHandler implements Listener {
 
         // Проверяем, не заморожена ли цель
         if (isFrozen(target.getUniqueId())) {
-            event.setCancelled(true);
-            player.sendMessage("§bЦель заморожена!");
+            // Можно бить замороженную цель!
+            player.sendMessage("§bЦель заморожена, урон проходит!");
+            
+            // Визуальный эффект при ударе по замороженной цели
+            target.getWorld().spawnParticle(Particle.SNOWFLAKE, target.getLocation().add(0, 1, 0), 10, 0.3, 0.5, 0.3, 0.02);
             return;
         }
 
         // Звук удара
-        target.getWorld().playSound(target.getLocation(), org.bukkit.Sound.BLOCK_GLASS_BREAK, 0.5f, 1.5f);
+        target.getWorld().playSound(target.getLocation(), Sound.BLOCK_GLASS_BREAK, 0.5f, 1.5f);
         
         // Замедление I на 3 секунды
         target.addPotionEffect(new PotionEffect(PotionEffectType.SLOWNESS, 60, 0, false, true, true));
@@ -50,14 +59,14 @@ public class FrostSwordHandler implements Listener {
         UUID targetId = target.getUniqueId();
         int hits = hitCounters.getOrDefault(targetId, 0) + 1;
         
-        if (hits >= 15) {
-            // Заморозка на 4 секунды (только эффекты, без льда)
+        if (hits >= HITS_TO_FREEZE) {
+            // Заморозка на 4 секунды
             freezeTarget(target);
             hitCounters.remove(targetId);
             player.sendMessage("§bЦель полностью заморожена на 4 секунды!");
         } else {
             hitCounters.put(targetId, hits);
-            player.sendMessage("§7Ударов до заморозки: " + hits + "/15");
+            player.sendMessage("§7Ударов до заморозки: " + hits + "/" + HITS_TO_FREEZE);
         }
     }
 
@@ -65,10 +74,11 @@ public class FrostSwordHandler implements Listener {
         UUID targetId = target.getUniqueId();
         
         frozenUntil.put(targetId, System.currentTimeMillis() + 4000); // 4 секунды
+        frozenStatus.put(targetId, true);
         
         // Эффекты заморозки
-        target.getWorld().spawnParticle(org.bukkit.Particle.SNOWFLAKE, target.getLocation(), 50, 1, 1, 1, 0);
-        target.getWorld().spawnParticle(org.bukkit.Particle.ITEM_SNOWBALL, target.getLocation(), 30, 0.5, 1, 0.5, 0);
+        target.getWorld().spawnParticle(Particle.SNOWFLAKE, target.getLocation(), 50, 1, 1, 1, 0);
+        target.getWorld().spawnParticle(Particle.ITEM_SNOWBALL, target.getLocation(), 30, 0.5, 1, 0.5, 0);
         
         // Полная остановка цели
         target.addPotionEffect(new PotionEffect(PotionEffectType.SLOWNESS, 80, 254, false, false, false));
@@ -80,6 +90,7 @@ public class FrostSwordHandler implements Listener {
             @Override
             public void run() {
                 frozenUntil.remove(targetId);
+                frozenStatus.remove(targetId);
                 
                 // Убираем эффекты с цели
                 target.removePotionEffect(PotionEffectType.SLOWNESS);
@@ -87,7 +98,7 @@ public class FrostSwordHandler implements Listener {
                 target.setFreezeTicks(0);
                 
                 // Финальные частицы
-                target.getWorld().spawnParticle(org.bukkit.Particle.SNOWFLAKE, target.getLocation(), 30, 1, 1, 1, 0);
+                target.getWorld().spawnParticle(Particle.SNOWFLAKE, target.getLocation(), 30, 1, 1, 1, 0);
             }
         }.runTaskLater(MagmaRoarPlugin.getInstance(), 80L); // 4 секунды
     }

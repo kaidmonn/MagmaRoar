@@ -1,5 +1,5 @@
 name: MagmaRoar
-version: 12.0
+version: 15.0
 main: com.example.magmaroar.MagmaRoarPlugin
 api-version: 1.21
 commands:
@@ -87,3 +87,18 @@ commands:
   creationbow:
     description: Дает Лук сотворения
     usage: /creationbow
+  fossil:
+    description: Дает Ископаемый меч
+    usage: /fossil
+  randomweapon1:
+    description: Дает рандомное оружие из первой группы
+    usage: /randomweapon1
+  randomweapon2:
+    description: Дает рандомное оружие из второй группы
+    usage: /randomweapon2
+  randomweaponall1:
+    description: Дает рандомное оружие из первой группы всем игрокам
+    usage: /randomweaponall1
+  randomweaponall2:
+    description: Дает рандомное оружие из второй группы всем игрокам
+    usage: /randomweaponall2

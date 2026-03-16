@@ -10,6 +10,7 @@ import org.bukkit.event.EventHandler;
 import org.bukkit.event.Listener;
 import org.bukkit.event.block.Action;
 import org.bukkit.event.entity.EntityDamageByEntityEvent;
+import org.bukkit.event.entity.EntityDamageEvent;
 import org.bukkit.event.entity.ProjectileHitEvent;
 import org.bukkit.event.player.PlayerInteractEvent;
 import org.bukkit.inventory.ItemStack;
@@ -27,6 +28,7 @@ public class MjolnirHandler implements Listener {
     
     private static final long THROW_COOLDOWN = 20 * 1000; // 20 секунд
     private static final long FULL_SWING_TIME = 500; // 0.5 секунды для полного замаха
+    private static final double LIGHTNING_DAMAGE_MULTIPLIER = 8.0; // Урон x8
 
     @EventHandler
     public void onEntityDamage(EntityDamageByEntityEvent event) {
@@ -43,24 +45,39 @@ public class MjolnirHandler implements Listener {
         // Отменяем обычный урон топора
         event.setCancelled(true);
         
-        // ВАНИЛЬНАЯ МОЛНИЯ только при полном замахе
+        // Молния только при полном замахе
         if (lastSwing != null && now - lastSwing >= FULL_SWING_TIME) {
             if (event.getEntity() instanceof LivingEntity) {
                 LivingEntity target = (LivingEntity) event.getEntity();
                 
-                // Настоящая ванильная молния
-                target.getWorld().strikeLightning(target.getLocation());
+                // Призываем молнию с увеличенным уроном
+                strikeLightningWithDamage(target, player);
                 
-                // Эффекты
-                target.getWorld().playSound(target.getLocation(), Sound.ENTITY_LIGHTNING_BOLT_THUNDER, 1.0f, 1.0f);
-                target.getWorld().spawnParticle(Particle.ELECTRIC_SPARK, target.getLocation().add(0, 1, 0), 30, 0.5, 1, 0.5, 0.1);
-                
-                player.sendMessage("§b§l⚡ МОЛНИЯ РАЗИТ ВРАГА! ⚡");
+                player.sendMessage("§b§l⚡ МОЛНИЯ С УРОНОМ x8! ⚡");
             }
         }
         
         // Запоминаем время удара
         lastSwingTime.put(player.getUniqueId(), now);
+    }
+
+    private void strikeLightningWithDamage(LivingEntity target, Player owner) {
+        World world = target.getWorld();
+        Location loc = target.getLocation();
+        
+        // Призываем молнию (визуал)
+        world.strikeLightningEffect(loc);
+        
+        // Звук
+        world.playSound(loc, Sound.ENTITY_LIGHTNING_BOLT_THUNDER, 1.0f, 1.0f);
+        world.playSound(loc, Sound.ENTITY_LIGHTNING_BOLT_IMPACT, 1.0f, 1.0f);
+        
+        // Частицы
+        world.spawnParticle(Particle.ELECTRIC_SPARK, loc.add(0, 1, 0), 50, 1, 2, 1, 0.2);
+        world.spawnParticle(Particle.FLASH, loc, 10, 1, 1, 1, 0);
+        
+        // УРОН x8 (обычная молния наносит 5♥, x8 = 40♥)
+        target.damage(40.0, owner);
     }
 
     @EventHandler
@@ -123,13 +140,21 @@ public class MjolnirHandler implements Listener {
         Location hitLoc = snowball.getLocation();
         World world = hitLoc.getWorld();
         
-        // Ванильная молния при попадании
-        world.strikeLightning(hitLoc);
-        
-        // Эффекты
-        world.spawnParticle(Particle.ELECTRIC_SPARK, hitLoc, 50, 2, 1, 2, 0.1);
-        world.spawnParticle(Particle.FLASH, hitLoc, 10, 1, 1, 1, 0);
+        // Визуал молнии
+        world.strikeLightningEffect(hitLoc);
         world.playSound(hitLoc, Sound.ENTITY_LIGHTNING_BOLT_THUNDER, 1.0f, 1.0f);
+        
+        // Частицы
+        world.spawnParticle(Particle.ELECTRIC_SPARK, hitLoc, 50, 2, 2, 2, 0.2);
+        world.spawnParticle(Particle.FLASH, hitLoc, 15, 2, 2, 2, 0);
+        
+        // Урон по области (x8)
+        for (Entity e : world.getNearbyEntities(hitLoc, 4, 2, 4)) {
+            if (e instanceof LivingEntity && !e.equals(player)) {
+                LivingEntity target = (LivingEntity) e;
+                target.damage(40.0, player);
+            }
+        }
         
         // Возврат молота
         ItemStack returningItem = thrownWeapons.remove(projectileId);

@@ -9,7 +9,6 @@ import org.bukkit.entity.*;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.Listener;
 import org.bukkit.event.block.Action;
-import org.bukkit.event.entity.EntityDamageByEntityEvent;
 import org.bukkit.event.entity.EntityShootBowEvent;
 import org.bukkit.event.entity.ProjectileHitEvent;
 import org.bukkit.event.player.PlayerInteractEvent;
@@ -29,7 +28,7 @@ public class TimeBowHandler implements Listener {
     
     private static final long MARK_DURATION = 20 * 1000; // 20 секунд
     private static final long COOLDOWN = 50 * 1000; // 50 секунд
-    private static final int RECORD_INTERVAL = 2; // запись каждые 2 тика
+    private static final int RECORD_INTERVAL = 2;
 
     private static class TimeMark {
         UUID targetId;
@@ -52,14 +51,26 @@ public class TimeBowHandler implements Listener {
 
         if (!isTimeBow(bow)) return;
 
+        // Проверяем, есть ли уже активная метка
+        if (activeMarks.containsKey(player.getUniqueId())) {
+            player.sendMessage("§cУ вас уже есть активная метка! Используйте Shift+ПКМ для возврата.");
+            event.setCancelled(true);
+            return;
+        }
+
         // Проверяем кулдаун
         if (cooldowns.containsKey(player.getUniqueId())) {
             long remaining = (cooldowns.get(player.getUniqueId()) - System.currentTimeMillis()) / 1000;
             if (remaining > 0) {
                 player.sendMessage("§cЛук времени перезаряжается! Осталось: " + remaining + " сек.");
                 event.setCancelled(true);
+                return;
             }
         }
+
+        // Разрешаем выстрел
+        Arrow arrow = (Arrow) event.getProjectile();
+        arrow.setCustomName("§bВременная стрела");
     }
 
     @EventHandler
@@ -74,22 +85,42 @@ public class TimeBowHandler implements Listener {
 
         if (!isTimeBow(bow)) return;
         
+        // Проверяем, не на кулдауне ли уже
+        if (cooldowns.containsKey(shooter.getUniqueId())) {
+            long remaining = (cooldowns.get(shooter.getUniqueId()) - System.currentTimeMillis()) / 1000;
+            if (remaining > 0) {
+                shooter.sendMessage("§cЛук времени перезаряжается! Осталось: " + remaining + " сек.");
+                return;
+            }
+        }
+        
+        // Проверяем, нет ли уже активной метки
+        if (activeMarks.containsKey(shooter.getUniqueId())) {
+            shooter.sendMessage("§cУ вас уже есть активная метка! Используйте Shift+ПКМ для возврата.");
+            return;
+        }
+        
         if (event.getHitEntity() instanceof LivingEntity) {
             LivingEntity target = (LivingEntity) event.getHitEntity();
+            
+            // Сообщение цели
+            if (target instanceof Player) {
+                target.sendMessage("§c§lВНИМАНИЕ! §eВы поражены Луком времени! У вас 20 секунд до возврата в прошлое.");
+            }
             
             // Ставим метку
             activeMarks.put(shooter.getUniqueId(), 
                 new TimeMark(target.getUniqueId(), System.currentTimeMillis(), System.currentTimeMillis()));
             
-            // Зелёное свечение (используем обычный glowing)
+            // Зелёное свечение
             target.setGlowing(true);
             
             shooter.sendMessage("§aМетка времени поставлена на " + (target instanceof Player ? target.getName() : "цель") + " (20 сек)");
             
             // Запускаем запись пути
-            startRecording(target);
+            startRecording(target, shooter.getUniqueId());
             
-            // Убираем свечение через 20 секунд
+            // Убираем свечение через 20 секунд (если не использовали)
             new BukkitRunnable() {
                 @Override
                 public void run() {
@@ -99,13 +130,21 @@ public class TimeBowHandler implements Listener {
                         activeMarks.remove(shooter.getUniqueId());
                         recordedPaths.remove(target.getUniqueId());
                         shooter.sendMessage("§cМетка времени истекла.");
+                        
+                        if (target instanceof Player) {
+                            target.sendMessage("§aМетка времени исчезла. Вы в безопасности... пока.");
+                        }
                     }
                 }
             }.runTaskLater(MagmaRoarPlugin.getInstance(), MARK_DURATION / 50);
+        } else {
+            // Промах - ставим кулдаун
+            shooter.sendMessage("§cВы промахнулись! Лук времени перезаряжается 50 секунд.");
+            cooldowns.put(shooter.getUniqueId(), System.currentTimeMillis() + COOLDOWN);
         }
     }
 
-    private void startRecording(LivingEntity target) {
+    private void startRecording(LivingEntity target, UUID shooterId) {
         List<Location> path = new ArrayList<>();
         recordedPaths.put(target.getUniqueId(), path);
         
@@ -121,7 +160,7 @@ public class TimeBowHandler implements Listener {
                 path.add(target.getLocation().clone());
                 
                 // Проверяем, не пора ли остановить запись
-                TimeMark mark = findMarkByTarget(target.getUniqueId());
+                TimeMark mark = activeMarks.get(shooterId);
                 if (mark == null || System.currentTimeMillis() - mark.markTime > MARK_DURATION) {
                     this.cancel();
                 }
@@ -153,18 +192,11 @@ public class TimeBowHandler implements Listener {
             return;
         }
         
-        // Проверяем кулдаун
-        if (cooldowns.containsKey(player.getUniqueId())) {
-            long remaining = (cooldowns.get(player.getUniqueId()) - System.currentTimeMillis()) / 1000;
-            if (remaining > 0) {
-                player.sendMessage("§cЛук времени перезаряжается! Осталось: " + remaining + " сек.");
-                return;
-            }
-        }
-        
         Entity target = findEntity(mark.targetId);
         if (target == null || !(target instanceof LivingEntity)) {
             player.sendMessage("§cЦель больше не существует!");
+            activeMarks.remove(player.getUniqueId());
+            recordedPaths.remove(mark.targetId);
             return;
         }
         
@@ -173,7 +205,14 @@ public class TimeBowHandler implements Listener {
         
         if (path == null || path.isEmpty()) {
             player.sendMessage("§cНет записи пути цели!");
+            activeMarks.remove(player.getUniqueId());
+            recordedPaths.remove(target.getUniqueId());
             return;
+        }
+        
+        // Сообщение цели перед возвратом
+        if (target instanceof Player) {
+            target.sendMessage("§c§lВАС ВОЗВРАЩАЮТ В ПРОШЛОЕ!");
         }
         
         // Убираем свечение
@@ -188,13 +227,13 @@ public class TimeBowHandler implements Listener {
         
         // Убираем метку
         activeMarks.remove(player.getUniqueId());
+        recordedPaths.remove(target.getUniqueId());
     }
 
     private void startRewind(LivingEntity target, List<Location> path, Player activator) {
         UUID targetId = target.getUniqueId();
         isRewinding.put(targetId, true);
         
-        // Золотые частицы и звук
         target.getWorld().playSound(target.getLocation(), Sound.BLOCK_NOTE_BLOCK_BIT, 2.0f, 0.5f);
         
         new BukkitRunnable() {
@@ -203,26 +242,24 @@ public class TimeBowHandler implements Listener {
             @Override
             public void run() {
                 if (index < 0 || target.isDead()) {
-                    // Конец возврата
                     isRewinding.remove(targetId);
-                    recordedPaths.remove(targetId);
                     
                     if (!target.isDead()) {
                         target.getWorld().playSound(target.getLocation(), Sound.BLOCK_NOTE_BLOCK_BIT, 2.0f, 1.5f);
+                        if (target instanceof Player) {
+                            target.sendMessage("§aВозврат во времени завершён.");
+                        }
                     }
                     
                     this.cancel();
                     return;
                 }
                 
-                // Телепортируем цель
                 Location targetLoc = path.get(index);
                 target.teleport(targetLoc);
                 
-                // Золотой след
                 target.getWorld().spawnParticle(Particle.END_ROD, targetLoc, 10, 0.3, 0.3, 0.3, 0.02);
                 
-                // Если цель - игрок, отключаем управление
                 if (target instanceof Player) {
                     Player targetPlayer = (Player) target;
                     targetPlayer.setAllowFlight(true);
@@ -233,19 +270,16 @@ public class TimeBowHandler implements Listener {
             }
         }.runTaskTimer(MagmaRoarPlugin.getInstance(), 0L, RECORD_INTERVAL);
         
-        // Отключаем возможность атаковать и использовать предметы
         disableTargetActions(target);
     }
 
     private void disableTargetActions(LivingEntity target) {
-        // Блокируем урон от цели (она не может атаковать)
         new BukkitRunnable() {
             @Override
             public void run() {
                 if (!isRewinding.containsKey(target.getUniqueId()) || target.isDead()) {
                     this.cancel();
                     
-                    // Возвращаем управление
                     if (target instanceof Player) {
                         Player targetPlayer = (Player) target;
                         targetPlayer.setAllowFlight(false);
@@ -258,7 +292,6 @@ public class TimeBowHandler implements Listener {
 
     @EventHandler
     public void onEntityDamageByEntity(EntityDamageByEntityEvent event) {
-        // Цель не может атаковать во время возврата
         if (event.getDamager() instanceof LivingEntity) {
             LivingEntity damager = (LivingEntity) event.getDamager();
             if (isRewinding.containsKey(damager.getUniqueId())) {
@@ -278,15 +311,6 @@ public class TimeBowHandler implements Listener {
                 event.setCancelled(true);
             }
         }
-    }
-
-    private TimeMark findMarkByTarget(UUID targetId) {
-        for (TimeMark mark : activeMarks.values()) {
-            if (mark.targetId.equals(targetId)) {
-                return mark;
-            }
-        }
-        return null;
     }
 
     private Entity findEntity(UUID id) {

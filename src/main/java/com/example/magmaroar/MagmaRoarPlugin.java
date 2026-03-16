@@ -1,6 +1,7 @@
 package com.example.magmaroar;
 
 import org.bukkit.plugin.java.JavaPlugin;
+import org.bukkit.inventory.ItemStack;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Random;
@@ -23,7 +24,7 @@ public class MagmaRoarPlugin extends JavaPlugin {
         getServer().getPluginManager().registerEvents(new ShadowSwordHandler(), this);
         getServer().getPluginManager().registerEvents(new OrbitalCannonHandler(), this);
         getServer().getPluginManager().registerEvents(new SculkCrossbowHandler(), this);
-       getServer().getPluginManager().registerEvents(new VillagerStaffHandler(), this);
+        getServer().getPluginManager().registerEvents(new VillagerStaffHandler(), this);
         getServer().getPluginManager().registerEvents(new ExplosivePotionHandler(), this);
         getServer().getPluginManager().registerEvents(new SpiderBladeHandler(), this);
         getServer().getPluginManager().registerEvents(new MjolnirHandler(), this);
@@ -43,7 +44,7 @@ public class MagmaRoarPlugin extends JavaPlugin {
         getServer().getPluginManager().registerEvents(new CreationBowHandler(), this);
         getServer().getPluginManager().registerEvents(new FossilSwordHandler(), this);
         
-        // Команда для Рога Магмы
+        // Команды для предметов
         getCommand("roar").setExecutor((sender, command, label, args) -> {
             if (sender instanceof org.bukkit.entity.Player) {
                 ((org.bukkit.entity.Player) sender).getInventory().addItem(MagmaHornItem.createHorn());
@@ -51,7 +52,6 @@ public class MagmaRoarPlugin extends JavaPlugin {
             return true;
         });
         
-        // Команда для Легкой Булавы
         getCommand("mace").setExecutor((sender, command, label, args) -> {
             if (sender instanceof org.bukkit.entity.Player) {
                 ((org.bukkit.entity.Player) sender).getInventory().addItem(LightMaceItem.createMace());
@@ -59,7 +59,6 @@ public class MagmaRoarPlugin extends JavaPlugin {
             return true;
         });
         
-        // Команда для Пылающего арбалета
         getCommand("flamingbow").setExecutor((sender, command, label, args) -> {
             if (sender instanceof org.bukkit.entity.Player) {
                 ((org.bukkit.entity.Player) sender).getInventory().addItem(FlamingCrossbowItem.createCrossbow());
@@ -67,7 +66,6 @@ public class MagmaRoarPlugin extends JavaPlugin {
             return true;
         });
         
-        // Команда для Кровавого меча
         getCommand("blood").setExecutor((sender, command, label, args) -> {
             if (sender instanceof org.bukkit.entity.Player) {
                 ((org.bukkit.entity.Player) sender).getInventory().addItem(BloodSwordItem.createBloodSword());
@@ -75,7 +73,6 @@ public class MagmaRoarPlugin extends JavaPlugin {
             return true;
         });
         
-        // Команды для тестовых зомби
         getCommand("zombietotem").setExecutor((sender, command, label, args) -> {
             if (sender instanceof org.bukkit.entity.Player) {
                 ((org.bukkit.entity.Player) sender).getInventory().addItem(TestZombieItem.createZombieEgg(true));
@@ -90,7 +87,6 @@ public class MagmaRoarPlugin extends JavaPlugin {
             return true;
         });
         
-        // Команда для Морозного меча
         getCommand("frost").setExecutor((sender, command, label, args) -> {
             if (sender instanceof org.bukkit.entity.Player) {
                 ((org.bukkit.entity.Player) sender).getInventory().addItem(FrostSwordItem.createFrostSword());
@@ -98,7 +94,6 @@ public class MagmaRoarPlugin extends JavaPlugin {
             return true;
         });
         
-        // Команда для Теневого меча
         getCommand("shadow").setExecutor((sender, command, label, args) -> {
             if (sender instanceof org.bukkit.entity.Player) {
                 ((org.bukkit.entity.Player) sender).getInventory().addItem(ShadowSwordItem.createShadowSword());
@@ -106,7 +101,6 @@ public class MagmaRoarPlugin extends JavaPlugin {
             return true;
         });
         
-        // Команда для Орбитальной пушки
         getCommand("orbital").setExecutor((sender, command, label, args) -> {
             if (sender instanceof org.bukkit.entity.Player) {
                 ((org.bukkit.entity.Player) sender).getInventory().addItem(OrbitalCannonItem.createCannon());
@@ -114,7 +108,6 @@ public class MagmaRoarPlugin extends JavaPlugin {
             return true;
         });
         
-        // Команда для Скалкового арбалета
         getCommand("sculkbow").setExecutor((sender, command, label, args) -> {
             if (sender instanceof org.bukkit.entity.Player) {
                 ((org.bukkit.entity.Player) sender).getInventory().addItem(SculkCrossbowItem.createCrossbow());
@@ -122,7 +115,6 @@ public class MagmaRoarPlugin extends JavaPlugin {
             return true;
         });
         
-        // Команда для Посоха жителя
         getCommand("villagerstaff").setExecutor((sender, command, label, args) -> {
             if (sender instanceof org.bukkit.entity.Player) {
                 ((org.bukkit.entity.Player) sender).getInventory().addItem(VillagerStaffItem.createStaff());
@@ -130,7 +122,6 @@ public class MagmaRoarPlugin extends JavaPlugin {
             return true;
         });
         
-        // Команда для Взрывных зелий
         getCommand("explosivepotion").setExecutor((sender, command, label, args) -> {
             if (sender instanceof org.bukkit.entity.Player) {
                 ((org.bukkit.entity.Player) sender).getInventory().addItem(ExplosivePotionItem.createPotion());
@@ -138,7 +129,6 @@ public class MagmaRoarPlugin extends JavaPlugin {
             return true;
         });
         
-        // Команда для Паучьего клинка
         getCommand("spider").setExecutor((sender, command, label, args) -> {
             if (sender instanceof org.bukkit.entity.Player) {
                 ((org.bukkit.entity.Player) sender).getInventory().addItem(SpiderBladeItem.createBlade());
@@ -146,7 +136,6 @@ public class MagmaRoarPlugin extends JavaPlugin {
             return true;
         });
         
-        // Команда для Мьёльнира
         getCommand("mjolnir").setExecutor((sender, command, label, args) -> {
             if (sender instanceof org.bukkit.entity.Player) {
                 ((org.bukkit.entity.Player) sender).getInventory().addItem(MjolnirItem.createMjolnir());
@@ -154,7 +143,6 @@ public class MagmaRoarPlugin extends JavaPlugin {
             return true;
         });
         
-        // Команда для Жезла гипноза
         getCommand("hypnosis").setExecutor((sender, command, label, args) -> {
             if (sender instanceof org.bukkit.entity.Player) {
                 ((org.bukkit.entity.Player) sender).getInventory().addItem(HypnosisStaffItem.createStaff());
@@ -162,7 +150,6 @@ public class MagmaRoarPlugin extends JavaPlugin {
             return true;
         });
         
-        // Команда для Косы смерти
         getCommand("scythe").setExecutor((sender, command, label, args) -> {
             if (sender instanceof org.bukkit.entity.Player) {
                 ((org.bukkit.entity.Player) sender).getInventory().addItem(DeathScytheItem.createScythe());
@@ -170,7 +157,6 @@ public class MagmaRoarPlugin extends JavaPlugin {
             return true;
         });
         
-        // Команда для Рога разорителя
         getCommand("ravager").setExecutor((sender, command, label, args) -> {
             if (sender instanceof org.bukkit.entity.Player) {
                 ((org.bukkit.entity.Player) sender).getInventory().addItem(RavagerHornItem.createHorn());
@@ -178,7 +164,6 @@ public class MagmaRoarPlugin extends JavaPlugin {
             return true;
         });
         
-        // Команда для Адского метеорита
         getCommand("meteor").setExecutor((sender, command, label, args) -> {
             if (sender instanceof org.bukkit.entity.Player) {
                 ((org.bukkit.entity.Player) sender).getInventory().addItem(HellMeteorItem.createMeteor());
@@ -186,7 +171,6 @@ public class MagmaRoarPlugin extends JavaPlugin {
             return true;
         });
         
-        // Команда для Лазера
         getCommand("laser").setExecutor((sender, command, label, args) -> {
             if (sender instanceof org.bukkit.entity.Player) {
                 ((org.bukkit.entity.Player) sender).getInventory().addItem(LaserItem.createLaser());
@@ -194,7 +178,6 @@ public class MagmaRoarPlugin extends JavaPlugin {
             return true;
         });
         
-        // Команда для Клинка бури
         getCommand("storm").setExecutor((sender, command, label, args) -> {
             if (sender instanceof org.bukkit.entity.Player) {
                 ((org.bukkit.entity.Player) sender).getInventory().addItem(StormBladeItem.createBlade());
@@ -202,7 +185,6 @@ public class MagmaRoarPlugin extends JavaPlugin {
             return true;
         });
         
-        // Команда для Экскалибура
         getCommand("excalibur").setExecutor((sender, command, label, args) -> {
             if (sender instanceof org.bukkit.entity.Player) {
                 ((org.bukkit.entity.Player) sender).getInventory().addItem(ExcaliburItem.createExcalibur());
@@ -210,7 +192,6 @@ public class MagmaRoarPlugin extends JavaPlugin {
             return true;
         });
         
-        // Команда для Катаны дракона
         getCommand("katana").setExecutor((sender, command, label, args) -> {
             if (sender instanceof org.bukkit.entity.Player) {
                 ((org.bukkit.entity.Player) sender).getInventory().addItem(KatanaItem.createKatana());
@@ -218,7 +199,6 @@ public class MagmaRoarPlugin extends JavaPlugin {
             return true;
         });
         
-        // Команда для Косы жнеца
         getCommand("reaper").setExecutor((sender, command, label, args) -> {
             if (sender instanceof org.bukkit.entity.Player) {
                 ((org.bukkit.entity.Player) sender).getInventory().addItem(ReaperScytheItem.createScythe());
@@ -226,7 +206,6 @@ public class MagmaRoarPlugin extends JavaPlugin {
             return true;
         });
         
-        // Команда для Лудо-меча
         getCommand("ludo").setExecutor((sender, command, label, args) -> {
             if (sender instanceof org.bukkit.entity.Player) {
                 ((org.bukkit.entity.Player) sender).getInventory().addItem(LudoSwordItem.createSword());
@@ -234,7 +213,6 @@ public class MagmaRoarPlugin extends JavaPlugin {
             return true;
         });
         
-        // Команда для Часов времени
         getCommand("timeclock").setExecutor((sender, command, label, args) -> {
             if (sender instanceof org.bukkit.entity.Player) {
                 ((org.bukkit.entity.Player) sender).getInventory().addItem(TimeClockItem.createClock());
@@ -242,7 +220,6 @@ public class MagmaRoarPlugin extends JavaPlugin {
             return true;
         });
         
-        // Команда для Лука времени
         getCommand("timebow").setExecutor((sender, command, label, args) -> {
             if (sender instanceof org.bukkit.entity.Player) {
                 ((org.bukkit.entity.Player) sender).getInventory().addItem(TimeBowItem.createBow());
@@ -250,7 +227,6 @@ public class MagmaRoarPlugin extends JavaPlugin {
             return true;
         });
         
-        // Команда для Лука Артемиды
         getCommand("artemis").setExecutor((sender, command, label, args) -> {
             if (sender instanceof org.bukkit.entity.Player) {
                 ((org.bukkit.entity.Player) sender).getInventory().addItem(ArtemisBowItem.createBow());
@@ -258,7 +234,6 @@ public class MagmaRoarPlugin extends JavaPlugin {
             return true;
         });
         
-        // Команда для Лука сотворения
         getCommand("creationbow").setExecutor((sender, command, label, args) -> {
             if (sender instanceof org.bukkit.entity.Player) {
                 ((org.bukkit.entity.Player) sender).getInventory().addItem(CreationBowItem.createBow());
@@ -266,7 +241,6 @@ public class MagmaRoarPlugin extends JavaPlugin {
             return true;
         });
         
-        // Команда для Ископаемого меча
         getCommand("fossil").setExecutor((sender, command, label, args) -> {
             if (sender instanceof org.bukkit.entity.Player) {
                 ((org.bukkit.entity.Player) sender).getInventory().addItem(FossilSwordItem.createSword());
@@ -274,9 +248,7 @@ public class MagmaRoarPlugin extends JavaPlugin {
             return true;
         });
         
-        // ========== РАНДОМНЫЕ КОМАНДЫ ==========
-        
-        // Команда для рандомного оружия себе (первая группа)
+        // Рандомные команды
         getCommand("randomweapon1").setExecutor((sender, command, label, args) -> {
             if (!(sender instanceof org.bukkit.entity.Player)) return true;
             
@@ -300,7 +272,6 @@ public class MagmaRoarPlugin extends JavaPlugin {
             return true;
         });
         
-        // Команда для рандомного оружия себе (вторая группа)
         getCommand("randomweapon2").setExecutor((sender, command, label, args) -> {
             if (!(sender instanceof org.bukkit.entity.Player)) return true;
             
@@ -324,7 +295,6 @@ public class MagmaRoarPlugin extends JavaPlugin {
             return true;
         });
         
-        // Команда для рандомного оружия ВСЕМ (первая группа)
         getCommand("randomweaponall1").setExecutor((sender, command, label, args) -> {
             List<ItemStack> weapons = Arrays.asList(
                 BloodSwordItem.createBloodSword(),
@@ -351,7 +321,6 @@ public class MagmaRoarPlugin extends JavaPlugin {
             return true;
         });
         
-        // Команда для рандомного оружия ВСЕМ (вторая группа)
         getCommand("randomweaponall2").setExecutor((sender, command, label, args) -> {
             List<ItemStack> weapons = Arrays.asList(
                 LightMaceItem.createMace(),

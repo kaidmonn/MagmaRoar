@@ -1,4 +1,4 @@
-=package com.example.magmaroar;
+package com.example.magmaroar;
 
 import org.bukkit.plugin.java.JavaPlugin;
 import java.util.Arrays;
@@ -23,7 +23,7 @@ public class MagmaRoarPlugin extends JavaPlugin {
         getServer().getPluginManager().registerEvents(new ShadowSwordHandler(), this);
         getServer().getPluginManager().registerEvents(new OrbitalCannonHandler(), this);
         getServer().getPluginManager().registerEvents(new SculkCrossbowHandler(), this);
-        getServer().getPluginManager().registerEvents(new VillagerStaffHandler(), this);
+       getServer().getPluginManager().registerEvents(new VillagerStaffHandler(), this);
         getServer().getPluginManager().registerEvents(new ExplosivePotionHandler(), this);
         getServer().getPluginManager().registerEvents(new SpiderBladeHandler(), this);
         getServer().getPluginManager().registerEvents(new MjolnirHandler(), this);

@@ -28,7 +28,7 @@ public class MjolnirHandler implements Listener {
     
     private static final long THROW_COOLDOWN = 20 * 1000; // 20 секунд
     private static final long FULL_SWING_TIME = 500; // 0.5 секунды для полного замаха
-    private static final double LIGHTNING_DAMAGE_MULTIPLIER = 8.0; // Урон x8
+    private static final double LIGHTNING_DAMAGE = 40.0; // 40♥ (x8 от обычных 5♥)
 
     @EventHandler
     public void onEntityDamage(EntityDamageByEntityEvent event) {
@@ -50,10 +50,10 @@ public class MjolnirHandler implements Listener {
             if (event.getEntity() instanceof LivingEntity) {
                 LivingEntity target = (LivingEntity) event.getEntity();
                 
-                // Призываем молнию с увеличенным уроном
-                strikeLightningWithDamage(target, player);
+                // ОДНА молния с уроном 40♥
+                strikeLightning(target, player);
                 
-                player.sendMessage("§b§l⚡ МОЛНИЯ С УРОНОМ x8! ⚡");
+                player.sendMessage("§b§l⚡ МОЛНИЯ С УРОНОМ 40♥! ⚡");
             }
         }
         
@@ -61,23 +61,21 @@ public class MjolnirHandler implements Listener {
         lastSwingTime.put(player.getUniqueId(), now);
     }
 
-    private void strikeLightningWithDamage(LivingEntity target, Player owner) {
+    private void strikeLightning(LivingEntity target, Player owner) {
         World world = target.getWorld();
         Location loc = target.getLocation();
         
-        // Призываем молнию (визуал)
+        // ТОЛЬКО ОДНА молния (эффект)
         world.strikeLightningEffect(loc);
         
         // Звук
         world.playSound(loc, Sound.ENTITY_LIGHTNING_BOLT_THUNDER, 1.0f, 1.0f);
-        world.playSound(loc, Sound.ENTITY_LIGHTNING_BOLT_IMPACT, 1.0f, 1.0f);
         
-        // Частицы
-        world.spawnParticle(Particle.ELECTRIC_SPARK, loc.add(0, 1, 0), 50, 1, 2, 1, 0.2);
-        world.spawnParticle(Particle.FLASH, loc, 10, 1, 1, 1, 0);
+        // Частицы (поменьше, чтобы не лагало)
+        world.spawnParticle(Particle.ELECTRIC_SPARK, loc.add(0, 1, 0), 30, 1, 2, 1, 0.1);
         
-        // УРОН x8 (обычная молния наносит 5♥, x8 = 40♥)
-        target.damage(40.0, owner);
+        // УРОН 40♥
+        target.damage(LIGHTNING_DAMAGE, owner);
     }
 
     @EventHandler
@@ -140,20 +138,40 @@ public class MjolnirHandler implements Listener {
         Location hitLoc = snowball.getLocation();
         World world = hitLoc.getWorld();
         
-        // Визуал молнии
+        // ТОЛЬКО ОДНА молния (эффект)
         world.strikeLightningEffect(hitLoc);
         world.playSound(hitLoc, Sound.ENTITY_LIGHTNING_BOLT_THUNDER, 1.0f, 1.0f);
         
-        // Частицы
-        world.spawnParticle(Particle.ELECTRIC_SPARK, hitLoc, 50, 2, 2, 2, 0.2);
-        world.spawnParticle(Particle.FLASH, hitLoc, 15, 2, 2, 2, 0);
+        // Частицы (умеренно)
+        world.spawnParticle(Particle.ELECTRIC_SPARK, hitLoc, 40, 2, 2, 2, 0.1);
         
-        // Урон по области (x8)
-        for (Entity e : world.getNearbyEntities(hitLoc, 4, 2, 4)) {
+        // Урон ТОЛЬКО по ближайшей цели (не по области)
+        Entity nearestTarget = null;
+        double nearestDistance = 5.0;
+        
+        for (Entity e : world.getNearbyEntities(hitLoc, 3, 3, 3)) {
             if (e instanceof LivingEntity && !e.equals(player)) {
-                LivingEntity target = (LivingEntity) e;
-                target.damage(40.0, player);
+                double dist = e.getLocation().distance(hitLoc);
+                if (dist < nearestDistance) {
+                    nearestDistance = dist;
+                    nearestTarget = e;
+                }
             }
+        }
+        
+        // Бьём молнией ближайшую цель (ОДИН удар)
+        if (nearestTarget instanceof LivingEntity) {
+            LivingEntity target = (LivingEntity) nearestTarget;
+            
+            // Визуал молнии на цели
+            world.strikeLightningEffect(target.getLocation());
+            
+            // УРОН 40♥
+            target.damage(LIGHTNING_DAMAGE, player);
+            
+            player.sendMessage("§b§l⚡ Мьёльнир поразил цель с уроном 40♥! ⚡");
+        } else {
+            player.sendMessage("§eМьёльнир никого не задел...");
         }
         
         // Возврат молота

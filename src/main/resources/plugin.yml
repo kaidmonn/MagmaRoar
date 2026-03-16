@@ -1,5 +1,5 @@
 name: MagmaRoar
-version: 15.0
+version: 16.0
 main: com.example.magmaroar.MagmaRoarPlugin
 api-version: 1.21
 commands:
@@ -13,7 +13,7 @@ commands:
     description: Дает Пылающий арбалет
     usage: /flamingbow
   blood:
-    description: Дает Кровавый меч (3 в 1)
+    description: Дает Кровавый меч
     usage: /blood
   zombietotem:
     description: Дает яйцо зомби с тотемами
@@ -37,7 +37,7 @@ commands:
     description: Дает Посох жителя
     usage: /villagerstaff
   explosivepotion:
-    description: Дает взрывные зелья (x16)
+    description: Дает взрывные зелья
     usage: /explosivepotion
   spider:
     description: Дает Паучий клинок
@@ -97,8 +97,11 @@ commands:
     description: Дает рандомное оружие из второй группы
     usage: /randomweapon2
   randomweaponall1:
-    description: Дает рандомное оружие из первой группы всем игрокам
+    description: Дает рандомное оружие всем из первой группы
     usage: /randomweaponall1
   randomweaponall2:
-    description: Дает рандомное оружие из второй группы всем игрокам
+    description: Дает рандомное оружие всем из второй группы
     usage: /randomweaponall2
+  mitapy:
+    description: Призвать NPC Митапы
+    usage: /mitapy

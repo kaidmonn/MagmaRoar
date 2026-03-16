@@ -9,10 +9,24 @@ import java.util.Random;
 public class MagmaRoarPlugin extends JavaPlugin {
 
     private static MagmaRoarPlugin instance;
+    
+    // Новые менеджеры для NPC
+    private NPCManager npcManager;
+    private QueueManager queueManager;
+    private BattleManager battleManager;
+    private KitManager kitManager;
+    private ItemManager itemManager;
 
     @Override
     public void onEnable() {
         instance = this;
+        
+        // Инициализация новых менеджеров
+        npcManager = new NPCManager(this);
+        queueManager = new QueueManager(this);
+        battleManager = new BattleManager(this);
+        kitManager = new KitManager(this);
+        itemManager = new ItemManager(this);
         
         // Регистрация обработчиков
         getServer().getPluginManager().registerEvents(new StaffEvents(), this);
@@ -43,6 +57,9 @@ public class MagmaRoarPlugin extends JavaPlugin {
         getServer().getPluginManager().registerEvents(new ArtemisBowHandler(), this);
         getServer().getPluginManager().registerEvents(new CreationBowHandler(), this);
         getServer().getPluginManager().registerEvents(new FossilSwordHandler(), this);
+        
+        // Регистрация нового обработчика для NPC
+        getServer().getPluginManager().registerEvents(new EventListener(this), this);
         
         // Команды для предметов
         getCommand("roar").setExecutor((sender, command, label, args) -> {
@@ -248,6 +265,16 @@ public class MagmaRoarPlugin extends JavaPlugin {
             return true;
         });
         
+        // Новая команда для спавна NPC Митапы
+        getCommand("mitapy").setExecutor((sender, command, label, args) -> {
+            if (sender instanceof org.bukkit.entity.Player) {
+                org.bukkit.entity.Player player = (org.bukkit.entity.Player) sender;
+                npcManager.spawnNPC(player.getLocation());
+                player.sendMessage("§aNPC Митапы призван!");
+            }
+            return true;
+        });
+        
         // Рандомные команды
         getCommand("randomweapon1").setExecutor((sender, command, label, args) -> {
             if (!(sender instanceof org.bukkit.entity.Player)) return true;
@@ -347,10 +374,25 @@ public class MagmaRoarPlugin extends JavaPlugin {
             return true;
         });
         
-        getLogger().info("§aMagmaRoarPlugin включён! Загружено 30+ предметов и 4 рандомные команды");
+        getLogger().info("§aMagmaRoarPlugin включён! Загружено 30+ предметов, 4 рандомные команды и NPC Митапы");
+    }
+
+    @Override
+    public void onDisable() {
+        if (npcManager != null) {
+            npcManager.removeAllNPCs();
+        }
+        getLogger().info("§cMagmaRoarPlugin выключён!");
     }
 
     public static MagmaRoarPlugin getInstance() {
         return instance;
     }
+    
+    // Геттеры для новых менеджеров
+    public NPCManager getNPCManager() { return npcManager; }
+    public QueueManager getQueueManager() { return queueManager; }
+    public BattleManager getBattleManager() { return battleManager; }
+    public KitManager getKitManager() { return kitManager; }
+    public ItemManager getItemManager() { return itemManager; }
 }

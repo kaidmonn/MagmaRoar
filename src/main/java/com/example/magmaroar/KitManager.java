@@ -5,9 +5,7 @@ import org.bukkit.Material;
 import org.bukkit.entity.Player;
 import org.bukkit.inventory.Inventory;
 import org.bukkit.inventory.ItemStack;
-import org.bukkit.inventory.meta.BlockStateMeta;
 import org.bukkit.inventory.meta.ItemMeta;
-import org.bukkit.block.ShulkerBox;
 
 import java.util.*;
 
@@ -30,6 +28,17 @@ public class KitManager {
         
         Inventory enderChest = templatePlayer.getEnderChest();
         
+        // Выводим в консоль всё содержимое эндер-сундука для диагностики
+        plugin.getLogger().info("§e[KitManager] Содержимое эндер-сундука " + TEMPLATE_PLAYER + ":");
+        for (int i = 0; i < enderChest.getSize(); i++) {
+            ItemStack item = enderChest.getItem(i);
+            if (item != null && item.getType() == Material.SHULKER_BOX) {
+                ItemMeta meta = item.getItemMeta();
+                String name = (meta != null && meta.hasDisplayName()) ? meta.getDisplayName() : "без названия";
+                plugin.getLogger().info("§eСлот " + i + ": " + name);
+            }
+        }
+        
         // Ищем базовый кит
         ItemStack basicKit = null;
         List<ItemStack> bonusKits = new ArrayList<>();
@@ -40,19 +49,27 @@ public class KitManager {
             ItemMeta meta = item.getItemMeta();
             if (meta == null || !meta.hasDisplayName()) continue;
             
-            String name = meta.getDisplayName();
+            String name = ChatColor.stripColor(meta.getDisplayName()); // Убираем цветные коды для сравнения
+            String rawName = meta.getDisplayName(); // Оригинальное название с цветами
             
-            if (name.contains("Базовый кит")) {
+            plugin.getLogger().info("§e[KitManager] Найден шалкер: " + rawName);
+            
+            if (name.contains("Базовый кит") || rawName.contains("Базовый кит")) {
                 basicKit = item.clone();
-            } else if (name.contains("Шалкер")) {
+                plugin.getLogger().info("§a[KitManager] Базовый кит найден!");
+            } else if (name.contains("Шалкер") || rawName.contains("Шалкер")) {
                 bonusKits.add(item.clone());
+                plugin.getLogger().info("§a[KitManager] Бонусный шалкер найден: " + rawName);
             }
         }
         
         if (basicKit == null) {
             Bukkit.broadcastMessage("§c§lОШИБКА: Базовый кит не найден в эндер-сундуке!");
+            plugin.getLogger().severe("[KitManager] Базовый кит не найден!");
             return;
         }
+        
+        plugin.getLogger().info("§a[KitManager] Найдено бонусных шалкеров: " + bonusKits.size());
         
         // Выдаём киты игрокам
         for (Player player : players) {
@@ -64,13 +81,23 @@ public class KitManager {
             player.sendMessage("§aВы получили базовый кит!");
             
             // 50% шанс на бонусный кит
-            if (!bonusKits.isEmpty() && random.nextInt(100) < 50) {
-                ItemStack bonus = bonusKits.get(random.nextInt(bonusKits.size())).clone();
-                player.getInventory().addItem(bonus);
+            if (!bonusKits.isEmpty()) {
+                int chance = random.nextInt(100);
+                plugin.getLogger().info("§e[KitManager] Шанс для " + player.getName() + ": " + chance + "%");
                 
-                ItemMeta meta = bonus.getItemMeta();
-                String name = meta != null && meta.hasDisplayName() ? meta.getDisplayName() : "бонусный шалкер";
-                player.sendMessage("§aВы получили " + name);
+                if (chance < 50) {
+                    ItemStack bonus = bonusKits.get(random.nextInt(bonusKits.size())).clone();
+                    player.getInventory().addItem(bonus);
+                    
+                    ItemMeta meta = bonus.getItemMeta();
+                    String name = meta != null && meta.hasDisplayName() ? meta.getDisplayName() : "бонусный шалкер";
+                    player.sendMessage("§aВы получили " + name);
+                    plugin.getLogger().info("§a[KitManager] " + player.getName() + " получил бонус: " + name);
+                } else {
+                    player.sendMessage("§eВам не повезло (50% шанс)");
+                }
+            } else {
+                player.sendMessage("§cБонусные шалкеры не найдены в эндер-сундуке!");
             }
         }
         

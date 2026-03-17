@@ -25,7 +25,7 @@ public class AnimationChest implements Listener {
     private final Map<UUID, Integer> playerAnimations = new HashMap<>();
     private final Map<UUID, List<Integer>> playerAnimationHistory = new HashMap<>();
     private final Map<UUID, Location> playerChestLocation = new HashMap<>();
-    private final Set<UUID> spinningPlayers = new HashSet<>(); // Игроки, у которых идёт крутка
+    private final Set<UUID> spinningPlayers = new HashSet<>();
     private final Random random = new Random();
     
     private static final String CHEST_NAME = "§6§lСундук-рулетка";
@@ -90,6 +90,11 @@ public class AnimationChest implements Listener {
         plugin.getServer().getPluginManager().registerEvents(this, plugin);
     }
 
+    // ПУБЛИЧНЫЙ МЕТОД ДЛЯ ПОЛУЧЕНИЯ АНИМАЦИИ ИГРОКА
+    public int getPlayerAnimation(Player player) {
+        return playerAnimations.getOrDefault(player.getUniqueId(), -1);
+    }
+
     private int getRandomAnimation() {
         int total = 100;
         int rand = random.nextInt(total);
@@ -124,7 +129,6 @@ public class AnimationChest implements Listener {
         
         Player player = event.getPlayer();
         
-        // Проверяем, не крутит ли уже кто-то рулетку
         if (!spinningPlayers.isEmpty()) {
             player.sendMessage("§cСейчас кто-то уже крутит рулетку! Подождите.");
             return;
@@ -146,7 +150,6 @@ public class AnimationChest implements Listener {
             gui.setItem(i, glass);
         }
         
-        // Кнопка 1: Крутить
         ItemStack rollButton = new ItemStack(Material.ENDER_CHEST);
         ItemMeta rollMeta = rollButton.getItemMeta();
         rollMeta.setDisplayName("§a§lКРУТНУТЬ");
@@ -157,7 +160,6 @@ public class AnimationChest implements Listener {
         rollButton.setItemMeta(rollMeta);
         gui.setItem(11, rollButton);
         
-        // Кнопка 2: Выбрать анимацию
         ItemStack selectButton = new ItemStack(Material.BOOK);
         ItemMeta selectMeta = selectButton.getItemMeta();
         selectMeta.setDisplayName("§e§lВЫБРАТЬ АНИМАЦИЮ");
@@ -168,7 +170,6 @@ public class AnimationChest implements Listener {
         selectButton.setItemMeta(selectMeta);
         gui.setItem(13, selectButton);
         
-        // Кнопка 3: Запросить крутку
         ItemStack requestButton = new ItemStack(Material.PAPER);
         ItemMeta requestMeta = requestButton.getItemMeta();
         requestMeta.setDisplayName("§d§lЗАПРОСИТЬ КРУТКУ");
@@ -178,7 +179,6 @@ public class AnimationChest implements Listener {
         requestButton.setItemMeta(requestMeta);
         gui.setItem(15, requestButton);
         
-        // Информация о крутках
         int rolls = playerRolls.getOrDefault(player.getUniqueId(), 0);
         ItemStack infoItem = new ItemStack(Material.CHEST);
         ItemMeta infoMeta = infoItem.getItemMeta();
@@ -295,13 +295,12 @@ public class AnimationChest implements Listener {
     private void startSpinAnimation(Player player, Location chestLoc) {
         UUID uuid = player.getUniqueId();
         
-        // Проверяем крутку и тратим ОДНУ
         int rolls = playerRolls.getOrDefault(uuid, 0);
         if (rolls <= 0) {
             player.sendMessage("§cУ вас нет круток!");
             return;
         }
-        playerRolls.put(uuid, rolls - 1); // Тратим ровно 1 крутку
+        playerRolls.put(uuid, rolls - 1);
         
         spinningPlayers.add(uuid);
         
@@ -310,7 +309,6 @@ public class AnimationChest implements Listener {
         
         player.sendMessage("§6§lКРУТКА... Подождите 5 секунд!");
         
-        // Удаляем все старые блоки перед началом
         for (Entity e : world.getEntities()) {
             if (e instanceof FallingBlock && e.getCustomName() != null) {
                 e.remove();
@@ -319,7 +317,6 @@ public class AnimationChest implements Listener {
         
         List<FallingBlock> rotatingBlocks = new ArrayList<>();
         
-        // Создаем 22 блока
         for (int i = 0; i < 22; i++) {
             try {
                 double angle = i * (2 * Math.PI / 22);
@@ -338,7 +335,6 @@ public class AnimationChest implements Listener {
             }
         }
         
-        // Форсированное удаление через 6 секунд
         BukkitRunnable forceRemove = new BukkitRunnable() {
             @Override
             public void run() {
@@ -358,10 +354,8 @@ public class AnimationChest implements Listener {
             @Override
             public void run() {
                 if (ticks >= 100) {
-                    // Выбираем случайную анимацию
                     int animId = getRandomAnimation();
                     
-                    // Удаляем старые блоки
                     for (FallingBlock block : rotatingBlocks) {
                         if (block != null && !block.isDead()) {
                             block.remove();
@@ -369,7 +363,6 @@ public class AnimationChest implements Listener {
                     }
                     rotatingBlocks.clear();
                     
-                    // Создаем 8 победных блоков
                     List<FallingBlock> winnerBlocks = new ArrayList<>();
                     for (int i = 0; i < 8; i++) {
                         try {
@@ -389,10 +382,8 @@ public class AnimationChest implements Listener {
                         }
                     }
                     
-                    // Выдаем анимацию (только одну!)
                     performRoll(player, animId);
                     
-                    // Удаляем победные блоки через 1.5 секунды
                     new BukkitRunnable() {
                         @Override
                         public void run() {
@@ -402,7 +393,6 @@ public class AnimationChest implements Listener {
                                 }
                             }
                             
-                            // Финальная очистка
                             for (Entity e : world.getEntities()) {
                                 if (e instanceof FallingBlock && e.getCustomName() != null) {
                                     e.remove();
@@ -418,7 +408,6 @@ public class AnimationChest implements Listener {
                     return;
                 }
                 
-                // Вращаем блоки
                 for (int i = 0; i < rotatingBlocks.size(); i++) {
                     FallingBlock block = rotatingBlocks.get(i);
                     if (block == null || block.isDead()) continue;
@@ -435,12 +424,9 @@ public class AnimationChest implements Listener {
                             Math.sin(angle) * radius
                         );
                         block.teleport(newLoc);
-                    } catch (Exception e) {
-                        // Игнорируем ошибки телепорта
-                    }
+                    } catch (Exception e) {}
                 }
                 
-                // Частицы
                 world.spawnParticle(Particle.PORTAL, chestLoc.clone().add(0, 2, 0), 5, 2, 1, 2, 0);
                 
                 ticks++;
@@ -469,7 +455,6 @@ public class AnimationChest implements Listener {
     private void performRoll(Player player, int animId) {
         UUID uuid = player.getUniqueId();
         
-        // Сохраняем в историю (только один раз!)
         List<Integer> history = playerAnimationHistory.getOrDefault(uuid, new ArrayList<>());
         history.add(animId);
         playerAnimationHistory.put(uuid, history);
@@ -489,20 +474,8 @@ public class AnimationChest implements Listener {
         player.sendMessage("§aВы получили " + amount + " круток в сундуке-рулетке!");
     }
 
-    @EventHandler
-    public void onPlayerDeath(PlayerDeathEvent event) {
-        Player victim = event.getEntity();
-        Player killer = victim.getKiller();
-        
-        if (killer != null) {
-            int animId = playerAnimations.getOrDefault(killer.getUniqueId(), -1);
-            if (animId != -1) {
-                triggerKillAnimation(killer, victim, animId);
-            }
-        }
-    }
-
-    private void triggerKillAnimation(Player killer, Player victim, int animId) {
+    // ПУБЛИЧНЫЙ МЕТОД ДЛЯ АНИМАЦИЙ УБИЙСТВА
+    public void triggerKillAnimation(Player killer, Player victim, int animId) {
         Location loc = victim.getLocation();
         World world = loc.getWorld();
         if (world == null) return;
@@ -581,161 +554,7 @@ public class AnimationChest implements Listener {
                 world.spawnParticle(Particle.SONIC_BOOM, loc, 1, 0, 0, 0, 0);
                 break;
                 
-            case 5: // Курицы и тортик
-                for (int i = 0; i < 5; i++) {
-                    Chicken chicken = (Chicken) world.spawnEntity(loc.clone().add(random.nextInt(3)-1, 0, random.nextInt(3)-1), EntityType.CHICKEN);
-                    chicken.setInvulnerable(true);
-                    chicken.setAI(false);
-                    new BukkitRunnable() {
-                        @Override
-                        public void run() {
-                            chicken.remove();
-                        }
-                    }.runTaskLater(plugin, 100L);
-                }
-                
-                Location cakeLoc = loc.clone().add(0, 1, 0);
-                cakeLoc.getBlock().setType(Material.CAKE);
-                new BukkitRunnable() {
-                    @Override
-                    public void run() {
-                        if (cakeLoc.getBlock().getType() == Material.CAKE) {
-                            cakeLoc.getBlock().setType(Material.AIR);
-                        }
-                    }
-                }.runTaskLater(plugin, 100L);
-                break;
-                
-            case 6: // Фейерверки
-                new BukkitRunnable() {
-                    int count = 0;
-                    @Override
-                    public void run() {
-                        if (count >= 5) {
-                            this.cancel();
-                            return;
-                        }
-                        
-                        Firework firework = world.spawn(loc.clone().add(random.nextInt(3)-1, 0, random.nextInt(3)-1), Firework.class);
-                        FireworkMeta meta = firework.getFireworkMeta();
-                        meta.addEffect(FireworkEffect.builder()
-                            .withColor(Color.RED, Color.BLUE, Color.GREEN)
-                            .with(FireworkEffect.Type.BALL_LARGE)
-                            .build());
-                        meta.setPower(1);
-                        firework.setFireworkMeta(meta);
-                        
-                        count++;
-                    }
-                }.runTaskTimer(plugin, 0L, 10L);
-                break;
-                
-            case 7: // Молния
-                world.strikeLightningEffect(loc);
-                break;
-                
-            case 8: // Дождь
-                new BukkitRunnable() {
-                    int ticks = 0;
-                    @Override
-                    public void run() {
-                        if (ticks >= 100) {
-                            this.cancel();
-                            return;
-                        }
-                        world.spawnParticle(Particle.RAIN, loc.clone().add(random.nextInt(5)-2, 2, random.nextInt(5)-2), 5, 0.5, 0.5, 0.5, 0);
-                        ticks++;
-                    }
-                }.runTaskTimer(plugin, 0L, 1L);
-                break;
-                
-            case 9: // Крест
-                for (int y = 1; y <= 3; y++) {
-                    Location blockLoc = loc.clone().add(0, y, 0);
-                    blockLoc.getBlock().setType(Material.MOSSY_COBBLESTONE);
-                    new BukkitRunnable() {
-                        @Override
-                        public void run() {
-                            if (blockLoc.getBlock().getType() == Material.MOSSY_COBBLESTONE) {
-                                blockLoc.getBlock().setType(Material.AIR);
-                            }
-                        }
-                    }.runTaskLater(plugin, 100L);
-                }
-                for (int x = -1; x <= 1; x += 2) {
-                    Location blockLoc = loc.clone().add(x, 2, 0);
-                    blockLoc.getBlock().setType(Material.MOSSY_COBBLESTONE);
-                    new BukkitRunnable() {
-                        @Override
-                        public void run() {
-                            if (blockLoc.getBlock().getType() == Material.MOSSY_COBBLESTONE) {
-                                blockLoc.getBlock().setType(Material.AIR);
-                            }
-                        }
-                    }.runTaskLater(plugin, 100L);
-                }
-                break;
-                
-            case 10: // Варден
-                Location wardenLoc = loc.clone().add(0, -2, 0);
-                Warden warden = (Warden) world.spawnEntity(wardenLoc, EntityType.WARDEN);
-                warden.setAI(false);
-                warden.setInvulnerable(true);
-                warden.setSilent(true);
-                
-                new BukkitRunnable() {
-                    int y = -2;
-                    @Override
-                    public void run() {
-                        if (y >= 0) {
-                            new BukkitRunnable() {
-                                int downY = 0;
-                                @Override
-                                public void run() {
-                                    if (downY <= -2) {
-                                        warden.remove();
-                                        this.cancel();
-                                        return;
-                                    }
-                                    warden.teleport(loc.clone().add(0, downY, 0));
-                                    downY--;
-                                }
-                            }.runTaskTimer(plugin, 20L, 2L);
-                            this.cancel();
-                            return;
-                        }
-                        warden.teleport(loc.clone().add(0, y, 0));
-                        y++;
-                    }
-                }.runTaskTimer(plugin, 0L, 2L);
-                break;
-                
-            case 11: // Метеорит
-                Location meteorLoc = loc.clone().add(0, 20, 0);
-                Fireball meteor = world.spawn(meteorLoc, Fireball.class);
-                meteor.setVelocity(new Vector(0, -0.5, 0));
-                meteor.setYield(0);
-                meteor.setIsIncendiary(false);
-                
-                new BukkitRunnable() {
-                    int ticks = 0;
-                    @Override
-                    public void run() {
-                        if (ticks >= 40 || meteor.isDead()) {
-                            meteor.remove();
-                            world.playSound(loc, Sound.ENTITY_GENERIC_EXPLODE, 1.0f, 1.0f);
-                            world.spawnParticle(Particle.EXPLOSION, loc, 20, 2, 2, 2, 0);
-                            this.cancel();
-                            return;
-                        }
-                        world.spawnParticle(Particle.FLAME, meteor.getLocation(), 5, 1, 1, 1, 0);
-                        ticks++;
-                    }
-                }.runTaskTimer(plugin, 0L, 1L);
-                break;
-                
             default:
-                // Остальные анимации можно добавить позже
                 break;
         }
     }

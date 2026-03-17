@@ -25,7 +25,7 @@ public class AnimationChest implements Listener {
     private final Map<UUID, List<Integer>> playerAnimationHistory = new HashMap<>();
     private final Map<UUID, Location> playerChestLocation = new HashMap<>();
     private final Set<UUID> spinningPlayers = new HashSet<>();
-    private final Set<UUID> rollingPlayers = new HashSet<>(); // Защита от двойной крутки
+    private final Set<UUID> rollingPlayers = new HashSet<>();
     private final Random random = new Random();
     
     private static final String CHEST_NAME = "§6§lСундук-рулетка";
@@ -250,8 +250,7 @@ public class AnimationChest implements Listener {
             event.setCancelled(true);
             int slot = event.getRawSlot();
             
-            if (slot == 11) { // Крутить
-                // Защита от двойного клика
+            if (slot == 11) {
                 if (rollingPlayers.contains(player.getUniqueId())) {
                     player.sendMessage("§cКрутка уже запущена!");
                     player.closeInventory();
@@ -275,10 +274,10 @@ public class AnimationChest implements Listener {
                 player.closeInventory();
                 startSpinAnimation(player, chestLoc);
             }
-            else if (slot == 13) { // Выбрать анимацию
+            else if (slot == 13) {
                 openSelectionMenu(player);
             }
-            else if (slot == 15) { // Запросить крутку
+            else if (slot == 15) {
                 player.closeInventory();
                 requestRoll(player);
             }
@@ -307,7 +306,6 @@ public class AnimationChest implements Listener {
     private void startSpinAnimation(Player player, Location chestLoc) {
         UUID uuid = player.getUniqueId();
         
-        // Защита от двойной крутки
         if (rollingPlayers.contains(uuid)) {
             player.sendMessage("§cКрутка уже запущена!");
             return;
@@ -319,7 +317,6 @@ public class AnimationChest implements Listener {
             return;
         }
         
-        // Тратим крутку ТОЛЬКО ОДИН РАЗ
         playerRolls.put(uuid, rolls - 1);
         rollingPlayers.add(uuid);
         spinningPlayers.add(uuid);
@@ -329,7 +326,6 @@ public class AnimationChest implements Listener {
         
         player.sendMessage("§6§lКРУТКА... Подождите 5 секунд!");
         
-        // Удаляем все старые блоки
         for (Entity e : world.getEntities()) {
             if (e instanceof FallingBlock && e.getCustomName() != null) {
                 e.remove();
@@ -338,7 +334,6 @@ public class AnimationChest implements Listener {
         
         List<FallingBlock> rotatingBlocks = new ArrayList<>();
         
-        // Создаем 22 блока
         for (int i = 0; i < 22; i++) {
             try {
                 double angle = i * (2 * Math.PI / 22);
@@ -357,7 +352,6 @@ public class AnimationChest implements Listener {
             }
         }
         
-        // Форсированное удаление через 6 секунд
         BukkitRunnable forceRemove = new BukkitRunnable() {
             @Override
             public void run() {
@@ -378,10 +372,8 @@ public class AnimationChest implements Listener {
             @Override
             public void run() {
                 if (ticks >= 100) {
-                    // Выбираем случайную анимацию
                     int animId = getRandomAnimation();
                     
-                    // Удаляем старые блоки
                     for (FallingBlock block : rotatingBlocks) {
                         if (block != null && !block.isDead()) {
                             block.remove();
@@ -389,7 +381,6 @@ public class AnimationChest implements Listener {
                     }
                     rotatingBlocks.clear();
                     
-                    // Создаем 8 победных блоков
                     List<FallingBlock> winnerBlocks = new ArrayList<>();
                     for (int i = 0; i < 8; i++) {
                         try {
@@ -409,10 +400,8 @@ public class AnimationChest implements Listener {
                         }
                     }
                     
-                    // Выдаем анимацию (ТОЛЬКО ОДИН РАЗ)
                     performRoll(player, animId);
                     
-                    // Удаляем победные блоки через 1.5 секунды
                     new BukkitRunnable() {
                         @Override
                         public void run() {
@@ -422,7 +411,6 @@ public class AnimationChest implements Listener {
                                 }
                             }
                             
-                            // Финальная очистка
                             for (Entity e : world.getEntities()) {
                                 if (e instanceof FallingBlock && e.getCustomName() != null) {
                                     e.remove();
@@ -439,7 +427,6 @@ public class AnimationChest implements Listener {
                     return;
                 }
                 
-                // Вращаем блоки
                 for (int i = 0; i < rotatingBlocks.size(); i++) {
                     FallingBlock block = rotatingBlocks.get(i);
                     if (block == null || block.isDead()) continue;
@@ -459,7 +446,6 @@ public class AnimationChest implements Listener {
                     } catch (Exception e) {}
                 }
                 
-                // Частицы
                 world.spawnParticle(Particle.PORTAL, chestLoc.clone().add(0, 2, 0), 5, 2, 1, 2, 0);
                 
                 ticks++;
@@ -488,7 +474,6 @@ public class AnimationChest implements Listener {
     private void performRoll(Player player, int animId) {
         UUID uuid = player.getUniqueId();
         
-        // Сохраняем в историю
         List<Integer> history = playerAnimationHistory.getOrDefault(uuid, new ArrayList<>());
         history.add(animId);
         playerAnimationHistory.put(uuid, history);
@@ -516,12 +501,12 @@ public class AnimationChest implements Listener {
         killer.sendMessage("§6§lАнимация убийства: §f" + ANIMATION_NAMES[animId - 1]);
         
         switch (animId) {
-            case 1: // Взрыв внутри
+            case 1:
                 world.playSound(loc, Sound.ENTITY_GENERIC_EXPLODE, 1.0f, 1.0f);
                 world.spawnParticle(Particle.EXPLOSION, loc, 20, 1, 1, 1, 0);
                 break;
                 
-            case 2: // Визер-скелеты
+            case 2:
                 new BukkitRunnable() {
                     int ticks = 0;
                     List<WitherSkeleton> skeletons = new ArrayList<>();
@@ -567,7 +552,7 @@ public class AnimationChest implements Listener {
                 }.runTaskTimer(plugin, 0L, 1L);
                 break;
                 
-            case 3: // Наковальня
+            case 3:
                 Location anvilLoc = loc.clone().add(0, 10, 0);
                 FallingBlock anvil = world.spawnFallingBlock(anvilLoc, Material.ANVIL.createBlockData());
                 anvil.setDropItem(false);
@@ -582,12 +567,12 @@ public class AnimationChest implements Listener {
                 }.runTaskLater(plugin, 40L);
                 break;
                 
-            case 4: // Варден-выстрел
+            case 4:
                 world.playSound(loc, Sound.ENTITY_WARDEN_SONIC_BOOM, 1.0f, 1.0f);
                 world.spawnParticle(Particle.SONIC_BOOM, loc, 1, 0, 0, 0, 0);
                 break;
                 
-            case 5: // Курицы и тортик
+            case 5:
                 for (int i = 0; i < 5; i++) {
                     Chicken chicken = (Chicken) world.spawnEntity(loc.clone().add(random.nextInt(3)-1, 0, random.nextInt(3)-1), EntityType.CHICKEN);
                     chicken.setInvulnerable(true);
@@ -612,7 +597,7 @@ public class AnimationChest implements Listener {
                 }.runTaskLater(plugin, 100L);
                 break;
                 
-            case 6: // Фейерверки
+            case 6:
                 new BukkitRunnable() {
                     int count = 0;
                     @Override
@@ -636,11 +621,11 @@ public class AnimationChest implements Listener {
                 }.runTaskTimer(plugin, 0L, 10L);
                 break;
                 
-            case 7: // Молния
+            case 7:
                 world.strikeLightningEffect(loc);
                 break;
                 
-            case 8: // Дождь
+            case 8:
                 new BukkitRunnable() {
                     int ticks = 0;
                     @Override
@@ -655,7 +640,7 @@ public class AnimationChest implements Listener {
                 }.runTaskTimer(plugin, 0L, 1L);
                 break;
                 
-            case 9: // Крест
+            case 9:
                 for (int y = 1; y <= 3; y++) {
                     Location blockLoc = loc.clone().add(0, y, 0);
                     blockLoc.getBlock().setType(Material.MOSSY_COBBLESTONE);
@@ -682,7 +667,7 @@ public class AnimationChest implements Listener {
                 }
                 break;
                 
-            case 10: // Варден
+            case 10:
                 Location wardenLoc = loc.clone().add(0, -2, 0);
                 Warden warden = (Warden) world.spawnEntity(wardenLoc, EntityType.WARDEN);
                 warden.setAI(false);
@@ -716,7 +701,7 @@ public class AnimationChest implements Listener {
                 }.runTaskTimer(plugin, 0L, 2L);
                 break;
                 
-            case 11: // Метеорит
+            case 11:
                 Location meteorLoc = loc.clone().add(0, 20, 0);
                 Fireball meteor = world.spawn(meteorLoc, Fireball.class);
                 meteor.setVelocity(new Vector(0, -0.5, 0));
@@ -740,7 +725,7 @@ public class AnimationChest implements Listener {
                 }.runTaskTimer(plugin, 0L, 1L);
                 break;
                 
-            case 12: // Невесомость
+            case 12:
                 victim.setVelocity(new Vector(0, 1.5, 0));
                 world.playSound(loc, Sound.ENTITY_BAT_TAKEOFF, 1.0f, 1.0f);
                 new BukkitRunnable() {
@@ -757,7 +742,7 @@ public class AnimationChest implements Listener {
                 }.runTaskTimer(plugin, 0L, 1L);
                 break;
                 
-            case 13: // Цветочная поляна
+            case 13:
                 Material[] flowers = {Material.POPPY, Material.DANDELION, Material.BLUE_ORCHID, Material.ALLIUM, Material.AZURE_BLUET};
                 for (int i = 0; i < 8; i++) {
                     Location flowerLoc = loc.clone().add(random.nextInt(5)-2, 0, random.nextInt(5)-2);
@@ -783,7 +768,7 @@ public class AnimationChest implements Listener {
                 }
                 break;
                 
-            case 14: // Звёздный дождь
+            case 14:
                 new BukkitRunnable() {
                     int ticks = 0;
                     @Override
@@ -799,18 +784,18 @@ public class AnimationChest implements Listener {
                 }.runTaskTimer(plugin, 0L, 2L);
                 break;
                 
-            case 15: // Невидимая стена
+            case 15:
                 for (int x = -2; x <= 2; x++) {
                     for (int z = -2; z <= 2; z++) {
                         if (Math.abs(x) == 2 || Math.abs(z) == 2) {
                             Location wallLoc = loc.clone().add(x, 0, z);
-                            world.spawnParticle(Particle.BARRIER, wallLoc.clone().add(0.5, 1, 0.5), 1, 0, 0, 0, 0);
+                            world.spawnParticle(Particle.BLOCK_MARKER, wallLoc.clone().add(0.5, 1, 0.5), 1, 0, 0, 0, 0, Material.BARRIER.createBlockData());
                         }
                     }
                 }
                 break;
                 
-            case 16: // Танец скелетов
+            case 16:
                 for (int i = 0; i < 4; i++) {
                     double angle = i * Math.PI/2;
                     Location spawnLoc = loc.clone().add(Math.cos(angle) * 3, 0, Math.sin(angle) * 3);
@@ -840,7 +825,7 @@ public class AnimationChest implements Listener {
                 }
                 break;
                 
-            case 17: // Водоворот
+            case 17:
                 new BukkitRunnable() {
                     int ticks = 0;
                     @Override
@@ -861,7 +846,7 @@ public class AnimationChest implements Listener {
                 }.runTaskTimer(plugin, 0L, 1L);
                 break;
                 
-            case 18: // Огненный феникс
+            case 18:
                 new BukkitRunnable() {
                     int ticks = 0;
                     @Override
@@ -883,7 +868,7 @@ public class AnimationChest implements Listener {
                 }.runTaskTimer(plugin, 0L, 1L);
                 break;
                 
-            case 19: // Кристаллы
+            case 19:
                 for (int i = 0; i < 6; i++) {
                     double angle = i * Math.PI/3;
                     Location crystalLoc = loc.clone().add(Math.cos(angle) * 2, 1, Math.sin(angle) * 2);
@@ -899,7 +884,7 @@ public class AnimationChest implements Listener {
                 }
                 break;
                 
-            case 20: // Теневые копии
+            case 20:
                 for (int i = 0; i < 3; i++) {
                     Location copyLoc = loc.clone().add(random.nextInt(3)-1, 0, random.nextInt(3)-1);
                     ArmorStand copy = (ArmorStand) world.spawnEntity(copyLoc, EntityType.ARMOR_STAND);
@@ -919,7 +904,7 @@ public class AnimationChest implements Listener {
                 }
                 break;
                 
-            case 21: // Песочные часы
+            case 21:
                 Location hourglassTop = loc.clone().add(0, 3, 0);
                 Location hourglassBottom = loc.clone();
                 new BukkitRunnable() {
@@ -937,7 +922,7 @@ public class AnimationChest implements Listener {
                 }.runTaskTimer(plugin, 0L, 1L);
                 break;
                 
-            case 22: // Радуга
+            case 22:
                 new BukkitRunnable() {
                     int ticks = 0;
                     @Override

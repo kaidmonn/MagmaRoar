@@ -6,6 +6,7 @@ import org.bukkit.block.Chest;
 import org.bukkit.entity.*;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.Listener;
+import org.bukkit.event.inventory.InventoryClickEvent;
 import org.bukkit.event.player.PlayerInteractEvent;
 import org.bukkit.inventory.Inventory;
 import org.bukkit.inventory.ItemStack;
@@ -22,6 +23,7 @@ public class AnimationChest implements Listener {
     private final Map<UUID, Integer> playerRolls = new HashMap<>();
     private final Map<UUID, Integer> playerAnimations = new HashMap<>();
     private final Map<UUID, List<Integer>> playerAnimationHistory = new HashMap<>();
+    private final Map<UUID, Location> playerChestLocation = new HashMap<>(); // ЗАПОМИНАЕМ ЛОКАЦИЮ СУНДУКА
     private final Map<UUID, Boolean> openingAnimation = new HashMap<>();
     private final Random random = new Random();
     
@@ -120,10 +122,14 @@ public class AnimationChest implements Listener {
         event.setCancelled(true);
         
         Player player = event.getPlayer();
-        openMainMenu(player, chest.getLocation());
+        
+        // СОХРАНЯЕМ ЛОКАЦИЮ СУНДУКА
+        playerChestLocation.put(player.getUniqueId(), chest.getLocation());
+        
+        openMainMenu(player);
     }
 
-    private void openMainMenu(Player player, Location chestLoc) {
+    private void openMainMenu(Player player) {
         Inventory gui = Bukkit.createInventory(null, 27, "§8§lСундук-рулетка");
         
         ItemStack glass = new ItemStack(Material.BLACK_STAINED_GLASS_PANE);
@@ -225,7 +231,7 @@ public class AnimationChest implements Listener {
     }
 
     @EventHandler
-    public void onInventoryClick(org.bukkit.event.inventory.InventoryClickEvent event) {
+    public void onInventoryClick(InventoryClickEvent event) {
         if (!(event.getWhoClicked() instanceof Player)) return;
         Player player = (Player) event.getWhoClicked();
         String title = event.getView().getTitle();
@@ -242,14 +248,12 @@ public class AnimationChest implements Listener {
                     return;
                 }
                 
-                // Получаем местоположение сундука
-                Location chestLoc = null;
-                if (event.getClickedInventory() != null && event.getClickedInventory().getLocation() != null) {
-                    chestLoc = event.getClickedInventory().getLocation();
-                }
+                // ПОЛУЧАЕМ СОХРАНЁННУЮ ЛОКАЦИЮ СУНДУКА
+                Location chestLoc = playerChestLocation.get(player.getUniqueId());
                 
                 if (chestLoc == null) {
-                    player.sendMessage("§cОшибка: не удалось найти сундук!");
+                    player.sendMessage("§cОшибка: не удалось найти сундук! Попробуйте открыть его заново.");
+                    player.closeInventory();
                     return;
                 }
                 

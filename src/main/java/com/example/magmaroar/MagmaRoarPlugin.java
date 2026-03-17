@@ -1,5 +1,7 @@
 package com.example.magmaroar;
 
+import org.bukkit.Bukkit;
+import org.bukkit.entity.Player;
 import org.bukkit.plugin.java.JavaPlugin;
 import org.bukkit.inventory.ItemStack;
 import java.util.Arrays;
@@ -10,23 +12,23 @@ public class MagmaRoarPlugin extends JavaPlugin {
 
     private static MagmaRoarPlugin instance;
     
-    // Новые менеджеры для NPC
     private NPCManager npcManager;
     private QueueManager queueManager;
     private BattleManager battleManager;
     private KitManager kitManager;
     private ItemManager itemManager;
+    private AnimationChest animationChest; // НОВОЕ
 
     @Override
     public void onEnable() {
         instance = this;
         
-        // Инициализация новых менеджеров
+        itemManager = new ItemManager(this);
         npcManager = new NPCManager(this);
         queueManager = new QueueManager(this);
         battleManager = new BattleManager(this);
         kitManager = new KitManager(this);
-        itemManager = new ItemManager(this);
+        animationChest = new AnimationChest(this); // НОВОЕ
         
         // Регистрация обработчиков
         getServer().getPluginManager().registerEvents(new StaffEvents(), this);
@@ -57,11 +59,10 @@ public class MagmaRoarPlugin extends JavaPlugin {
         getServer().getPluginManager().registerEvents(new ArtemisBowHandler(), this);
         getServer().getPluginManager().registerEvents(new CreationBowHandler(), this);
         getServer().getPluginManager().registerEvents(new FossilSwordHandler(), this);
-        
-        // Регистрация нового обработчика для NPC
         getServer().getPluginManager().registerEvents(new EventListener(this), this);
+        getServer().getPluginManager().registerEvents(animationChest, this); // НОВОЕ
         
-        // Команды для предметов
+        // Команды для предметов (все твои старые команды)
         getCommand("roar").setExecutor((sender, command, label, args) -> {
             if (sender instanceof org.bukkit.entity.Player) {
                 ((org.bukkit.entity.Player) sender).getInventory().addItem(MagmaHornItem.createHorn());
@@ -265,13 +266,45 @@ public class MagmaRoarPlugin extends JavaPlugin {
             return true;
         });
         
-        // Новая команда для спавна NPC Митапы
         getCommand("mitapy").setExecutor((sender, command, label, args) -> {
             if (sender instanceof org.bukkit.entity.Player) {
                 org.bukkit.entity.Player player = (org.bukkit.entity.Player) sender;
                 npcManager.spawnNPC(player.getLocation());
                 player.sendMessage("§aNPC Митапы призван!");
             }
+            return true;
+        });
+        
+        // НОВАЯ КОМАНДА ДЛЯ ВЫДАЧИ КРУТОК
+        getCommand("giveroll").setExecutor((sender, command, label, args) -> {
+            if (!sender.hasPermission("magma.admin")) {
+                sender.sendMessage("§cУ вас нет прав!");
+                return true;
+            }
+            
+            if (args.length < 1) {
+                sender.sendMessage("§cИспользование: /giveroll <игрок> [количество]");
+                return true;
+            }
+            
+            Player target = Bukkit.getPlayer(args[0]);
+            if (target == null) {
+                sender.sendMessage("§cИгрок не найден!");
+                return true;
+            }
+            
+            int amount = 1;
+            if (args.length >= 2) {
+                try {
+                    amount = Integer.parseInt(args[1]);
+                } catch (NumberFormatException e) {
+                    sender.sendMessage("§cНеверное количество!");
+                    return true;
+                }
+            }
+            
+            animationChest.giveRoll(target, amount);
+            sender.sendMessage("§aВыдано " + amount + " круток игроку " + target.getName());
             return true;
         });
         
@@ -374,7 +407,7 @@ public class MagmaRoarPlugin extends JavaPlugin {
             return true;
         });
         
-        getLogger().info("§aMagmaRoarPlugin включён! Загружено 30+ предметов, 4 рандомные команды и NPC Митапы");
+        getLogger().info("§aMagmaRoarPlugin включён! Загружено 30+ предметов, 4 рандомные команды, NPC Митапы и Сундук-рулетка");
     }
 
     @Override
@@ -389,10 +422,10 @@ public class MagmaRoarPlugin extends JavaPlugin {
         return instance;
     }
     
-    // Геттеры для новых менеджеров
     public NPCManager getNPCManager() { return npcManager; }
     public QueueManager getQueueManager() { return queueManager; }
     public BattleManager getBattleManager() { return battleManager; }
     public KitManager getKitManager() { return kitManager; }
     public ItemManager getItemManager() { return itemManager; }
+    public AnimationChest getAnimationChest() { return animationChest; } // НОВОЕ
 }

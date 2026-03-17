@@ -40,14 +40,8 @@ public class EventListener implements Listener {
 
     @EventHandler
     public void onPlayerDeath(PlayerDeathEvent event) {
-        Player victim = event.getEntity();
-        Player killer = victim.getKiller();
-        
-        // Если есть убийца и это игрок
-        if (killer != null) {
-            // Вызываем анимацию убийства
-            plugin.getAnimationChest().triggerKillAnimation(killer, victim);
-        }
+        // УБРАЛИ ВЫЗОВ АНИМАЦИИ
+        // Здесь больше ничего не нужно
     }
 
     @EventHandler

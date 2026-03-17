@@ -6,6 +6,7 @@ import org.bukkit.Bukkit;
 import org.bukkit.Location;
 import org.bukkit.Sound;
 import org.bukkit.entity.Player;
+import org.bukkit.inventory.ItemStack;
 import org.bukkit.scheduler.BukkitRunnable;
 
 import java.time.Duration;
@@ -78,6 +79,16 @@ public class BattleManager {
             ));
             
             winner.playSound(winner.getLocation(), Sound.ENTITY_ENDER_DRAGON_DEATH, 1, 1);
+            
+            // Очищаем инвентарь победителя
+            winner.getInventory().clear();
+            winner.getInventory().setHelmet(null);
+            winner.getInventory().setChestplate(null);
+            winner.getInventory().setLeggings(null);
+            winner.getInventory().setBoots(null);
+            winner.getInventory().setItemInOffHand(null);
+            
+            winner.sendMessage("§aВаш инвентарь очищен после боя!");
             
             winner.teleport(winner.getBedSpawnLocation() != null ? 
                 winner.getBedSpawnLocation() : winner.getWorld().getSpawnLocation());

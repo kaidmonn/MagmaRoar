@@ -1,6 +1,7 @@
 package com.example.magmaroar;
 
 import org.bukkit.Bukkit;
+import org.bukkit.ChatColor; // ← ЭТОТ ИМПОРТ БЫЛ ПРОПУЩЕН!
 import org.bukkit.Material;
 import org.bukkit.entity.Player;
 import org.bukkit.inventory.Inventory;

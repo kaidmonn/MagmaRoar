@@ -5,7 +5,9 @@ import org.bukkit.Material;
 import org.bukkit.entity.Player;
 import org.bukkit.inventory.Inventory;
 import org.bukkit.inventory.ItemStack;
+import org.bukkit.inventory.meta.BlockStateMeta;
 import org.bukkit.inventory.meta.ItemMeta;
+import org.bukkit.block.ShulkerBox;
 
 import java.util.*;
 
@@ -22,42 +24,58 @@ public class KitManager {
     public void giveKits(List<Player> players) {
         Player templatePlayer = Bukkit.getPlayer(TEMPLATE_PLAYER);
         if (templatePlayer == null || !templatePlayer.isOnline()) {
-            Bukkit.broadcastMessage("§c§lИгрок " + TEMPLATE_PLAYER + " не в сети! Бонусы не выданы.");
+            Bukkit.broadcastMessage("§c§lОШИБКА: Игрок " + TEMPLATE_PLAYER + " не в сети! Киты не выданы.");
             return;
         }
         
         Inventory enderChest = templatePlayer.getEnderChest();
         
-        for (Player player : players) {
-            // 50% шанс на бонус
-            if (random.nextInt(100) < 50) {
-                giveRandomBonusShulker(player, enderChest);
-            }
-        }
-    }
-
-    private void giveRandomBonusShulker(Player player, Inventory enderChest) {
-        List<ItemStack> bonusShulkers = new ArrayList<>();
+        // Ищем базовый кит
+        ItemStack basicKit = null;
+        List<ItemStack> bonusKits = new ArrayList<>();
         
-        // Собираем все шалкеры из эндер-сундука
         for (ItemStack item : enderChest.getContents()) {
-            if (item != null && item.getType().name().contains("SHULKER_BOX")) {
-                bonusShulkers.add(item);
+            if (item == null || item.getType() != Material.SHULKER_BOX) continue;
+            
+            ItemMeta meta = item.getItemMeta();
+            if (meta == null || !meta.hasDisplayName()) continue;
+            
+            String name = meta.getDisplayName();
+            
+            if (name.contains("Базовый кит")) {
+                basicKit = item.clone();
+            } else if (name.contains("Шалкер")) {
+                bonusKits.add(item.clone());
             }
         }
         
-        if (bonusShulkers.isEmpty()) {
-            player.sendMessage("§cВ эндер-сундуке нет шалкеров!");
+        if (basicKit == null) {
+            Bukkit.broadcastMessage("§c§lОШИБКА: Базовый кит не найден в эндер-сундуке!");
             return;
         }
         
-        // Выбираем случайный
-        ItemStack randomBonus = bonusShulkers.get(random.nextInt(bonusShulkers.size())).clone();
-        player.getInventory().addItem(randomBonus);
+        // Выдаём киты игрокам
+        for (Player player : players) {
+            // Очищаем инвентарь перед выдачей
+            player.getInventory().clear();
+            
+            // Выдаём базовый кит
+            player.getInventory().addItem(basicKit.clone());
+            player.sendMessage("§aВы получили базовый кит!");
+            
+            // 50% шанс на бонусный кит
+            if (!bonusKits.isEmpty() && random.nextInt(100) < 50) {
+                ItemStack bonus = bonusKits.get(random.nextInt(bonusKits.size())).clone();
+                player.getInventory().addItem(bonus);
+                
+                ItemMeta meta = bonus.getItemMeta();
+                String name = meta != null && meta.hasDisplayName() ? meta.getDisplayName() : "бонусный шалкер";
+                player.sendMessage("§aВы получили " + name);
+            }
+        }
         
-        // Название для красоты
-        ItemMeta meta = randomBonus.getItemMeta();
-        String name = (meta != null && meta.hasDisplayName()) ? meta.getDisplayName() : "бонусный шалкер";
-        player.sendMessage("§aВы получили " + name);
+        // Вызываем команды рандомного оружия
+        Bukkit.dispatchCommand(Bukkit.getConsoleSender(), "randomweaponall2");
+        Bukkit.dispatchCommand(Bukkit.getConsoleSender(), "randomweaponall1");
     }
 }

@@ -6,6 +6,7 @@ import org.bukkit.block.Chest;
 import org.bukkit.entity.*;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.Listener;
+import org.bukkit.event.entity.PlayerDeathEvent;
 import org.bukkit.event.inventory.InventoryClickEvent;
 import org.bukkit.event.player.PlayerInteractEvent;
 import org.bukkit.inventory.Inventory;
@@ -24,7 +25,7 @@ public class AnimationChest implements Listener {
     private final Map<UUID, Integer> playerAnimations = new HashMap<>();
     private final Map<UUID, List<Integer>> playerAnimationHistory = new HashMap<>();
     private final Map<UUID, Location> playerChestLocation = new HashMap<>();
-    private final Map<UUID, Boolean> openingAnimation = new HashMap<>();
+    private final Set<UUID> spinningPlayers = new HashSet<>(); // Игроки, у которых идёт крутка
     private final Random random = new Random();
     
     private static final String CHEST_NAME = "§6§lСундук-рулетка";
@@ -122,6 +123,13 @@ public class AnimationChest implements Listener {
         event.setCancelled(true);
         
         Player player = event.getPlayer();
+        
+        // Проверяем, не крутит ли уже кто-то рулетку
+        if (!spinningPlayers.isEmpty()) {
+            player.sendMessage("§cСейчас кто-то уже крутит рулетку! Подождите.");
+            return;
+        }
+        
         playerChestLocation.put(player.getUniqueId(), chest.getLocation());
         openMainMenu(player);
     }
@@ -286,7 +294,16 @@ public class AnimationChest implements Listener {
 
     private void startSpinAnimation(Player player, Location chestLoc) {
         UUID uuid = player.getUniqueId();
-        openingAnimation.put(uuid, true);
+        
+        // Проверяем крутку и тратим ОДНУ
+        int rolls = playerRolls.getOrDefault(uuid, 0);
+        if (rolls <= 0) {
+            player.sendMessage("§cУ вас нет круток!");
+            return;
+        }
+        playerRolls.put(uuid, rolls - 1); // Тратим ровно 1 крутку
+        
+        spinningPlayers.add(uuid);
         
         World world = chestLoc.getWorld();
         if (world == null) return;
@@ -330,7 +347,7 @@ public class AnimationChest implements Listener {
                         e.remove();
                     }
                 }
-                openingAnimation.put(uuid, false);
+                spinningPlayers.remove(uuid);
             }
         };
         forceRemove.runTaskLater(plugin, 120L);
@@ -372,7 +389,7 @@ public class AnimationChest implements Listener {
                         }
                     }
                     
-                    // Выдаем анимацию
+                    // Выдаем анимацию (только одну!)
                     performRoll(player, animId);
                     
                     // Удаляем победные блоки через 1.5 секунды
@@ -392,7 +409,7 @@ public class AnimationChest implements Listener {
                                 }
                             }
                             
-                            openingAnimation.put(uuid, false);
+                            spinningPlayers.remove(uuid);
                             forceRemove.cancel();
                         }
                     }.runTaskLater(plugin, 30L);
@@ -451,12 +468,8 @@ public class AnimationChest implements Listener {
 
     private void performRoll(Player player, int animId) {
         UUID uuid = player.getUniqueId();
-        int rolls = playerRolls.getOrDefault(uuid, 0);
         
-        if (rolls <= 0) return;
-        
-        playerRolls.put(uuid, rolls - 1);
-        
+        // Сохраняем в историю (только один раз!)
         List<Integer> history = playerAnimationHistory.getOrDefault(uuid, new ArrayList<>());
         history.add(animId);
         playerAnimationHistory.put(uuid, history);
@@ -476,16 +489,254 @@ public class AnimationChest implements Listener {
         player.sendMessage("§aВы получили " + amount + " круток в сундуке-рулетке!");
     }
 
-    public void triggerKillAnimation(Player killer, Player victim) {
-        int animId = playerAnimations.getOrDefault(killer.getUniqueId(), -1);
-        if (animId == -1) return;
+    @EventHandler
+    public void onPlayerDeath(PlayerDeathEvent event) {
+        Player victim = event.getEntity();
+        Player killer = victim.getKiller();
         
+        if (killer != null) {
+            int animId = playerAnimations.getOrDefault(killer.getUniqueId(), -1);
+            if (animId != -1) {
+                triggerKillAnimation(killer, victim, animId);
+            }
+        }
+    }
+
+    private void triggerKillAnimation(Player killer, Player victim, int animId) {
         Location loc = victim.getLocation();
         World world = loc.getWorld();
         if (world == null) return;
         
         killer.sendMessage("§6§lАнимация убийства: §f" + ANIMATION_NAMES[animId - 1]);
         
-        // Здесь код анимаций убийства
+        switch (animId) {
+            case 1: // Взрыв внутри
+                world.playSound(loc, Sound.ENTITY_GENERIC_EXPLODE, 1.0f, 1.0f);
+                world.spawnParticle(Particle.EXPLOSION, loc, 20, 1, 1, 1, 0);
+                break;
+                
+            case 2: // Визер-скелеты
+                new BukkitRunnable() {
+                    int ticks = 0;
+                    List<WitherSkeleton> skeletons = new ArrayList<>();
+                    
+                    @Override
+                    public void run() {
+                        if (ticks == 0) {
+                            for (int i = 0; i < 4; i++) {
+                                Location spawnLoc = loc.clone().add(
+                                    Math.cos(i * Math.PI/2) * 3,
+                                    0,
+                                    Math.sin(i * Math.PI/2) * 3
+                                );
+                                WitherSkeleton skelly = (WitherSkeleton) world.spawnEntity(spawnLoc, EntityType.WITHER_SKELETON);
+                                skelly.setAI(false);
+                                skelly.setInvulnerable(true);
+                                skelly.setSilent(true);
+                                skeletons.add(skelly);
+                            }
+                        }
+                        
+                        if (ticks >= 100) {
+                            for (WitherSkeleton skelly : skeletons) {
+                                skelly.remove();
+                            }
+                            this.cancel();
+                            return;
+                        }
+                        
+                        for (int i = 0; i < skeletons.size(); i++) {
+                            WitherSkeleton skelly = skeletons.get(i);
+                            double angle = (ticks * 0.05) + (i * Math.PI/2);
+                            Location newLoc = loc.clone().add(
+                                Math.cos(angle) * 3,
+                                0,
+                                Math.sin(angle) * 3
+                            );
+                            skelly.teleport(newLoc);
+                        }
+                        
+                        ticks++;
+                    }
+                }.runTaskTimer(plugin, 0L, 1L);
+                break;
+                
+            case 3: // Наковальня
+                Location anvilLoc = loc.clone().add(0, 10, 0);
+                FallingBlock anvil = world.spawnFallingBlock(anvilLoc, Material.ANVIL.createBlockData());
+                anvil.setDropItem(false);
+                anvil.setHurtEntities(false);
+                world.playSound(loc, Sound.BLOCK_ANVIL_LAND, 1.0f, 1.0f);
+                
+                new BukkitRunnable() {
+                    @Override
+                    public void run() {
+                        anvil.remove();
+                    }
+                }.runTaskLater(plugin, 40L);
+                break;
+                
+            case 4: // Варден-выстрел
+                world.playSound(loc, Sound.ENTITY_WARDEN_SONIC_BOOM, 1.0f, 1.0f);
+                world.spawnParticle(Particle.SONIC_BOOM, loc, 1, 0, 0, 0, 0);
+                break;
+                
+            case 5: // Курицы и тортик
+                for (int i = 0; i < 5; i++) {
+                    Chicken chicken = (Chicken) world.spawnEntity(loc.clone().add(random.nextInt(3)-1, 0, random.nextInt(3)-1), EntityType.CHICKEN);
+                    chicken.setInvulnerable(true);
+                    chicken.setAI(false);
+                    new BukkitRunnable() {
+                        @Override
+                        public void run() {
+                            chicken.remove();
+                        }
+                    }.runTaskLater(plugin, 100L);
+                }
+                
+                Location cakeLoc = loc.clone().add(0, 1, 0);
+                cakeLoc.getBlock().setType(Material.CAKE);
+                new BukkitRunnable() {
+                    @Override
+                    public void run() {
+                        if (cakeLoc.getBlock().getType() == Material.CAKE) {
+                            cakeLoc.getBlock().setType(Material.AIR);
+                        }
+                    }
+                }.runTaskLater(plugin, 100L);
+                break;
+                
+            case 6: // Фейерверки
+                new BukkitRunnable() {
+                    int count = 0;
+                    @Override
+                    public void run() {
+                        if (count >= 5) {
+                            this.cancel();
+                            return;
+                        }
+                        
+                        Firework firework = world.spawn(loc.clone().add(random.nextInt(3)-1, 0, random.nextInt(3)-1), Firework.class);
+                        FireworkMeta meta = firework.getFireworkMeta();
+                        meta.addEffect(FireworkEffect.builder()
+                            .withColor(Color.RED, Color.BLUE, Color.GREEN)
+                            .with(FireworkEffect.Type.BALL_LARGE)
+                            .build());
+                        meta.setPower(1);
+                        firework.setFireworkMeta(meta);
+                        
+                        count++;
+                    }
+                }.runTaskTimer(plugin, 0L, 10L);
+                break;
+                
+            case 7: // Молния
+                world.strikeLightningEffect(loc);
+                break;
+                
+            case 8: // Дождь
+                new BukkitRunnable() {
+                    int ticks = 0;
+                    @Override
+                    public void run() {
+                        if (ticks >= 100) {
+                            this.cancel();
+                            return;
+                        }
+                        world.spawnParticle(Particle.RAIN, loc.clone().add(random.nextInt(5)-2, 2, random.nextInt(5)-2), 5, 0.5, 0.5, 0.5, 0);
+                        ticks++;
+                    }
+                }.runTaskTimer(plugin, 0L, 1L);
+                break;
+                
+            case 9: // Крест
+                for (int y = 1; y <= 3; y++) {
+                    Location blockLoc = loc.clone().add(0, y, 0);
+                    blockLoc.getBlock().setType(Material.MOSSY_COBBLESTONE);
+                    new BukkitRunnable() {
+                        @Override
+                        public void run() {
+                            if (blockLoc.getBlock().getType() == Material.MOSSY_COBBLESTONE) {
+                                blockLoc.getBlock().setType(Material.AIR);
+                            }
+                        }
+                    }.runTaskLater(plugin, 100L);
+                }
+                for (int x = -1; x <= 1; x += 2) {
+                    Location blockLoc = loc.clone().add(x, 2, 0);
+                    blockLoc.getBlock().setType(Material.MOSSY_COBBLESTONE);
+                    new BukkitRunnable() {
+                        @Override
+                        public void run() {
+                            if (blockLoc.getBlock().getType() == Material.MOSSY_COBBLESTONE) {
+                                blockLoc.getBlock().setType(Material.AIR);
+                            }
+                        }
+                    }.runTaskLater(plugin, 100L);
+                }
+                break;
+                
+            case 10: // Варден
+                Location wardenLoc = loc.clone().add(0, -2, 0);
+                Warden warden = (Warden) world.spawnEntity(wardenLoc, EntityType.WARDEN);
+                warden.setAI(false);
+                warden.setInvulnerable(true);
+                warden.setSilent(true);
+                
+                new BukkitRunnable() {
+                    int y = -2;
+                    @Override
+                    public void run() {
+                        if (y >= 0) {
+                            new BukkitRunnable() {
+                                int downY = 0;
+                                @Override
+                                public void run() {
+                                    if (downY <= -2) {
+                                        warden.remove();
+                                        this.cancel();
+                                        return;
+                                    }
+                                    warden.teleport(loc.clone().add(0, downY, 0));
+                                    downY--;
+                                }
+                            }.runTaskTimer(plugin, 20L, 2L);
+                            this.cancel();
+                            return;
+                        }
+                        warden.teleport(loc.clone().add(0, y, 0));
+                        y++;
+                    }
+                }.runTaskTimer(plugin, 0L, 2L);
+                break;
+                
+            case 11: // Метеорит
+                Location meteorLoc = loc.clone().add(0, 20, 0);
+                Fireball meteor = world.spawn(meteorLoc, Fireball.class);
+                meteor.setVelocity(new Vector(0, -0.5, 0));
+                meteor.setYield(0);
+                meteor.setIsIncendiary(false);
+                
+                new BukkitRunnable() {
+                    int ticks = 0;
+                    @Override
+                    public void run() {
+                        if (ticks >= 40 || meteor.isDead()) {
+                            meteor.remove();
+                            world.playSound(loc, Sound.ENTITY_GENERIC_EXPLODE, 1.0f, 1.0f);
+                            world.spawnParticle(Particle.EXPLOSION, loc, 20, 2, 2, 2, 0);
+                            this.cancel();
+                            return;
+                        }
+                        world.spawnParticle(Particle.FLAME, meteor.getLocation(), 5, 1, 1, 1, 0);
+                        ticks++;
+                    }
+                }.runTaskTimer(plugin, 0L, 1L);
+                break;
+                
+            default:
+                // Остальные анимации можно добавить позже
+                break;
+        }
     }
 }

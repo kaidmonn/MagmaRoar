@@ -44,7 +44,10 @@ public class EventListener implements Listener {
         Player killer = victim.getKiller();
         
         if (killer != null) {
-            plugin.getAnimationChest().triggerKillAnimation(killer, victim);
+            int animId = plugin.getAnimationChest().getPlayerAnimation(killer);
+            if (animId != -1) {
+                plugin.getAnimationChest().triggerKillAnimation(killer, victim, animId);
+            }
         }
     }
 

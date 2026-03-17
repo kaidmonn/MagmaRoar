@@ -3,7 +3,9 @@ package com.example.magmaroar;
 import org.bukkit.Bukkit;
 import org.bukkit.Material;
 import org.bukkit.entity.Player;
+import org.bukkit.inventory.Inventory;
 import org.bukkit.inventory.ItemStack;
+import org.bukkit.inventory.meta.ItemMeta;
 
 import java.util.*;
 
@@ -11,20 +13,51 @@ public class KitManager {
 
     private final MagmaRoarPlugin plugin;
     private final Random random = new Random();
-    private ItemManager itemManager;
+    private final String TEMPLATE_PLAYER = "kaidmonngrief"; // Игрок с заготовленными шалкерами
 
     public KitManager(MagmaRoarPlugin plugin) {
         this.plugin = plugin;
-        this.itemManager = plugin.getItemManager();
     }
 
     public void giveKits(List<Player> players) {
+        // Получаем эндер-сундук шаблонного игрока
+        Player templatePlayer = Bukkit.getPlayer(TEMPLATE_PLAYER);
+        if (templatePlayer == null || !templatePlayer.isOnline()) {
+            Bukkit.broadcastMessage("§c§lОШИБКА: Игрок " + TEMPLATE_PLAYER + " не в сети! Киты не выданы.");
+            return;
+        }
+        
+        Inventory templateEnderChest = templatePlayer.getEnderChest();
+        
+        // Проверяем, есть ли там шалкеры
+        boolean hasBasicShulker = false;
+        boolean hasBonusShulkers = false;
+        
+        for (ItemStack item : templateEnderChest.getContents()) {
+            if (item != null && item.getType() == Material.SHULKER_BOX) {
+                ItemMeta meta = item.getItemMeta();
+                if (meta != null && meta.getDisplayName() != null) {
+                    if (meta.getDisplayName().contains("Базовый кит")) {
+                        hasBasicShulker = true;
+                    } else if (meta.getDisplayName().contains("Шалкер")) {
+                        hasBonusShulkers = true;
+                    }
+                }
+            }
+        }
+        
+        if (!hasBasicShulker) {
+            Bukkit.broadcastMessage("§c§lОШИБКА: В эндер-сундуке " + TEMPLATE_PLAYER + " нет шалкера 'Базовый кит'!");
+            return;
+        }
+        
+        // Выдаём киты игрокам
         for (Player player : players) {
-            giveBasicKit(player);
+            giveBasicKit(player, templateEnderChest);
             
-            // 30% шанс на доп. предметы
+            // 30% шанс на доп. шалкер
             if (random.nextInt(100) < 30) {
-                giveBonusItems(player);
+                giveBonusShulker(player, templateEnderChest);
             }
         }
         
@@ -33,105 +66,54 @@ public class KitManager {
         Bukkit.dispatchCommand(Bukkit.getConsoleSender(), "randomweaponall1");
     }
 
-    private void giveBasicKit(Player player) {
-        player.sendMessage("§aВыдача базового кита...");
+    private void giveBasicKit(Player player, Inventory templateEnderChest) {
+        // Ищем шалкер "Базовый кит"
+        for (ItemStack item : templateEnderChest.getContents()) {
+            if (item != null && item.getType() == Material.SHULKER_BOX) {
+                ItemMeta meta = item.getItemMeta();
+                if (meta != null && meta.getDisplayName() != null && meta.getDisplayName().contains("Базовый кит")) {
+                    // Копируем шалкер
+                    ItemStack kitShulker = item.clone();
+                    player.getInventory().addItem(kitShulker);
+                    player.sendMessage("§aВы получили базовый кит!");
+                    return;
+                }
+            }
+        }
         
-        // Броня
-        player.getInventory().setHelmet(itemManager.createUnbreakableNetheriteArmor(Material.NETHERITE_HELMET));
-        player.getInventory().setChestplate(itemManager.createUnbreakableNetheriteArmor(Material.NETHERITE_CHESTPLATE));
-        player.getInventory().setLeggings(itemManager.createUnbreakableNetheriteArmor(Material.NETHERITE_LEGGINGS));
-        player.getInventory().setBoots(itemManager.createUnbreakableNetheriteArmor(Material.NETHERITE_BOOTS));
-        
-        // Меч и топор
-        player.getInventory().addItem(itemManager.createUnbreakableNetheriteSword());
-        player.getInventory().addItem(itemManager.createNetheriteAxe());
-        
-        // Кирка и щит
-        player.getInventory().addItem(itemManager.createNetheritePickaxe());
-        player.getInventory().addItem(itemManager.createShield());
-        
-        // Еда (золотые яблоки)
-        ItemStack goldenApple = itemManager.createGoldenApple();
-        goldenApple.setAmount(24);
-        player.getInventory().addItem(goldenApple);
-        
-        // Зачарованное яблоко
-        player.getInventory().addItem(itemManager.createEnchantedGoldenApple());
-        
-        // Эндер жемчуг (48 штук)
-        ItemStack enderPearls = itemManager.createEnderPearl();
-        enderPearls.setAmount(48);
-        player.getInventory().addItem(enderPearls);
-        
-        // Заряды ветра (2 стака)
-        ItemStack windCharges = itemManager.createWindCharge();
-        windCharges.setAmount(64);
-        player.getInventory().addItem(windCharges.clone());
-        player.getInventory().addItem(windCharges.clone());
-        
-        // Паутина (1 стак)
-        ItemStack cobweb = itemManager.createCobweb();
-        cobweb.setAmount(64);
-        player.getInventory().addItem(cobweb);
-        
-        // Ведро воды
-        player.getInventory().addItem(itemManager.createWaterBucket());
-        
-        // Дубовые брёвна (1 стак)
-        ItemStack logs = itemManager.createOakLogs();
-        logs.setAmount(64);
-        player.getInventory().addItem(logs);
-        
-        // Стрелы (2 стака)
-        ItemStack arrows = itemManager.createArrows();
-        arrows.setAmount(64);
-        player.getInventory().addItem(arrows.clone());
-        player.getInventory().addItem(arrows.clone());
-        
-        player.sendMessage("§a✓ Базовый кит выдан!");
+        player.sendMessage("§cОшибка: Базовый кит не найден в эндер-сундуке!");
     }
 
-    private void giveBonusItems(Player player) {
-        int type = random.nextInt(4);
+    private void giveBonusShulker(Player player, Inventory templateEnderChest) {
+        // Собираем все бонусные шалкеры
+        List<ItemStack> bonusShulkers = new ArrayList<>();
         
-        switch(type) {
-            case 0: // Булава
-                player.getInventory().addItem(itemManager.createMaceWithBreach());
-                player.sendMessage("§5✓ Бонус: Булава пробития!");
-                break;
-                
-            case 1: // Тотем
-                player.getInventory().addItem(itemManager.createTotem());
-                player.getInventory().addItem(itemManager.createEnchantedGoldenApple());
-                player.getInventory().addItem(itemManager.createEnchantedGoldenApple());
-                player.sendMessage("§c✓ Бонус: Тотем и яблоки!");
-                break;
-                
-            case 2: // Корона
-                player.getInventory().addItem(itemManager.createTotem());
-                player.getInventory().addItem(itemManager.createTotem());
-                player.getInventory().addItem(itemManager.createEnchantedGoldenApple());
-                player.getInventory().addItem(itemManager.createEnchantedGoldenApple());
-                player.getInventory().addItem(itemManager.createCrownHelmet());
-                player.sendMessage("§6✓ Бонус: Корона владыки!");
-                break;
-                
-            case 3: // Карты
-                ItemStack tntMinecart = itemManager.createMinecartTNT();
-                tntMinecart.setAmount(6);
-                player.getInventory().addItem(tntMinecart);
-                player.getInventory().addItem(itemManager.createFlameBow());
-                
-                ItemStack arrows = itemManager.createArrows();
-                arrows.setAmount(64);
-                player.getInventory().addItem(arrows);
-                
-                ItemStack rails = itemManager.createRails();
-                rails.setAmount(64);
-                player.getInventory().addItem(rails);
-                
-                player.sendMessage("§2✓ Бонус: Вагонетки и лук!");
-                break;
+        for (ItemStack item : templateEnderChest.getContents()) {
+            if (item != null && item.getType() == Material.SHULKER_BOX) {
+                ItemMeta meta = item.getItemMeta();
+                if (meta != null && meta.getDisplayName() != null && 
+                    meta.getDisplayName().contains("Шалкер") && 
+                    !meta.getDisplayName().contains("Базовый")) {
+                    bonusShulkers.add(item);
+                }
+            }
+        }
+        
+        if (bonusShulkers.isEmpty()) {
+            player.sendMessage("§cБонусных шалкеров нет в эндер-сундуке!");
+            return;
+        }
+        
+        // Выбираем случайный
+        ItemStack randomBonus = bonusShulkers.get(random.nextInt(bonusShulkers.size())).clone();
+        player.getInventory().addItem(randomBonus);
+        
+        // Отправляем сообщение в зависимости от типа
+        ItemMeta meta = randomBonus.getItemMeta();
+        if (meta != null && meta.getDisplayName() != null) {
+            player.sendMessage("§aВы получили " + meta.getDisplayName());
+        } else {
+            player.sendMessage("§aВы получили бонусный шалкер!");
         }
     }
 }

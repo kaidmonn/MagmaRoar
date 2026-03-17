@@ -23,7 +23,7 @@ public class AnimationChest implements Listener {
     private final Map<UUID, Integer> playerRolls = new HashMap<>();
     private final Map<UUID, Integer> playerAnimations = new HashMap<>();
     private final Map<UUID, List<Integer>> playerAnimationHistory = new HashMap<>();
-    private final Map<UUID, Location> playerChestLocation = new HashMap<>(); // ЗАПОМИНАЕМ ЛОКАЦИЮ СУНДУКА
+    private final Map<UUID, Location> playerChestLocation = new HashMap<>();
     private final Map<UUID, Boolean> openingAnimation = new HashMap<>();
     private final Random random = new Random();
     
@@ -122,10 +122,7 @@ public class AnimationChest implements Listener {
         event.setCancelled(true);
         
         Player player = event.getPlayer();
-        
-        // СОХРАНЯЕМ ЛОКАЦИЮ СУНДУКА
         playerChestLocation.put(player.getUniqueId(), chest.getLocation());
-        
         openMainMenu(player);
     }
 
@@ -240,7 +237,7 @@ public class AnimationChest implements Listener {
             event.setCancelled(true);
             int slot = event.getRawSlot();
             
-            if (slot == 11) { // Крутить
+            if (slot == 11) {
                 int rolls = playerRolls.getOrDefault(player.getUniqueId(), 0);
                 if (rolls <= 0) {
                     player.sendMessage("§cУ вас нет круток!");
@@ -248,9 +245,7 @@ public class AnimationChest implements Listener {
                     return;
                 }
                 
-                // ПОЛУЧАЕМ СОХРАНЁННУЮ ЛОКАЦИЮ СУНДУКА
                 Location chestLoc = playerChestLocation.get(player.getUniqueId());
-                
                 if (chestLoc == null) {
                     player.sendMessage("§cОшибка: не удалось найти сундук! Попробуйте открыть его заново.");
                     player.closeInventory();
@@ -260,10 +255,10 @@ public class AnimationChest implements Listener {
                 player.closeInventory();
                 startSpinAnimation(player, chestLoc);
             }
-            else if (slot == 13) { // Выбрать анимацию
+            else if (slot == 13) {
                 openSelectionMenu(player);
             }
-            else if (slot == 15) { // Запросить крутку
+            else if (slot == 15) {
                 player.closeInventory();
                 requestRoll(player);
             }
@@ -298,21 +293,47 @@ public class AnimationChest implements Listener {
         
         player.sendMessage("§6§lКРУТКА... Подождите 5 секунд!");
         
+        // Удаляем все старые блоки перед началом
+        for (Entity e : world.getEntities()) {
+            if (e instanceof FallingBlock && e.getCustomName() != null) {
+                e.remove();
+            }
+        }
+        
         List<FallingBlock> rotatingBlocks = new ArrayList<>();
         
-        // Создаем 22 блока (по одному на каждую анимацию)
+        // Создаем 22 блока
         for (int i = 0; i < 22; i++) {
-            double angle = i * (2 * Math.PI / 22);
-            Location spawnLoc = chestLoc.clone().add(Math.cos(angle) * 4, 2, Math.sin(angle) * 4);
-            FallingBlock block = world.spawnFallingBlock(spawnLoc, ANIMATION_MATERIALS[i].createBlockData());
-            block.setDropItem(false);
-            block.setHurtEntities(false);
-            block.setGravity(false);
-            block.setVelocity(new Vector(0, 0, 0));
-            block.setCustomName("§f" + ANIMATION_NAMES[i]);
-            block.setCustomNameVisible(true);
-            rotatingBlocks.add(block);
+            try {
+                double angle = i * (2 * Math.PI / 22);
+                Location spawnLoc = chestLoc.clone().add(Math.cos(angle) * 4, 2, Math.sin(angle) * 4);
+                FallingBlock block = world.spawnFallingBlock(spawnLoc, ANIMATION_MATERIALS[i].createBlockData());
+                block.setDropItem(false);
+                block.setHurtEntities(false);
+                block.setGravity(false);
+                block.setVelocity(new Vector(0, 0, 0));
+                block.setCustomName("§f" + ANIMATION_NAMES[i]);
+                block.setCustomNameVisible(true);
+                block.setPersistent(false);
+                rotatingBlocks.add(block);
+            } catch (Exception e) {
+                plugin.getLogger().warning("Не удалось создать блок для анимации " + i);
+            }
         }
+        
+        // Форсированное удаление через 6 секунд
+        BukkitRunnable forceRemove = new BukkitRunnable() {
+            @Override
+            public void run() {
+                for (Entity e : world.getEntities()) {
+                    if (e instanceof FallingBlock && e.getCustomName() != null) {
+                        e.remove();
+                    }
+                }
+                openingAnimation.put(uuid, false);
+            }
+        };
+        forceRemove.runTaskLater(plugin, 120L);
         
         new BukkitRunnable() {
             int ticks = 0;
@@ -323,58 +344,87 @@ public class AnimationChest implements Listener {
                     // Выбираем случайную анимацию
                     int animId = getRandomAnimation();
                     
-                    // Все блоки становятся одним материалом
+                    // Удаляем старые блоки
                     for (FallingBlock block : rotatingBlocks) {
-                        Location loc = block.getLocation();
-                        block.remove();
-                        
-                        FallingBlock newBlock = world.spawnFallingBlock(loc, ANIMATION_MATERIALS[animId - 1].createBlockData());
-                        newBlock.setDropItem(false);
-                        newBlock.setHurtEntities(false);
-                        newBlock.setGravity(false);
-                        newBlock.setVelocity(new Vector(0, 0, 0));
-                        newBlock.setCustomName("§6§l" + ANIMATION_NAMES[animId - 1]);
-                        newBlock.setCustomNameVisible(true);
+                        if (block != null && !block.isDead()) {
+                            block.remove();
+                        }
+                    }
+                    rotatingBlocks.clear();
+                    
+                    // Создаем 8 победных блоков
+                    List<FallingBlock> winnerBlocks = new ArrayList<>();
+                    for (int i = 0; i < 8; i++) {
+                        try {
+                            double angle = i * (2 * Math.PI / 8);
+                            Location spawnLoc = chestLoc.clone().add(Math.cos(angle) * 2.5, 2, Math.sin(angle) * 2.5);
+                            FallingBlock block = world.spawnFallingBlock(spawnLoc, ANIMATION_MATERIALS[animId - 1].createBlockData());
+                            block.setDropItem(false);
+                            block.setHurtEntities(false);
+                            block.setGravity(false);
+                            block.setVelocity(new Vector(0, 0, 0));
+                            block.setCustomName("§6§l" + ANIMATION_NAMES[animId - 1]);
+                            block.setCustomNameVisible(true);
+                            block.setPersistent(false);
+                            winnerBlocks.add(block);
+                        } catch (Exception e) {
+                            plugin.getLogger().warning("Не удалось создать победный блок");
+                        }
                     }
                     
                     // Выдаем анимацию
                     performRoll(player, animId);
                     
-                    // Удаляем блоки через секунду
+                    // Удаляем победные блоки через 1.5 секунды
                     new BukkitRunnable() {
                         @Override
                         public void run() {
+                            for (FallingBlock block : winnerBlocks) {
+                                if (block != null && !block.isDead()) {
+                                    block.remove();
+                                }
+                            }
+                            
+                            // Финальная очистка
                             for (Entity e : world.getEntities()) {
                                 if (e instanceof FallingBlock && e.getCustomName() != null) {
                                     e.remove();
                                 }
                             }
+                            
                             openingAnimation.put(uuid, false);
+                            forceRemove.cancel();
                         }
-                    }.runTaskLater(plugin, 20L);
+                    }.runTaskLater(plugin, 30L);
                     
                     this.cancel();
                     return;
                 }
                 
-                // Вращаем блоки по спирали
+                // Вращаем блоки
                 for (int i = 0; i < rotatingBlocks.size(); i++) {
                     FallingBlock block = rotatingBlocks.get(i);
-                    double baseAngle = i * (2 * Math.PI / 22);
+                    if (block == null || block.isDead()) continue;
+                    
+                    double baseAngle = i * (2 * Math.PI / rotatingBlocks.size());
                     double angle = baseAngle + (ticks * 0.03);
                     double radius = 4 + Math.sin(ticks * 0.05) * 0.5;
                     double yOffset = Math.sin(ticks * 0.1 + i) * 1.5;
                     
-                    Location newLoc = chestLoc.clone().add(
-                        Math.cos(angle) * radius,
-                        2 + yOffset,
-                        Math.sin(angle) * radius
-                    );
-                    block.teleport(newLoc);
+                    try {
+                        Location newLoc = chestLoc.clone().add(
+                            Math.cos(angle) * radius,
+                            2 + yOffset,
+                            Math.sin(angle) * radius
+                        );
+                        block.teleport(newLoc);
+                    } catch (Exception e) {
+                        // Игнорируем ошибки телепорта
+                    }
                 }
                 
                 // Частицы
-                world.spawnParticle(Particle.PORTAL, chestLoc.clone().add(0, 2, 0), 10, 2, 1, 2, 0);
+                world.spawnParticle(Particle.PORTAL, chestLoc.clone().add(0, 2, 0), 5, 2, 1, 2, 0);
                 
                 ticks++;
             }
@@ -405,21 +455,17 @@ public class AnimationChest implements Listener {
         
         if (rolls <= 0) return;
         
-        // Тратим крутку
         playerRolls.put(uuid, rolls - 1);
         
-        // Сохраняем в историю
         List<Integer> history = playerAnimationHistory.getOrDefault(uuid, new ArrayList<>());
         history.add(animId);
         playerAnimationHistory.put(uuid, history);
         
-        // Устанавливаем как текущую
         playerAnimations.put(uuid, animId);
         
         player.sendMessage("§a§l✦ ВАМ ВЫПАЛА АНИМАЦИЯ! ✦");
         player.sendMessage("§f" + ANIMATION_NAMES[animId - 1]);
         player.playSound(player.getLocation(), Sound.ENTITY_PLAYER_LEVELUP, 1.0f, 1.0f);
-        
         player.sendTitle("§6§lРУЛЕТКА", ANIMATION_NAMES[animId - 1], 10, 40, 10);
     }
 
@@ -440,6 +486,6 @@ public class AnimationChest implements Listener {
         
         killer.sendMessage("§6§lАнимация убийства: §f" + ANIMATION_NAMES[animId - 1]);
         
-        // Здесь код анимаций убийства (можно добавить позже)
+        // Здесь код анимаций убийства
     }
 }

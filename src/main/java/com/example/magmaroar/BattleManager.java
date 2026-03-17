@@ -5,8 +5,9 @@ import net.kyori.adventure.title.Title;
 import org.bukkit.Bukkit;
 import org.bukkit.Location;
 import org.bukkit.Sound;
+import org.bukkit.entity.Entity;
+import org.bukkit.entity.Item;
 import org.bukkit.entity.Player;
-import org.bukkit.inventory.ItemStack;
 import org.bukkit.scheduler.BukkitRunnable;
 
 import java.time.Duration;
@@ -88,7 +89,14 @@ public class BattleManager {
             winner.getInventory().setBoots(null);
             winner.getInventory().setItemInOffHand(null);
             
-            winner.sendMessage("§aВаш инвентарь очищен после боя!");
+            // УДАЛЯЕМ ВСЕ ПРЕДМЕТЫ НА ЗЕМЛЕ В РАДИУСЕ 30 БЛОКОВ
+            for (Entity entity : winner.getWorld().getNearbyEntities(battleLocation, 30, 30, 30)) {
+                if (entity instanceof Item) {
+                    entity.remove();
+                }
+            }
+            
+            winner.sendMessage("§aВаш инвентарь очищен! Все предметы на земле удалены.");
             
             winner.teleport(winner.getBedSpawnLocation() != null ? 
                 winner.getBedSpawnLocation() : winner.getWorld().getSpawnLocation());

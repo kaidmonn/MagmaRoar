@@ -96,28 +96,35 @@ public class QueueManager {
         playerPositions.clear();
         
         World world = Bukkit.getWorld("world");
-        if (world == null) {
-            Bukkit.broadcastMessage("§c[DEBUG] Мир 'world' не найден!");
-            return;
-        }
-        
-        Bukkit.broadcastMessage("§a[DEBUG] Начинаем подготовку к бою. Игроков в очереди: " + queue.size());
+        if (world == null) return;
         
         // ОЧИЩАЕМ ВНУТРЕННОСТЬ КОРОБОК (НО НЕ БЕДРОК!)
         for (Location loc : battleLocations) {
+            // Очищаем область 3x3x3 вокруг центра (внутренность коробки)
             for (int x = -1; x <= 1; x++) {
                 for (int y = -1; y <= 1; y++) {
                     for (int z = -1; z <= 1; z++) {
                         Location blockLoc = loc.clone().add(x, y, z);
+                        // Убираем всё, что не бедрок (включая шалкеры)
                         if (blockLoc.getBlock().getType() != Material.BEDROCK) {
                             blockLoc.getBlock().setType(Material.AIR);
                         }
                     }
                 }
             }
+            
+            // ДОПОЛНИТЕЛЬНО: чистим шалкеры в расширенном радиусе (на случай, если выпали)
+            for (int x = -2; x <= 2; x++) {
+                for (int y = -2; y <= 2; y++) {
+                    for (int z = -2; z <= 2; z++) {
+                        Location blockLoc = loc.clone().add(x, y, z);
+                        if (blockLoc.getBlock().getType().name().contains("SHULKER_BOX")) {
+                            blockLoc.getBlock().setType(Material.AIR);
+                        }
+                    }
+                }
+            }
         }
-        
-        Bukkit.broadcastMessage("§a[DEBUG] Коробки очищены");
         
         // Телепортируем игроков на места
         for (int i = 0; i < Math.min(queue.size(), 5); i++) {
@@ -129,20 +136,11 @@ public class QueueManager {
             player.sendMessage("§aВы на позиции " + (i + 1) + "!");
             player.playSound(player.getLocation(), Sound.ENTITY_ENDERMAN_TELEPORT, 1, 1);
         }
-        
-        Bukkit.broadcastMessage("§a[DEBUG] Игроки телепортированы. confirmedPlayers размер: " + confirmedPlayers.size());
 
         // Запускаем выдачу китов через 20 секунд
         new BukkitRunnable() {
             @Override
             public void run() {
-                Bukkit.broadcastMessage("§a[DEBUG] ВЫЗЫВАЕМ giveKits! confirmedPlayers: " + confirmedPlayers.size());
-                
-                if (confirmedPlayers.isEmpty()) {
-                    Bukkit.broadcastMessage("§c[DEBUG] confirmedPlayers пуст! КИТЫ НЕ ВЫДАНЫ");
-                    return;
-                }
-                
                 plugin.getKitManager().giveKits(confirmedPlayers);
                 plugin.getBattleManager().startBattleCountdown(confirmedPlayers, playerPositions);
             }

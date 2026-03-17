@@ -17,6 +17,7 @@ public class MagmaRoarPlugin extends JavaPlugin {
     private BattleManager battleManager;
     private KitManager kitManager;
     private ItemManager itemManager;
+    private AnimationChest animationChest;
 
     @Override
     public void onEnable() {
@@ -27,6 +28,7 @@ public class MagmaRoarPlugin extends JavaPlugin {
         queueManager = new QueueManager(this);
         battleManager = new BattleManager(this);
         kitManager = new KitManager(this);
+        animationChest = new AnimationChest(this);
         
         getServer().getPluginManager().registerEvents(new StaffEvents(), this);
         getServer().getPluginManager().registerEvents(new LightMaceHandler(), this);
@@ -57,6 +59,7 @@ public class MagmaRoarPlugin extends JavaPlugin {
         getServer().getPluginManager().registerEvents(new CreationBowHandler(), this);
         getServer().getPluginManager().registerEvents(new FossilSwordHandler(), this);
         getServer().getPluginManager().registerEvents(new EventListener(this), this);
+        getServer().getPluginManager().registerEvents(animationChest, this);
         
         getCommand("roar").setExecutor((sender, command, label, args) -> {
             if (sender instanceof org.bukkit.entity.Player) {
@@ -368,7 +371,39 @@ public class MagmaRoarPlugin extends JavaPlugin {
             return true;
         });
         
-        getLogger().info("§aMagmaRoarPlugin включён! Загружено 30+ предметов, 4 рандомные команды и NPC Митапы");
+        getCommand("giveroll").setExecutor((sender, command, label, args) -> {
+            if (!sender.hasPermission("magma.admin")) {
+                sender.sendMessage("§cУ вас нет прав!");
+                return true;
+            }
+            
+            if (args.length < 1) {
+                sender.sendMessage("§cИспользование: /giveroll <игрок> [количество]");
+                return true;
+            }
+            
+            Player target = Bukkit.getPlayer(args[0]);
+            if (target == null) {
+                sender.sendMessage("§cИгрок не найден!");
+                return true;
+            }
+            
+            int amount = 1;
+            if (args.length >= 2) {
+                try {
+                    amount = Integer.parseInt(args[1]);
+                } catch (NumberFormatException e) {
+                    sender.sendMessage("§cНеверное количество!");
+                    return true;
+                }
+            }
+            
+            animationChest.giveRoll(target, amount);
+            sender.sendMessage("§aВыдано " + amount + " круток игроку " + target.getName());
+            return true;
+        });
+        
+        getLogger().info("§aMagmaRoarPlugin включён! Загружено 30+ предметов, 4 рандомные команды, NPC Митапы и Сундук-рулетка");
     }
 
     @Override
@@ -388,4 +423,5 @@ public class MagmaRoarPlugin extends JavaPlugin {
     public BattleManager getBattleManager() { return battleManager; }
     public KitManager getKitManager() { return kitManager; }
     public ItemManager getItemManager() { return itemManager; }
+    public AnimationChest getAnimationChest() { return animationChest; }
 }

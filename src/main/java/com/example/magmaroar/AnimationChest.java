@@ -3,11 +3,14 @@ package com.example.magmaroar;
 import org.bukkit.*;
 import org.bukkit.block.Block;
 import org.bukkit.block.Chest;
+import org.bukkit.configuration.file.FileConfiguration;
+import org.bukkit.configuration.file.YamlConfiguration;
 import org.bukkit.entity.*;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.Listener;
 import org.bukkit.event.inventory.InventoryClickEvent;
 import org.bukkit.event.player.PlayerInteractEvent;
+import org.bukkit.event.player.PlayerJoinEvent;
 import org.bukkit.inventory.Inventory;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.inventory.meta.FireworkMeta;
@@ -15,6 +18,8 @@ import org.bukkit.inventory.meta.ItemMeta;
 import org.bukkit.scheduler.BukkitRunnable;
 import org.bukkit.util.Vector;
 
+import java.io.File;
+import java.io.IOException;
 import java.util.*;
 
 public class AnimationChest implements Listener {
@@ -27,6 +32,9 @@ public class AnimationChest implements Listener {
     private final Set<UUID> spinningPlayers = new HashSet<>();
     private final Set<UUID> rollingPlayers = new HashSet<>();
     private final Random random = new Random();
+    
+    private File dataFile;
+    private FileConfiguration dataConfig;
     
     private static final String CHEST_NAME = "§6§lСундук-рулетка";
     
@@ -87,7 +95,105 @@ public class AnimationChest implements Listener {
 
     public AnimationChest(MagmaRoarPlugin plugin) {
         this.plugin = plugin;
+        setupDataFile();
+        loadData();
         plugin.getServer().getPluginManager().registerEvents(this, plugin);
+    }
+
+    private void setupDataFile() {
+        dataFile = new File(plugin.getDataFolder(), "animation_data.yml");
+        if (!dataFile.exists()) {
+            try {
+                dataFile.getParentFile().mkdirs();
+                dataFile.createNewFile();
+            } catch (IOException e) {
+                plugin.getLogger().severe("Не удалось создать файл animation_data.yml");
+            }
+        }
+        dataConfig = YamlConfiguration.loadConfiguration(dataFile);
+    }
+
+    private void saveData() {
+        // Сохраняем крутки
+        for (Map.Entry<UUID, Integer> entry : playerRolls.entrySet()) {
+            dataConfig.set("rolls." + entry.getKey().toString(), entry.getValue());
+        }
+        
+        // Сохраняем текущие анимации
+        for (Map.Entry<UUID, Integer> entry : playerAnimations.entrySet()) {
+            dataConfig.set("current." + entry.getKey().toString(), entry.getValue());
+        }
+        
+        // Сохраняем историю анимаций
+        for (Map.Entry<UUID, List<Integer>> entry : playerAnimationHistory.entrySet()) {
+            dataConfig.set("history." + entry.getKey().toString(), entry.getValue());
+        }
+        
+        try {
+            dataConfig.save(dataFile);
+        } catch (IOException e) {
+            plugin.getLogger().severe("Не удалось сохранить animation_data.yml");
+        }
+    }
+
+    private void loadData() {
+        // Загружаем крутки
+        if (dataConfig.contains("rolls")) {
+            for (String key : dataConfig.getConfigurationSection("rolls").getKeys(false)) {
+                try {
+                    UUID uuid = UUID.fromString(key);
+                    int rolls = dataConfig.getInt("rolls." + key);
+                    playerRolls.put(uuid, rolls);
+                } catch (IllegalArgumentException e) {
+                    plugin.getLogger().warning("Неверный UUID в данных: " + key);
+                }
+            }
+        }
+        
+        // Загружаем текущие анимации
+        if (dataConfig.contains("current")) {
+            for (String key : dataConfig.getConfigurationSection("current").getKeys(false)) {
+                try {
+                    UUID uuid = UUID.fromString(key);
+                    int anim = dataConfig.getInt("current." + key);
+                    playerAnimations.put(uuid, anim);
+                } catch (IllegalArgumentException e) {
+                    plugin.getLogger().warning("Неверный UUID в данных: " + key);
+                }
+            }
+        }
+        
+        // Загружаем историю анимаций
+        if (dataConfig.contains("history")) {
+            for (String key : dataConfig.getConfigurationSection("history").getKeys(false)) {
+                try {
+                    UUID uuid = UUID.fromString(key);
+                    List<Integer> history = dataConfig.getIntegerList("history." + key);
+                    playerAnimationHistory.put(uuid, history);
+                } catch (IllegalArgumentException e) {
+                    plugin.getLogger().warning("Неверный UUID в данных: " + key);
+                }
+            }
+        }
+        
+        plugin.getLogger().info("Загружены данные анимаций для " + playerRolls.size() + " игроков");
+    }
+
+    @EventHandler
+    public void onPlayerJoin(PlayerJoinEvent event) {
+        Player player = event.getPlayer();
+        UUID uuid = player.getUniqueId();
+        
+        // Восстанавливаем данные при входе
+        if (playerRolls.containsKey(uuid)) {
+            int rolls = playerRolls.get(uuid);
+            player.sendMessage("§aУ вас " + rolls + " круток в сундуке-рулетке!");
+        }
+        
+        if (playerAnimations.containsKey(uuid)) {
+            int anim = playerAnimations.get(uuid);
+            player.sendMessage("§aВаша текущая анимация: " + ANIMATION_NAMES[anim - 1]);
+        }
     }
 
     public int getPlayerAnimation(Player player) {
@@ -295,6 +401,7 @@ public class AnimationChest implements Listener {
                             playerAnimations.put(player.getUniqueId(), i + 1);
                             player.sendMessage("§aВы выбрали анимацию: " + ANIMATION_NAMES[i]);
                             player.closeInventory();
+                            saveData(); // Сохраняем после выбора
                             break;
                         }
                     }
@@ -484,6 +591,8 @@ public class AnimationChest implements Listener {
         player.sendMessage("§f" + ANIMATION_NAMES[animId - 1]);
         player.playSound(player.getLocation(), Sound.ENTITY_PLAYER_LEVELUP, 1.0f, 1.0f);
         player.sendTitle("§6§lРУЛЕТКА", ANIMATION_NAMES[animId - 1], 10, 40, 10);
+        
+        saveData(); // Сохраняем после выдачи
     }
 
     public void giveRoll(Player player, int amount) {
@@ -491,6 +600,7 @@ public class AnimationChest implements Listener {
         int current = playerRolls.getOrDefault(uuid, 0);
         playerRolls.put(uuid, current + amount);
         player.sendMessage("§aВы получили " + amount + " круток в сундуке-рулетке!");
+        saveData(); // Сохраняем после выдачи круток
     }
 
     public void triggerKillAnimation(Player killer, Player victim, int animId) {

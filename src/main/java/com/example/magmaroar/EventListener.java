@@ -1,5 +1,6 @@
 package com.example.magmaroar;
 
+import org.bukkit.Bukkit;
 import org.bukkit.entity.Player;
 import org.bukkit.entity.Zombie;
 import org.bukkit.event.EventHandler;
@@ -43,13 +44,22 @@ public class EventListener implements Listener {
         Player victim = event.getEntity();
         Player killer = victim.getKiller();
         
+        Bukkit.broadcastMessage("§e[DEBUG] Смерть: " + victim.getName());
+        
         if (killer != null) {
-            // Получаем анимацию убийцы
+            Bukkit.broadcastMessage("§e[DEBUG] Убийца: " + killer.getName());
+            
             int animId = plugin.getAnimationChest().getPlayerAnimation(killer);
+            Bukkit.broadcastMessage("§e[DEBUG] animId = " + animId);
+            
             if (animId != -1) {
-                // Вызываем с тремя параметрами
                 plugin.getAnimationChest().triggerKillAnimation(killer, victim, animId);
+                Bukkit.broadcastMessage("§e[DEBUG] Анимация вызвана!");
+            } else {
+                Bukkit.broadcastMessage("§e[DEBUG] Нет анимации у убийцы");
             }
+        } else {
+            Bukkit.broadcastMessage("§e[DEBUG] Убийца не найден (возможно самоубийство или моб)");
         }
     }
 

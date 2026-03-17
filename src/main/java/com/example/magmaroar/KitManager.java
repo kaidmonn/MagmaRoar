@@ -28,13 +28,28 @@ public class KitManager {
         
         Inventory templateEnderChest = templatePlayer.getEnderChest();
         
+        // Диагностика: показываем, что в эндер-сундуке
+        Bukkit.broadcastMessage("§e[ДИАГНОСТИКА] Эндер-сундук " + TEMPLATE_PLAYER + " содержит:");
+        int shulkerCount = 0;
+        for (ItemStack item : templateEnderChest.getContents()) {
+            if (item != null && item.getType() == Material.SHULKER_BOX) {
+                shulkerCount++;
+                ItemMeta meta = item.getItemMeta();
+                if (meta != null && meta.getDisplayName() != null) {
+                    Bukkit.broadcastMessage("§e- " + meta.getDisplayName());
+                } else {
+                    Bukkit.broadcastMessage("§e- Шалкер без названия");
+                }
+            }
+        }
+        Bukkit.broadcastMessage("§eВсего шалкеров: " + shulkerCount);
+        
         for (Player player : players) {
             giveBasicKit(player, templateEnderChest);
             
-            // 50% шанс на доп. шалкер
-            if (random.nextInt(100) < 50) {
-                giveBonusShulker(player, templateEnderChest);
-            }
+            // ВРЕМЕННО: 100% выдача бонуса для теста
+            giveBonusShulker(player, templateEnderChest);
+            player.sendMessage("§d§l[ТЕСТ] Бонус выдан принудительно!");
         }
         
         Bukkit.dispatchCommand(Bukkit.getConsoleSender(), "randomweaponall2");
@@ -71,6 +86,7 @@ public class KitManager {
         }
         
         if (bonusShulkers.isEmpty()) {
+            player.sendMessage("§cБонусных шалкеров нет в эндер-сундуке!");
             return;
         }
         

@@ -5,6 +5,7 @@ import net.kyori.adventure.title.Title;
 import org.bukkit.Bukkit;
 import org.bukkit.Location;
 import org.bukkit.Sound;
+import org.bukkit.World;
 import org.bukkit.entity.Entity;
 import org.bukkit.entity.Item;
 import org.bukkit.entity.Player;
@@ -89,10 +90,12 @@ public class BattleManager {
             winner.getInventory().setBoots(null);
             winner.getInventory().setItemInOffHand(null);
             
-            // УДАЛЯЕМ ВСЕ ПРЕДМЕТЫ НА ЗЕМЛЕ В РАДИУСЕ 30 БЛОКОВ
-            for (Entity entity : winner.getWorld().getNearbyEntities(battleLocation, 30, 30, 30)) {
-                if (entity instanceof Item) {
-                    entity.remove();
+            // УДАЛЯЕМ ВСЕ ПРЕДМЕТЫ НА ЗЕМЛЕ ВО ВСЕХ МИРАХ
+            for (World world : Bukkit.getWorlds()) {
+                for (Entity entity : world.getEntities()) {
+                    if (entity instanceof Item) {
+                        entity.remove();
+                    }
                 }
             }
             

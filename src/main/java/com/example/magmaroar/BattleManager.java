@@ -5,9 +5,6 @@ import net.kyori.adventure.title.Title;
 import org.bukkit.Bukkit;
 import org.bukkit.Location;
 import org.bukkit.Sound;
-import org.bukkit.World;
-import org.bukkit.entity.Entity;
-import org.bukkit.entity.Item;
 import org.bukkit.entity.Player;
 import org.bukkit.scheduler.BukkitRunnable;
 
@@ -90,19 +87,22 @@ public class BattleManager {
             winner.getInventory().setBoots(null);
             winner.getInventory().setItemInOffHand(null);
             
-            // УДАЛЯЕМ ВСЕ ПРЕДМЕТЫ НА ЗЕМЛЕ ВО ВСЕХ МИРАХ
-            for (World world : Bukkit.getWorlds()) {
-                for (Entity entity : world.getEntities()) {
-                    if (entity instanceof Item) {
-                        entity.remove();
-                    }
-                }
-            }
+            // Удаляем предметы на земле
+            Bukkit.dispatchCommand(Bukkit.getConsoleSender(), "kill @e[type=item]");
             
             winner.sendMessage("§aВаш инвентарь очищен! Все предметы на земле удалены.");
+            winner.sendMessage("§eТелепортация на спавн через 10 секунд...");
             
-            winner.teleport(winner.getBedSpawnLocation() != null ? 
-                winner.getBedSpawnLocation() : winner.getWorld().getSpawnLocation());
+            // ТЕЛЕПОРТ ЧЕРЕЗ 10 СЕКУНД
+            new BukkitRunnable() {
+                @Override
+                public void run() {
+                    Location spawnLoc = winner.getBedSpawnLocation() != null ? 
+                        winner.getBedSpawnLocation() : winner.getWorld().getSpawnLocation();
+                    winner.teleport(spawnLoc);
+                    winner.sendMessage("§aВы телепортированы на спавн!");
+                }
+            }.runTaskLater(plugin, 200L); // 200 тиков = 10 секунд
             
             battlePlayers.clear();
             battleActive = false;

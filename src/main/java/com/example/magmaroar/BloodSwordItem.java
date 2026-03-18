@@ -16,6 +16,7 @@ public class BloodSwordItem {
 
         if (meta != null) {
             meta.displayName(Component.text("§cКровавый меч"));
+            meta.setCustomModelData(1);  // ← ЭТА ОДНА СТРОКА!
 
             List<Component> lore = new ArrayList<>();
             lore.add(Component.text("§7Урон: 14"));

@@ -1,31 +1,13 @@
-package com.example.magmaroar;
-
-import net.kyori.adventure.text.Component;
-import org.bukkit.Material;
-import org.bukkit.inventory.ItemStack;
-import org.bukkit.inventory.meta.ItemMeta;
-
-import java.util.ArrayList;
-import java.util.List;
-
-public class FrostSwordItem {
-
-    public static ItemStack createFrostSword() {
-        ItemStack sword = new ItemStack(Material.NETHERITE_SWORD);
-        ItemMeta meta = sword.getItemMeta();
-
-        if (meta != null) {
-            meta.displayName(Component.text("§bМорозный меч"));
-
-            List<Component> lore = new ArrayList<>();
-            lore.add(Component.text("§7Урон: 14"));
-            lore.add(Component.text("§7При ударе: замедление I на 3 сек"));
-            lore.add(Component.text("§7После 15 ударов: полная заморозка на 4 сек"));
-            lore.add(Component.text("§7Звук: ломающийся лёд"));
-            meta.lore(lore);
-
-            sword.setItemMeta(meta);
-        }
-        return sword;
-    }
+public static ItemStack createFrostSword() {
+    // Старый код с ItemStack НЕ НУЖЕН
+    // Вместо этого используем команду
+    
+    Player player = // получи игрока
+    String command = "give " + player.getName() + " minecraft:netherite_sword[" +
+        "custom_model_data={strings:[\"1005\"]}," +
+        "item_name='{\"text\":\"Морозный меч\",\"color\":\"aqua\",\"bold\":true}'" +
+        "] 1";
+    
+    Bukkit.dispatchCommand(Bukkit.getConsoleSender(), command);
+    return null; // или просто return, если метод void
 }

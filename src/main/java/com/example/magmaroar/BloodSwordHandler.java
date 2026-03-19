@@ -32,7 +32,7 @@ public class BloodSwordHandler implements Listener {
         ItemStack item = event.getItem();
 
         if (item == null || item.getType() == Material.AIR) return;
-        if (!isBloodWeapon(item)) return;
+        if (!isBloodWeapon(item)) return;  // ← ИСПРАВЛЕНО!
 
         // Shift+ПКМ - переключение режима
         if (player.isSneaking() && event.getAction().toString().contains("RIGHT_CLICK")) {
@@ -127,10 +127,9 @@ public class BloodSwordHandler implements Listener {
             shooter.sendMessage("§cЦель притянута!");
         }
         
-        // ВСЕГДА ВОЗВРАЩАЕМ МЕЧ (НЕ ТРЕЗУБЕЦ)
+        // ВСЕГДА ВОЗВРАЩАЕМ МЕЧ
         ItemStack returnItem = thrownTridentSource.remove(trident.getUniqueId());
         if (returnItem != null) {
-            // Возвращаем КРОВАВЫЙ МЕЧ с моделью 1001
             String command = "give " + shooter.getName() + " minecraft:netherite_sword[" +
                 "custom_model_data={strings:[\"1001\"]}," +
                 "item_name='{\"text\":\"Кровавый меч\",\"color\":\"red\",\"bold\":true}'," +
@@ -146,10 +145,11 @@ public class BloodSwordHandler implements Listener {
         trident.remove();
     }
 
+    // ← ИСПРАВЛЕННАЯ ПРОВЕРКА!
     private boolean isBloodWeapon(ItemStack item) {
-        if (item == null) return false;
-        return item.getType() == Material.NETHERITE_SWORD || 
-               item.getType() == Material.TRIDENT || 
-               item.getType() == Material.MACE;
+        if (item == null || !item.hasItemMeta()) return false;
+        ItemMeta meta = item.getItemMeta();
+        return meta != null && meta.displayName() != null && 
+               meta.displayName().toString().contains("Кровавый");
     }
 }

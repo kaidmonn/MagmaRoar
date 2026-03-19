@@ -2,6 +2,8 @@ package com.example.magmaroar;
 
 import org.bukkit.Bukkit;
 import org.bukkit.Material;
+import org.bukkit.Particle;  // ← ДОБАВИТЬ!
+import org.bukkit.Sound;      // ← ДОБАВИТЬ!
 import org.bukkit.entity.*;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.Listener;

@@ -84,7 +84,7 @@ public class MagmaRoarPlugin extends JavaPlugin {
             return true;
         });
         
-        // КРОВАВЫЙ МЕЧ - ИСПРАВЛЕНО
+        // КРОВАВЫЙ МЕЧ
         getCommand("blood").setExecutor((sender, command, label, args) -> {
             if (sender instanceof org.bukkit.entity.Player) {
                 org.bukkit.entity.Player player = (org.bukkit.entity.Player) sender;
@@ -226,9 +226,11 @@ public class MagmaRoarPlugin extends JavaPlugin {
             return true;
         });
         
+        // ЛУДО-МЕЧ (исправлено)
         getCommand("ludo").setExecutor((sender, command, label, args) -> {
             if (sender instanceof org.bukkit.entity.Player) {
-                ((org.bukkit.entity.Player) sender).getInventory().addItem(LudoSwordItem.createSword());
+                org.bukkit.entity.Player player = (org.bukkit.entity.Player) sender;
+                LudoSwordItem.giveLudoSword(player);
             }
             return true;
         });
@@ -310,7 +312,7 @@ public class MagmaRoarPlugin extends JavaPlugin {
             return true;
         });
         
-        // Рандомные команды - ВРЕМЕННО БЕЗ BLOODSWORD
+        // Рандомные команды - ВРЕМЕННО БЕЗ BLOODSWORD И LUDO
         getCommand("randomweapon1").setExecutor((sender, command, label, args) -> {
             if (!(sender instanceof org.bukkit.entity.Player)) return true;
             
@@ -322,7 +324,6 @@ public class MagmaRoarPlugin extends JavaPlugin {
                 StormBladeItem.createBlade(),
                 ExcaliburItem.createExcalibur(),
                 KatanaItem.createKatana(),
-                LudoSwordItem.createSword(),
                 FossilSwordItem.createSword()
             );
             
@@ -365,7 +366,6 @@ public class MagmaRoarPlugin extends JavaPlugin {
                 StormBladeItem.createBlade(),
                 ExcaliburItem.createExcalibur(),
                 KatanaItem.createKatana(),
-                LudoSwordItem.createSword(),
                 FossilSwordItem.createSword()
             );
             

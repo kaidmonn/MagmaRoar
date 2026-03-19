@@ -72,15 +72,16 @@ public class BloodSwordHandler implements Listener {
                     return;
                 }
                 
-                // Сохраняем информацию для возврата
-                ItemStack sourceItem = item.clone();
-                thrownTridentSource.put(trident.getUniqueId(), sourceItem);
-                
+                // Создаём трезубец
                 Trident trident = player.launchProjectile(Trident.class);
                 trident.setVelocity(player.getLocation().getDirection().multiply(2.5));
                 trident.setShooter(player);
                 trident.setPickupStatus(Trident.PickupStatus.DISALLOWED);
                 trident.setGlowing(true);
+                
+                // Сохраняем информацию для возврата
+                ItemStack sourceItem = item.clone();
+                thrownTridentSource.put(trident.getUniqueId(), sourceItem);
                 
                 lastThrowTime.put(player.getUniqueId(), now);
                 

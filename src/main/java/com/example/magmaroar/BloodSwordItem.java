@@ -1,33 +1,19 @@
 package com.example.magmaroar;
 
-import net.kyori.adventure.text.Component;
-import org.bukkit.Material;
-import org.bukkit.inventory.ItemStack;
-import org.bukkit.inventory.meta.ItemMeta;
-
-import java.util.ArrayList;
-import java.util.List;
+import org.bukkit.Bukkit;
+import org.bukkit.entity.Player;
 
 public class BloodSwordItem {
 
-    public static ItemStack createBloodSword() {
-        ItemStack sword = new ItemStack(Material.NETHERITE_SWORD);
-        ItemMeta meta = sword.getItemMeta();
-
-        if (meta != null) {
-            meta.displayName(Component.text("§cКровавый меч"));
-            
-            // ВАЖНО! Ставим custom_model_data = 1001
-            meta.setCustomModelData(1001);  // ← ЭТА СТРОКА!
-            
-            List<Component> lore = new ArrayList<>();
-            lore.add(Component.text("§7Урон: 14"));
-            lore.add(Component.text("§7Shift+ПКМ: переключение режима"));
-            lore.add(Component.text("§7Режимы: Меч → Трезубец → Булава"));
-            meta.lore(lore);
-
-            sword.setItemMeta(meta);
-        }
-        return sword;
+    public static void giveBloodSword(Player player) {
+        // Формируем команду с кавычками для строкового custom_model_data
+        String command = "give " + player.getName() + " minecraft:netherite_sword[" +
+            "custom_model_data={strings:[\"1001.0\"]}," +
+            "item_name='\"§cКровавый меч\"'," +
+            "lore=['\"§7Урон: 14\"','\"§7Shift+ПКМ: переключение режима\"','\"§7Режимы: Меч → Трезубец → Булава\"']" +
+            "] 1";
+        
+        // Выполняем команду от имени консоли
+        Bukkit.dispatchCommand(Bukkit.getConsoleSender(), command);
     }
 }

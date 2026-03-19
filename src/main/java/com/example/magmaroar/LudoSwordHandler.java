@@ -46,18 +46,47 @@ public class LudoSwordHandler implements Listener {
 
     @EventHandler
     public void onPlayerInteract(PlayerInteractEvent event) {
-        // Только ПКМ
-        if (event.getAction() != Action.RIGHT_CLICK_AIR && event.getAction() != Action.RIGHT_CLICK_BLOCK) return;
-        
         Player player = event.getPlayer();
         ItemStack item = event.getItem();
-
-        if (!isLudoSword(item)) return;
+        
+        // ДИАГНОСТИКА
+        player.sendMessage("§e[DEBUG] Действие: " + event.getAction());
+        player.sendMessage("§e[DEBUG] Предмет: " + (item != null ? item.getType() : "null"));
+        
+        if (item == null) {
+            player.sendMessage("§c[DEBUG] Предмета нет в руке");
+            return;
+        }
+        
+        if (item.getType() != Material.NETHERITE_SWORD) {
+            player.sendMessage("§c[DEBUG] Это не незерит меч");
+            return;
+        }
+        
+        if (!item.hasItemMeta()) {
+            player.sendMessage("§c[DEBUG] У предмета нет меты");
+            return;
+        }
+        
+        ItemMeta meta = item.getItemMeta();
+        player.sendMessage("§e[DEBUG] Название: " + (meta.hasDisplayName() ? meta.getDisplayName() : "нет названия"));
+        
+        if (!isLudoSword(item)) {
+            player.sendMessage("§c[DEBUG] Не Лудо-меч");
+            return;
+        }
+        
+        player.sendMessage("§a[DEBUG] Лудо-меч опознан!");
+        
+        // Только ПКМ
+        if (event.getAction() != Action.RIGHT_CLICK_AIR && event.getAction() != Action.RIGHT_CLICK_BLOCK) {
+            player.sendMessage("§c[DEBUG] Не ПКМ");
+            return;
+        }
 
         UUID uuid = player.getUniqueId();
         long now = System.currentTimeMillis();
         
-        // Проверка кулдауна
         if (cooldowns.containsKey(uuid) && now - cooldowns.get(uuid) < COOLDOWN_TIME) {
             long secondsLeft = (COOLDOWN_TIME - (now - cooldowns.get(uuid))) / 1000;
             player.sendMessage("§cЛудо-меч перезаряжается! Осталось: " + secondsLeft + " сек.");
@@ -65,17 +94,16 @@ public class LudoSwordHandler implements Listener {
             return;
         }
         
-        // Проверка активности
         if (isActive.getOrDefault(uuid, false)) {
             player.sendMessage("§cУ вас уже есть активный предмет!");
             event.setCancelled(true);
             return;
         }
         
-        // Запоминаем слот
+        player.sendMessage("§a[DEBUG] Всё ок, начинаем рулетку!");
+        
         itemSlot.put(uuid, player.getInventory().getHeldItemSlot());
         
-        // Выбираем случайный предмет
         int index = random.nextInt(ITEMS.length);
         String selectedItem = ITEMS[index];
         String selectedName = ITEM_NAMES[index];
@@ -86,13 +114,9 @@ public class LudoSwordHandler implements Listener {
         
         player.playSound(player.getLocation(), Sound.ENTITY_PLAYER_LEVELUP, 1.0f, 1.0f);
         
-        // Удаляем Лудо-меч из руки
         player.getInventory().setItemInMainHand(null);
-        
-        // Выдаём выпавший предмет
         giveRandomItem(player, selectedItem, selectedName);
         
-        // Ставим кулдаун и активность
         cooldowns.put(uuid, now);
         isActive.put(uuid, true);
         
@@ -175,7 +199,6 @@ public class LudoSwordHandler implements Listener {
             Bukkit.dispatchCommand(Bukkit.getConsoleSender(), command);
         }
         
-        // Запускаем таймер возврата
         startReturnTimer(player);
     }
 

@@ -2,6 +2,8 @@ package com.example.magmaroar;
 
 import org.bukkit.Bukkit;
 import org.bukkit.Material;
+import org.bukkit.Sound;
+import org.bukkit.Particle;
 import org.bukkit.entity.*;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.Listener;
@@ -16,13 +18,14 @@ public class BloodSwordHandler implements Listener {
 
     private final Map<UUID, Integer> weaponMode = new HashMap<>(); 
     private final Map<UUID, Long> lastThrowTime = new HashMap<>();
-    private final Map<UUID, ItemStack> thrownTridentSource = new HashMap<>();
+    private final Map<UUID, UUID> thrownTridents = new HashMap<>(); // Ссылка: UUID трезубца -> UUID игрока
+    
     private static final long THROW_COOLDOWN = 10 * 1000;
 
-    // Строковые ID для модели (должны совпадать с JSON)
-    private static final String MODEL_SWORD = "1001.0";
-    private static final String MODEL_TRIDENT = "1002.0";
-    private static final String MODEL_MACE = "1003.0";
+    // Числовые ID для CustomModelData
+    private static final int MODEL_SWORD = 1001;
+    private static final int MODEL_TRIDENT = 1002;
+    private static final int MODEL_MACE = 1003;
 
     @EventHandler
     public void onPlayerInteract(PlayerInteractEvent event) {
@@ -32,32 +35,18 @@ public class BloodSwordHandler implements Listener {
         if (item == null || item.getType() == Material.AIR) return;
         if (!isBloodWeapon(item)) return;
 
-        // Shift+ПКМ - переключение режима
+        // Shift + ПКМ — Переключение режима
         if (player.isSneaking() && event.getAction().toString().contains("RIGHT_CLICK")) {
             int currentMode = weaponMode.getOrDefault(player.getUniqueId(), 0);
             int newMode = (currentMode + 1) % 3;
             weaponMode.put(player.getUniqueId(), newMode);
             
-            switch (newMode) {
-                case 0: // МЕЧ
-                    updateItemWithModel(player, Material.NETHERITE_SWORD, MODEL_SWORD, "§cКровавый меч");
-                    player.sendMessage("§cРежим: Кровавый меч");
-                    break;
-                case 1: // ТРЕЗУБЕЦ
-                    updateItemWithModel(player, Material.TRIDENT, MODEL_TRIDENT, "§3Кровавый трезубец");
-                    player.sendMessage("§3Режим: Кровавый трезубец");
-                    break;
-                case 2: // БУЛАВА
-                    updateItemWithModel(player, Material.MACE, MODEL_MACE, "§5Кровавая булава");
-                    player.sendMessage("§5Режим: Кровавая булава");
-                    break;
-            }
-            
+            updateWeapon(player, newMode);
             event.setCancelled(true);
             return;
         }
 
-        // Логика броска (ПКМ без шифта в режиме трезубца)
+        // ПКМ (в режиме трезубца) — Бросок
         if (!player.isSneaking() && event.getAction().toString().contains("RIGHT_CLICK")) {
             if (item.getType() == Material.TRIDENT) {
                 long now = System.currentTimeMillis();
@@ -65,110 +54,107 @@ public class BloodSwordHandler implements Listener {
                 
                 if (lastThrow != null && now - lastThrow < THROW_COOLDOWN) {
                     long secondsLeft = (THROW_COOLDOWN - (now - lastThrow)) / 1000;
-                    player.sendMessage("§cБросок перезаряжается! Осталось: " + secondsLeft + " сек.");
+                    player.sendMessage("§cПерезарядка: " + secondsLeft + " сек.");
                     event.setCancelled(true);
                     return;
                 }
                 
-                // Сохраняем информацию для возврата
-                String currentModel = getCurrentModel(item);
-                
+                // Создаем снаряд
                 Trident trident = player.launchProjectile(Trident.class);
                 trident.setVelocity(player.getLocation().getDirection().multiply(2.5));
                 trident.setShooter(player);
-                trident.setPickupStatus(Trident.PickupStatus.DISALLOWED);
+                trident.setPickupStatus(AbstractArrow.PickupStatus.DISALLOWED);
                 trident.setGlowing(true);
                 
-                // Сохраняем данные для возврата
-                thrownTridentSource.put(trident.getUniqueId(), 
-                    createReturnItem(currentModel, player));
-                
+                // Запоминаем, кто бросил
+                thrownTridents.put(trident.getUniqueId(), player.getUniqueId());
                 lastThrowTime.put(player.getUniqueId(), now);
                 
-                // Удаляем трезубец из руки
-                if (item.getAmount() > 1) {
-                    item.setAmount(item.getAmount() - 1);
-                } else {
-                    player.getInventory().setItemInMainHand(null);
-                }
-                
+                // Удаляем предмет из руки
+                player.getInventory().setItemInMainHand(null);
                 event.setCancelled(true);
             }
         }
     }
 
-    private void updateItemWithModel(Player player, Material material, String modelId, String displayName) {
-        // Удаляем текущий предмет из руки
-        player.getInventory().setItemInMainHand(null);
-        
-        // Создаём команду для выдачи нового предмета с моделью
-        String command = "give " + player.getName() + " minecraft:" + material.name().toLowerCase() + "[" +
-            "custom_model_data={strings:[\"" + modelId + "\"]}," +
-            "item_name='\"" + displayName + "\"'" +
-            "] 1";
-        
-        Bukkit.dispatchCommand(Bukkit.getConsoleSender(), command);
+    private void updateWeapon(Player player, int mode) {
+        Material mat;
+        int model;
+        String name;
+
+        switch (mode) {
+            case 1:
+                mat = Material.TRIDENT;
+                model = MODEL_TRIDENT;
+                name = "§3Кровавый трезубец";
+                break;
+            case 2:
+                mat = Material.MACE;
+                model = MODEL_MACE;
+                name = "§5Кровавая булава";
+                break;
+            default:
+                mat = Material.NETHERITE_SWORD;
+                model = MODEL_SWORD;
+                name = "§cКровавый меч";
+                break;
+        }
+
+        ItemStack newItem = createBloodItem(mat, model, name);
+        player.getInventory().setItemInMainHand(newItem);
+        player.sendMessage("§7Режим изменен на: " + name);
+        player.playSound(player.getLocation(), Sound.ITEM_ARMOR_EQUIP_NETHERITE, 1f, 1f);
     }
 
-    private ItemStack createReturnItem(String modelId, Player owner) {
-        // Создаём предмет для возврата через команду
-        String command = "give " + owner.getName() + " minecraft:netherite_sword[" +
-            "custom_model_data={strings:[\"" + modelId + "\"]}," +
-            "item_name='\"§cКровавый меч\"'" +
-            "] 1";
-        
-        Bukkit.dispatchCommand(Bukkit.getConsoleSender(), command);
-        
-        // Возвращаем null, так как предмет уже будет в инвентаре при возврате
-        // Но для карты нам нужно что-то вернуть
-        return new ItemStack(Material.NETHERITE_SWORD);
-    }
-
-    private String getCurrentModel(ItemStack item) {
-        // По умолчанию возвращаем модель меча
-        // В реальности нужно парсить предмет, но для простоты:
-        if (item.getType() == Material.NETHERITE_SWORD) return MODEL_SWORD;
-        if (item.getType() == Material.TRIDENT) return MODEL_TRIDENT;
-        if (item.getType() == Material.MACE) return MODEL_MACE;
-        return MODEL_SWORD;
+    private ItemStack createBloodItem(Material material, int modelId, String displayName) {
+        ItemStack item = new ItemStack(material);
+        ItemMeta meta = item.getItemMeta();
+        if (meta != null) {
+            meta.setDisplayName(displayName);
+            // Устанавливаем числовой Custom Model Data
+            meta.setCustomModelData(modelId);
+            item.setItemMeta(meta);
+        }
+        return item;
     }
 
     @EventHandler
     public void onProjectileHit(ProjectileHitEvent event) {
         if (!(event.getEntity() instanceof Trident trident)) return;
-        if (!(trident.getShooter() instanceof Player shooter)) return;
-        
+        UUID shooterUUID = thrownTridents.remove(trident.getUniqueId());
+        if (shooterUUID == null) return;
+
+        Player shooter = Bukkit.getPlayer(shooterUUID);
+        if (shooter == null || !shooter.isOnline()) {
+            trident.remove();
+            return;
+        }
+
+        // Логика при попадании в сущность
         if (event.getHitEntity() != null) {
             Entity target = event.getHitEntity();
             target.teleport(shooter.getLocation().add(0, 1, 0));
             
-            // Эффекты
-            shooter.getWorld().spawnParticle(org.bukkit.Particle.ASH, target.getLocation(), 30, 0.5, 0.5, 0.5, 0.1);
-            shooter.getWorld().spawnParticle(org.bukkit.Particle.CRIMSON_SPORE, target.getLocation(), 20, 0.5, 0.5, 0.5, 0);
-            shooter.getWorld().playSound(target.getLocation(), org.bukkit.Sound.ENTITY_PLAYER_ATTACK_SWEEP, 1.0f, 1.0f);
-            
+            shooter.getWorld().spawnParticle(Particle.BLOOD_GUSH, target.getLocation(), 30, 0.5, 0.5, 0.5);
+            shooter.getWorld().playSound(shooter.getLocation(), Sound.ENTITY_PLAYER_ATTACK_SWEEP, 1.0f, 0.5f);
             shooter.sendMessage("§cЦель притянута!");
         }
+
+        // Возвращаем меч игроку (модель 1001)
+        ItemStack returnItem = createBloodItem(Material.NETHERITE_SWORD, MODEL_SWORD, "§cКровавый меч");
+        Map<Integer, ItemStack> over = shooter.getInventory().addItem(returnItem);
         
-        ItemStack returnItem = thrownTridentSource.remove(trident.getUniqueId());
-        if (returnItem != null) {
-            // Возвращаем меч через команду
-            String currentModel = getCurrentModel(returnItem);
-            String command = "give " + shooter.getName() + " minecraft:netherite_sword[" +
-                "custom_model_data={strings:[\"" + currentModel + "\"]}," +
-                "item_name='\"§cКровавый меч\"'" +
-                "] 1";
-            Bukkit.dispatchCommand(Bukkit.getConsoleSender(), command);
+        // Если инвентарь полон — выкидываем под ноги
+        if (!over.isEmpty()) {
+            over.values().forEach(i -> shooter.getWorld().dropItem(shooter.getLocation(), i));
         }
-        
+
         trident.remove();
     }
 
     private boolean isBloodWeapon(ItemStack item) {
-        if (item == null || !item.hasItemMeta()) return false;
-        // Проверяем по типу и наличию меты
-        return item.getType() == Material.NETHERITE_SWORD || 
-               item.getType() == Material.TRIDENT || 
-               item.getType() == Material.MACE;
+        if (item == null || !item.hasItemMeta() || !item.getItemMeta().hasCustomModelData()) return false;
+        int cmd = item.getItemMeta().getCustomModelData();
+        return cmd == MODEL_SWORD || cmd == MODEL_TRIDENT || cmd == MODEL_MACE;
     }
 }

@@ -30,6 +30,7 @@ public class MagmaRoarPlugin extends JavaPlugin {
         kitManager = new KitManager(this);
         animationChest = new AnimationChest(this);
         
+        // Регистрация обработчиков
         getServer().getPluginManager().registerEvents(new StaffEvents(), this);
         getServer().getPluginManager().registerEvents(new LightMaceHandler(), this);
         getServer().getPluginManager().registerEvents(new FlamingCrossbowHandler(), this);
@@ -61,6 +62,7 @@ public class MagmaRoarPlugin extends JavaPlugin {
         getServer().getPluginManager().registerEvents(new EventListener(this), this);
         getServer().getPluginManager().registerEvents(animationChest, this);
         
+        // Команды для предметов
         getCommand("roar").setExecutor((sender, command, label, args) -> {
             if (sender instanceof org.bukkit.entity.Player) {
                 ((org.bukkit.entity.Player) sender).getInventory().addItem(MagmaHornItem.createHorn());
@@ -82,9 +84,11 @@ public class MagmaRoarPlugin extends JavaPlugin {
             return true;
         });
         
+        // КРОВАВЫЙ МЕЧ - ИСПРАВЛЕНО
         getCommand("blood").setExecutor((sender, command, label, args) -> {
             if (sender instanceof org.bukkit.entity.Player) {
-                ((org.bukkit.entity.Player) sender).getInventory().addItem(BloodSwordItem.createBloodSword());
+                org.bukkit.entity.Player player = (org.bukkit.entity.Player) sender;
+                BloodSwordItem.giveBloodSword(player);
             }
             return true;
         });
@@ -273,11 +277,44 @@ public class MagmaRoarPlugin extends JavaPlugin {
             return true;
         });
         
+        // КОМАНДА ДЛЯ ВЫДАЧИ КРУТОК
+        getCommand("giveroll").setExecutor((sender, command, label, args) -> {
+            if (!sender.hasPermission("magma.admin")) {
+                sender.sendMessage("§cУ вас нет прав!");
+                return true;
+            }
+            
+            if (args.length < 1) {
+                sender.sendMessage("§cИспользование: /giveroll <игрок> [количество]");
+                return true;
+            }
+            
+            Player target = Bukkit.getPlayer(args[0]);
+            if (target == null) {
+                sender.sendMessage("§cИгрок не найден!");
+                return true;
+            }
+            
+            int amount = 1;
+            if (args.length >= 2) {
+                try {
+                    amount = Integer.parseInt(args[1]);
+                } catch (NumberFormatException e) {
+                    sender.sendMessage("§cНеверное количество!");
+                    return true;
+                }
+            }
+            
+            animationChest.giveRoll(target, amount);
+            sender.sendMessage("§aВыдано " + amount + " круток игроку " + target.getName());
+            return true;
+        });
+        
+        // Рандомные команды - ВРЕМЕННО БЕЗ BLOODSWORD
         getCommand("randomweapon1").setExecutor((sender, command, label, args) -> {
             if (!(sender instanceof org.bukkit.entity.Player)) return true;
             
             List<ItemStack> weapons = Arrays.asList(
-                BloodSwordItem.createBloodSword(),
                 FrostSwordItem.createFrostSword(),
                 ShadowSwordItem.createShadowSword(),
                 SpiderBladeItem.createBlade(),
@@ -321,7 +358,6 @@ public class MagmaRoarPlugin extends JavaPlugin {
         
         getCommand("randomweaponall1").setExecutor((sender, command, label, args) -> {
             List<ItemStack> weapons = Arrays.asList(
-                BloodSwordItem.createBloodSword(),
                 FrostSwordItem.createFrostSword(),
                 ShadowSwordItem.createShadowSword(),
                 SpiderBladeItem.createBlade(),
@@ -371,39 +407,7 @@ public class MagmaRoarPlugin extends JavaPlugin {
             return true;
         });
         
-        getCommand("giveroll").setExecutor((sender, command, label, args) -> {
-            if (!sender.hasPermission("magma.admin")) {
-                sender.sendMessage("§cУ вас нет прав!");
-                return true;
-            }
-            
-            if (args.length < 1) {
-                sender.sendMessage("§cИспользование: /giveroll <игрок> [количество]");
-                return true;
-            }
-            
-            Player target = Bukkit.getPlayer(args[0]);
-            if (target == null) {
-                sender.sendMessage("§cИгрок не найден!");
-                return true;
-            }
-            
-            int amount = 1;
-            if (args.length >= 2) {
-                try {
-                    amount = Integer.parseInt(args[1]);
-                } catch (NumberFormatException e) {
-                    sender.sendMessage("§cНеверное количество!");
-                    return true;
-                }
-            }
-            
-            animationChest.giveRoll(target, amount);
-            sender.sendMessage("§aВыдано " + amount + " круток игроку " + target.getName());
-            return true;
-        });
-        
-        getLogger().info("§aMagmaRoarPlugin включён! Загружено 30+ предметов, 4 рандомные команды, NPC Митапы и Сундук-рулетка");
+        getLogger().info("§aMagmaRoarPlugin включён! Загружено 30+ предметов, NPC Митапы и Сундук-рулетка");
     }
 
     @Override

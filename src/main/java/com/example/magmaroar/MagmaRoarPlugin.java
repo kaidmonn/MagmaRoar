@@ -84,7 +84,6 @@ public class MagmaRoarPlugin extends JavaPlugin {
             return true;
         });
         
-        // КРОВАВЫЙ МЕЧ
         getCommand("blood").setExecutor((sender, command, label, args) -> {
             if (sender instanceof org.bukkit.entity.Player) {
                 org.bukkit.entity.Player player = (org.bukkit.entity.Player) sender;
@@ -226,11 +225,11 @@ public class MagmaRoarPlugin extends JavaPlugin {
             return true;
         });
         
-        // ЛУДО-МЕЧ (исправлено)
+        // ЛУДО-МЕЧ - ИСПРАВЛЕНО!
         getCommand("ludo").setExecutor((sender, command, label, args) -> {
             if (sender instanceof org.bukkit.entity.Player) {
                 org.bukkit.entity.Player player = (org.bukkit.entity.Player) sender;
-                LudoSwordItem.giveLudoSword(player);
+                player.getInventory().addItem(LudoSwordItem.createSword());
             }
             return true;
         });
@@ -279,7 +278,6 @@ public class MagmaRoarPlugin extends JavaPlugin {
             return true;
         });
         
-        // КОМАНДА ДЛЯ ВЫДАЧИ КРУТОК
         getCommand("giveroll").setExecutor((sender, command, label, args) -> {
             if (!sender.hasPermission("magma.admin")) {
                 sender.sendMessage("§cУ вас нет прав!");
@@ -312,11 +310,12 @@ public class MagmaRoarPlugin extends JavaPlugin {
             return true;
         });
         
-        // Рандомные команды - ВРЕМЕННО БЕЗ BLOODSWORD И LUDO
+        // Рандомные команды
         getCommand("randomweapon1").setExecutor((sender, command, label, args) -> {
             if (!(sender instanceof org.bukkit.entity.Player)) return true;
             
             List<ItemStack> weapons = Arrays.asList(
+                BloodSwordItem.createBloodSword(),
                 FrostSwordItem.createFrostSword(),
                 ShadowSwordItem.createShadowSword(),
                 SpiderBladeItem.createBlade(),
@@ -324,6 +323,7 @@ public class MagmaRoarPlugin extends JavaPlugin {
                 StormBladeItem.createBlade(),
                 ExcaliburItem.createExcalibur(),
                 KatanaItem.createKatana(),
+                LudoSwordItem.createSword(),
                 FossilSwordItem.createSword()
             );
             
@@ -359,6 +359,7 @@ public class MagmaRoarPlugin extends JavaPlugin {
         
         getCommand("randomweaponall1").setExecutor((sender, command, label, args) -> {
             List<ItemStack> weapons = Arrays.asList(
+                BloodSwordItem.createBloodSword(),
                 FrostSwordItem.createFrostSword(),
                 ShadowSwordItem.createShadowSword(),
                 SpiderBladeItem.createBlade(),
@@ -366,6 +367,7 @@ public class MagmaRoarPlugin extends JavaPlugin {
                 StormBladeItem.createBlade(),
                 ExcaliburItem.createExcalibur(),
                 KatanaItem.createKatana(),
+                LudoSwordItem.createSword(),
                 FossilSwordItem.createSword()
             );
             

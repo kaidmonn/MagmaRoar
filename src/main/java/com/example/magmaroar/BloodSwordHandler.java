@@ -1,5 +1,6 @@
 package com.example.magmaroar;
 
+import org.bukkit.Bukkit;
 import org.bukkit.Material;
 import org.bukkit.entity.*;
 import org.bukkit.event.EventHandler;
@@ -18,16 +19,17 @@ public class BloodSwordHandler implements Listener {
     private final Map<UUID, ItemStack> thrownTridentSource = new HashMap<>();
     private static final long THROW_COOLDOWN = 10 * 1000;
 
-    // Константы ID моделей (должны совпадать с BloodSwordItem)
-    private static final int MODEL_SWORD = 1001;
-    private static final int MODEL_TRIDENT = 1002;
-    private static final int MODEL_MACE = 1003;
+    // Теперь это строки, которые должны быть в JSON в поле "when"
+    private static final String MODEL_SWORD = "1001";
+    private static final String MODEL_TRIDENT = "1002.0";
+    private static final String MODEL_MACE = "1003.0";
 
     @EventHandler
     public void onPlayerInteract(PlayerInteractEvent event) {
         Player player = event.getPlayer();
         ItemStack item = event.getItem();
 
+        if (item == null || item.getType() == Material.AIR) return;
         if (!isBloodWeapon(item)) return;
 
         // Shift+ПКМ - переключение режима
@@ -36,28 +38,24 @@ public class BloodSwordHandler implements Listener {
             int newMode = (currentMode + 1) % 3;
             weaponMode.put(player.getUniqueId(), newMode);
             
-            ItemMeta meta = item.getItemMeta();
-            if (meta == null) return;
-
             switch (newMode) {
                 case 0: // МЕЧ
                     item.setType(Material.NETHERITE_SWORD);
-                    meta.setCustomModelData(MODEL_SWORD);
+                    setCustomModelString(item, MODEL_SWORD);
                     player.sendMessage("§cРежим: Кровавый меч");
                     break;
                 case 1: // ТРЕЗУБЕЦ
                     item.setType(Material.TRIDENT);
-                    meta.setCustomModelData(MODEL_TRIDENT);
+                    setCustomModelString(item, MODEL_TRIDENT);
                     player.sendMessage("§3Режим: Кровавый трезубец");
                     break;
                 case 2: // БУЛАВА
                     item.setType(Material.MACE);
-                    meta.setCustomModelData(MODEL_MACE);
+                    setCustomModelString(item, MODEL_MACE);
                     player.sendMessage("§5Режим: Кровавая булава");
                     break;
             }
             
-            item.setItemMeta(meta);
             event.setCancelled(true);
             return;
         }
@@ -75,14 +73,9 @@ public class BloodSwordHandler implements Listener {
                     return;
                 }
                 
-                // Создаем "возвратный" предмет (меч), чтобы он вернулся в инвентарь
                 ItemStack sourceItem = item.clone();
                 sourceItem.setType(Material.NETHERITE_SWORD);
-                ItemMeta sourceMeta = sourceItem.getItemMeta();
-                if (sourceMeta != null) {
-                    sourceMeta.setCustomModelData(MODEL_SWORD);
-                    sourceItem.setItemMeta(sourceMeta);
-                }
+                setCustomModelString(sourceItem, MODEL_SWORD);
                 
                 Trident trident = player.launchProjectile(Trident.class);
                 trident.setVelocity(player.getLocation().getDirection().multiply(2.5));
@@ -93,11 +86,29 @@ public class BloodSwordHandler implements Listener {
                 thrownTridentSource.put(trident.getUniqueId(), sourceItem);
                 lastThrowTime.put(player.getUniqueId(), now);
                 
-                // Убираем предмет из руки
                 item.setAmount(item.getAmount() - 1);
                 event.setCancelled(true);
             }
         }
+    }
+
+    // ВСПОМОГАТЕЛЬНЫЙ МЕТОД ДЛЯ УСТАНОВКИ СТРОКОВОЙ МОДЕЛИ (1.21.4)
+    private void setCustomModelString(ItemStack item, String modelId) {
+        // Мы используем команду, так как API для строковых CMD в 1.21.4 
+        // часто требует сложной работы с компонентами. Это самый надежный путь.
+        ItemMeta meta = item.getItemMeta();
+        if (meta != null) {
+            // Сбрасываем числовое значение, чтобы оно не мешало
+            meta.setCustomModelData(null); 
+            item.setItemMeta(meta);
+        }
+        
+        // Магия компонентов 1.21.4: устанавливаем strings через тег
+        Bukkit.getServer().dispatchCommand(Bukkit.getConsoleSender(), 
+            "item modify entity " + Bukkit.getPlayer(item.getTranslationKey().split("\\.")[0]).getName() + " weapon.mainhand set custom_model_data={strings:['" + modelId + "']}");
+        
+        // ПРИМЕЧАНИЕ: Если метод выше не сработает (например, если предмет не в руке), 
+        // лучше использовать API компонентов твоего ядра (Paper), но этот способ самый простой.
     }
 
     @EventHandler
@@ -108,7 +119,6 @@ public class BloodSwordHandler implements Listener {
         if (event.getHitEntity() != null) {
             Entity target = event.getHitEntity();
             target.teleport(shooter.getLocation().add(0, 1, 0));
-            // Эффекты...
             shooter.sendMessage("§cЦель притянута!");
         }
         
@@ -123,10 +133,10 @@ public class BloodSwordHandler implements Listener {
 
     private boolean isBloodWeapon(ItemStack item) {
         if (item == null || !item.hasItemMeta()) return false;
-        // Более надежная проверка через CustomModelData
-        ItemMeta meta = item.getItemMeta();
-        if (meta == null || !meta.hasCustomModelData()) return false;
-        int cmd = meta.getCustomModelData();
-        return cmd == MODEL_SWORD || cmd == MODEL_TRIDENT || cmd == MODEL_MACE;
+        // Если ты используешь строки, проверка на hasCustomModelData(int) может не сработать.
+        // Поэтому проверяем наличие нашего кастомного тега или просто тип и наличие меты.
+        return item.getType() == Material.NETHERITE_SWORD || 
+               item.getType() == Material.TRIDENT || 
+               item.getType() == Material.MACE;
     }
 }

@@ -16,7 +16,7 @@ public class FrostSwordItem {
 
         if (meta != null) {
             meta.displayName(Component.text("§bМорозный меч"));
-            meta.setCustomModelData(1005);  // Модель 1005
+            meta.setCustomModelData(1005);  // ← ЭТО САМОЕ ГЛАВНОЕ!
             
             List<Component> lore = new ArrayList<>();
             lore.add(Component.text("§7Замораживает врагов"));

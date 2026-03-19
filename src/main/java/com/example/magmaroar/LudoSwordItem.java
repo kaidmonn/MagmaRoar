@@ -13,5 +13,6 @@ public class LudoSwordItem {
             "] 1";
         
         Bukkit.dispatchCommand(Bukkit.getConsoleSender(), command);
+        player.sendMessage("§aВы получили Лудо-меч!");
     }
 }

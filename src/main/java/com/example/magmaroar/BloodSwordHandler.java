@@ -2,8 +2,8 @@ package com.example.magmaroar;
 
 import org.bukkit.Bukkit;
 import org.bukkit.Material;
-import org.bukkit.Particle;  // ← ДОБАВИТЬ!
-import org.bukkit.Sound;      // ← ДОБАВИТЬ!
+import org.bukkit.Particle;
+import org.bukkit.Sound;
 import org.bukkit.entity.*;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.Listener;
@@ -73,16 +73,14 @@ public class BloodSwordHandler implements Listener {
                 }
                 
                 // Сохраняем информацию для возврата
-                String currentModel = getCurrentModel(item);
+                ItemStack sourceItem = item.clone();
+                thrownTridentSource.put(trident.getUniqueId(), sourceItem);
                 
                 Trident trident = player.launchProjectile(Trident.class);
                 trident.setVelocity(player.getLocation().getDirection().multiply(2.5));
                 trident.setShooter(player);
                 trident.setPickupStatus(Trident.PickupStatus.DISALLOWED);
                 trident.setGlowing(true);
-                
-                // Сохраняем для возврата
-                thrownTridentSource.put(trident.getUniqueId(), item.clone());
                 
                 lastThrowTime.put(player.getUniqueId(), now);
                 
@@ -111,13 +109,6 @@ public class BloodSwordHandler implements Listener {
         Bukkit.dispatchCommand(Bukkit.getConsoleSender(), command);
     }
 
-    private String getCurrentModel(ItemStack item) {
-        if (item.getType() == Material.NETHERITE_SWORD) return MODEL_SWORD;
-        if (item.getType() == Material.TRIDENT) return MODEL_TRIDENT;
-        if (item.getType() == Material.MACE) return MODEL_MACE;
-        return MODEL_SWORD;
-    }
-
     @EventHandler
     public void onProjectileHit(ProjectileHitEvent event) {
         if (!(event.getEntity() instanceof Trident trident)) return;
@@ -135,15 +126,20 @@ public class BloodSwordHandler implements Listener {
             shooter.sendMessage("§cЦель притянута!");
         }
         
+        // ВСЕГДА ВОЗВРАЩАЕМ МЕЧ (НЕ ТРЕЗУБЕЦ)
         ItemStack returnItem = thrownTridentSource.remove(trident.getUniqueId());
         if (returnItem != null) {
-            // Возвращаем меч
-            String currentModel = getCurrentModel(returnItem);
+            // Возвращаем КРОВАВЫЙ МЕЧ с моделью 1001
             String command = "give " + shooter.getName() + " minecraft:netherite_sword[" +
-                "custom_model_data={strings:[\"" + currentModel + "\"]}," +
-                "item_name='{\"text\":\"Кровавый меч\",\"color\":\"red\",\"bold\":true}'" +
+                "custom_model_data={strings:[\"1001\"]}," +
+                "item_name='{\"text\":\"Кровавый меч\",\"color\":\"red\",\"bold\":true}'," +
+                "lore=['{\"text\":\"Урон: 14\",\"color\":\"gray\"}'," +
+                      "'{\"text\":\"Shift+ПКМ: переключение режима\",\"color\":\"gray\"}'," +
+                      "'{\"text\":\"Режимы: Меч → Трезубец → Булава\",\"color\":\"gray\"}']" +
                 "] 1";
             Bukkit.dispatchCommand(Bukkit.getConsoleSender(), command);
+            
+            shooter.sendMessage("§aКровавый меч вернулся!");
         }
         
         trident.remove();

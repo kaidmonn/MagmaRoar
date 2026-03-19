@@ -1,14 +1,15 @@
 package com.example.magmaroar;
 
+import org.bukkit.Location;
 import org.bukkit.Material;
 import org.bukkit.Particle;
 import org.bukkit.Sound;
+import org.bukkit.World;
+import org.bukkit.entity.LivingEntity;
 import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.Listener;
-import org.bukkit.event.block.Action;
-import org.bukkit.event.entity.EntityDamageEvent;
-import org.bukkit.event.player.PlayerInteractEvent;
+import org.bukkit.event.entity.EntityDamageByEntityEvent;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.inventory.meta.ItemMeta;
 import org.bukkit.potion.PotionEffect;
@@ -19,106 +20,98 @@ import java.util.HashMap;
 import java.util.Map;
 import java.util.UUID;
 
-public class FossilSwordHandler implements Listener {
+public class FrostSwordHandler implements Listener {
 
-    private final Map<UUID, Long> cooldowns = new HashMap<>();
-    private static final long COOLDOWN = 75 * 1000; // 75 секунд
+    private final Map<UUID, Integer> hitCounters = new HashMap<>();
+    private final Map<UUID, Long> frozenUntil = new HashMap<>();
+    private final Map<UUID, Boolean> frozenStatus = new HashMap<>();
+    
+    private static final int HITS_TO_FREEZE = 15; // 15 ударов до заморозки
 
     @EventHandler
-    public void onPlayerInteract(PlayerInteractEvent event) {
-        Player player = event.getPlayer();
-        ItemStack item = event.getItem();
+    public void onEntityDamage(EntityDamageByEntityEvent event) {
+        if (!(event.getDamager() instanceof Player)) return;
+        if (!(event.getEntity() instanceof LivingEntity)) return;
+        
+        Player player = (Player) event.getDamager();
+        LivingEntity target = (LivingEntity) event.getEntity();
+        ItemStack item = player.getInventory().getItemInMainHand();
 
-        if (!isFossilSword(item)) return;
+        if (!isFrostSword(item)) return;
 
-        if (event.getAction() == Action.RIGHT_CLICK_AIR || event.getAction() == Action.RIGHT_CLICK_BLOCK) {
+        // Проверяем, не заморожена ли цель
+        if (isFrozen(target.getUniqueId())) {
+            // Можно бить замороженную цель!
+            player.sendMessage("§bЦель заморожена, урон проходит!");
             
-            long now = System.currentTimeMillis();
-            Long lastUse = cooldowns.get(player.getUniqueId());
-            
-            if (lastUse != null && now - lastUse < COOLDOWN) {
-                long secondsLeft = (COOLDOWN - (now - lastUse)) / 1000;
-                player.sendMessage("§cИскопаемый меч перезаряжается! Осталось: " + secondsLeft + " сек.");
-                event.setCancelled(true);
-                return;
-            }
+            // Визуальный эффект при ударе по замороженной цели
+            target.getWorld().spawnParticle(Particle.SNOWFLAKE, target.getLocation().add(0, 1, 0), 10, 0.3, 0.5, 0.3, 0.02);
+            return;
+        }
 
-            // Даём все эффекты тотема на 20 секунд
-            giveTotemEffects(player, 20 * 20); // 20 секунд в тиках
-            
-            player.sendMessage("§6§lИСКОПАЕМЫЙ МЕЧ! Эффекты тотема на 20 секунд!");
-            
-            // Визуал и звук
-            player.getWorld().playSound(player.getLocation(), Sound.ITEM_TOTEM_USE, 1.0f, 1.0f);
-            player.getWorld().spawnParticle(Particle.TOTEM_OF_UNDYING, player.getLocation().add(0, 1, 0), 100, 0.5, 1, 0.5, 0.5);
-            
-            cooldowns.put(player.getUniqueId(), now);
-            event.setCancelled(true);
+        // Звук удара
+        target.getWorld().playSound(target.getLocation(), Sound.BLOCK_GLASS_BREAK, 0.5f, 1.5f);
+        
+        // Замедление I на 3 секунды
+        target.addPotionEffect(new PotionEffect(PotionEffectType.SLOWNESS, 60, 0, false, true, true));
+        
+        // Счётчик ударов
+        UUID targetId = target.getUniqueId();
+        int hits = hitCounters.getOrDefault(targetId, 0) + 1;
+        
+        if (hits >= HITS_TO_FREEZE) {
+            // Заморозка на 4 секунды
+            freezeTarget(target);
+            hitCounters.remove(targetId);
+            player.sendMessage("§bЦель полностью заморожена на 4 секунды!");
+        } else {
+            hitCounters.put(targetId, hits);
+            player.sendMessage("§7Ударов до заморозки: " + hits + "/" + HITS_TO_FREEZE);
         }
     }
 
-    @EventHandler
-    public void onEntityDamage(EntityDamageEvent event) {
-        if (!(event.getEntity() instanceof Player)) return;
+    private void freezeTarget(LivingEntity target) {
+        UUID targetId = target.getUniqueId();
         
-        Player player = (Player) event.getEntity();
+        frozenUntil.put(targetId, System.currentTimeMillis() + 4000); // 4 секунды
+        frozenStatus.put(targetId, true);
         
-        // Проверяем, что урон смертельный
-        if (player.getHealth() - event.getFinalDamage() > 0) return;
+        // Эффекты заморозки
+        target.getWorld().spawnParticle(Particle.SNOWFLAKE, target.getLocation(), 50, 1, 1, 1, 0);
+        target.getWorld().spawnParticle(Particle.ITEM_SNOWBALL, target.getLocation(), 30, 0.5, 1, 0.5, 0);
         
-        ItemStack mainHand = player.getInventory().getItemInMainHand();
-        ItemStack offHand = player.getInventory().getItemInOffHand();
+        // Полная остановка цели
+        target.addPotionEffect(new PotionEffect(PotionEffectType.SLOWNESS, 80, 254, false, false, false));
+        target.addPotionEffect(new PotionEffect(PotionEffectType.JUMP_BOOST, 80, 128, false, false, false));
+        target.setFreezeTicks(80); // Визуальная заморозка
         
-        // Проверяем, есть ли меч в руках
-        boolean hasInMain = isFossilSword(mainHand);
-        boolean hasInOff = isFossilSword(offHand);
-        
-        if (hasInMain || hasInOff) {
-            // Отменяем смерть
-            event.setCancelled(true);
-            
-            // Лечим игрока
-            player.setHealth(player.getMaxHealth() / 2); // Половина здоровья
-            
-            // Даём эффекты тотема
-            giveTotemEffects(player, 40 * 20); // 40 секунд в тиках
-            
-            // Эффекты тотема
-            player.getWorld().playSound(player.getLocation(), Sound.ITEM_TOTEM_USE, 1.0f, 1.0f);
-            player.getWorld().spawnParticle(Particle.TOTEM_OF_UNDYING, player.getLocation().add(0, 1, 0), 200, 0.5, 1, 0.5, 0.5);
-            
-            player.sendMessage("§6§lИСКОПАЕМЫЙ МЕЧ СПАС ТЕБЕ ЖИЗНЬ!");
-            
-            // Удаляем меч (тот, в котором он был)
-            if (hasInMain) {
-                if (mainHand.getAmount() > 1) {
-                    mainHand.setAmount(mainHand.getAmount() - 1);
-                } else {
-                    player.getInventory().setItemInMainHand(null);
-                }
-            } else {
-                if (offHand.getAmount() > 1) {
-                    offHand.setAmount(offHand.getAmount() - 1);
-                } else {
-                    player.getInventory().setItemInOffHand(null);
-                }
+        // Запускаем таймер на снятие эффектов
+        new BukkitRunnable() {
+            @Override
+            public void run() {
+                frozenUntil.remove(targetId);
+                frozenStatus.remove(targetId);
+                
+                // Убираем эффекты с цели
+                target.removePotionEffect(PotionEffectType.SLOWNESS);
+                target.removePotionEffect(PotionEffectType.JUMP_BOOST);
+                target.setFreezeTicks(0);
+                
+                // Финальные частицы
+                target.getWorld().spawnParticle(Particle.SNOWFLAKE, target.getLocation(), 30, 1, 1, 1, 0);
             }
-        }
+        }.runTaskLater(MagmaRoarPlugin.getInstance(), 80L); // 4 секунды
     }
 
-    private void giveTotemEffects(Player player, int duration) {
-        player.addPotionEffect(new PotionEffect(PotionEffectType.REGENERATION, duration, 1, true, true, true));
-        player.addPotionEffect(new PotionEffect(PotionEffectType.ABSORPTION, duration, 1, true, true, true));
-        player.addPotionEffect(new PotionEffect(PotionEffectType.FIRE_RESISTANCE, duration, 0, true, true, true));
-        player.addPotionEffect(new PotionEffect(PotionEffectType.RESISTANCE, duration, 0, true, true, true));
-        player.addPotionEffect(new PotionEffect(PotionEffectType.SPEED, duration, 0, true, true, true));
-        player.addPotionEffect(new PotionEffect(PotionEffectType.STRENGTH, duration, 0, true, true, true));
+    private boolean isFrozen(UUID targetId) {
+        Long until = frozenUntil.get(targetId);
+        return until != null && System.currentTimeMillis() < until;
     }
 
-    private boolean isFossilSword(ItemStack item) {
-        if (item == null || item.getType() != Material.NETHERITE_SWORD || !item.hasItemMeta()) return false;
+    private boolean isFrostSword(ItemStack item) {
+        if (item == null || !item.hasItemMeta()) return false;
         ItemMeta meta = item.getItemMeta();
-        return meta != null && meta.displayName() != null &&
-               meta.displayName().toString().contains("Ископаемый меч");
+        return meta != null && meta.displayName() != null && 
+               meta.displayName().toString().contains("Морозный меч");
     }
 }

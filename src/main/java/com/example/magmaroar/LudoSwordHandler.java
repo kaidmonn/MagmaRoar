@@ -48,8 +48,35 @@ public class LudoSwordHandler implements Listener {
     public void onPlayerInteract(PlayerInteractEvent event) {
         Player player = event.getPlayer();
         ItemStack item = event.getItem();
-
-        if (!isLudoSword(item)) return;
+        
+        // ========== ДИАГНОСТИКА ==========
+        player.sendMessage("§e[DEBUG] Клик! Предмет: " + (item != null ? item.getType().toString() : "null"));
+        
+        if (item == null) {
+            player.sendMessage("§c[DEBUG] Предмета нет в руке");
+            return;
+        }
+        
+        if (item.getType() != Material.NETHERITE_SWORD) {
+            player.sendMessage("§c[DEBUG] Это не незерит меч");
+            return;
+        }
+        
+        if (!item.hasItemMeta()) {
+            player.sendMessage("§c[DEBUG] У предмета нет меты");
+            return;
+        }
+        
+        ItemMeta meta = item.getItemMeta();
+        player.sendMessage("§e[DEBUG] Название: " + (meta.hasDisplayName() ? meta.getDisplayName() : "нет названия"));
+        
+        if (!isLudoSword(item)) {
+            player.sendMessage("§c[DEBUG] isLudoSword вернул false");
+            return;
+        }
+        
+        player.sendMessage("§a[DEBUG] Лудо-меч опознан! Продолжаем...");
+        // ========== КОНЕЦ ДИАГНОСТИКИ ==========
 
         if (event.getAction() == Action.RIGHT_CLICK_AIR || event.getAction() == Action.RIGHT_CLICK_BLOCK) {
             

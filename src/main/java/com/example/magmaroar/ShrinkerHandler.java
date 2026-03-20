@@ -69,12 +69,10 @@ public class ShrinkerHandler implements Listener {
             return;
         }
 
-        // Сохраняем оригинальный размер
         originalScale.put(uuid, 1.0);
         shrunkPlayers.put(uuid, true);
         cooldowns.put(uuid, now + COOLDOWN);
 
-        // Уменьшаем через команду /attribute
         Bukkit.dispatchCommand(Bukkit.getConsoleSender(), 
             "attribute " + player.getName() + " minecraft:scale base set 0.5");
 
@@ -82,7 +80,6 @@ public class ShrinkerHandler implements Listener {
         player.playSound(player.getLocation(), Sound.ENTITY_ENDERMAN_TELEPORT, 1.0f, 1.0f);
         player.getWorld().spawnParticle(Particle.SMOKE, player.getLocation(), 50, 0.5, 1, 0.5, 0.1);
 
-        // Таймер возврата
         new BukkitRunnable() {
             @Override
             public void run() {
@@ -166,23 +163,19 @@ public class ShrinkerHandler implements Listener {
             return;
         }
         
-        // Сохраняем оригинальные параметры
         originalScale.put(targetId, 1.0);
         originalMaxHealth.put(targetId, target.getAttribute(Attribute.MAX_HEALTH).getValue());
         enlargedPlayers.put(targetId, true);
         cooldowns.put(owner.getUniqueId(), System.currentTimeMillis() + COOLDOWN);
         
-        // Увеличиваем через команду /attribute
         Bukkit.dispatchCommand(Bukkit.getConsoleSender(), 
             "attribute " + target.getName() + " minecraft:scale base set 3.0");
         
-        // Устанавливаем 8 сердец (16 HP)
         target.getAttribute(Attribute.MAX_HEALTH).setBaseValue(16);
         if (target.getHealth() > 16) {
             target.setHealth(16);
         }
         
-        // Замедление
         target.addPotionEffect(new PotionEffect(PotionEffectType.SLOWNESS, DURATION, 2));
         
         target.sendMessage("§c§lВЫ УВЕЛИЧЕНЫ ДО 3 БЛОКОВ! (30 сек)");
@@ -190,9 +183,8 @@ public class ShrinkerHandler implements Listener {
         owner.sendMessage("§aВы увеличили " + target.getName() + "!");
         
         target.playSound(target.getLocation(), Sound.ENTITY_IRON_GOLEM_DAMAGE, 1.0f, 0.5f);
-        target.getWorld().spawnParticle(Particle.ENCHANTMENT_TABLE, target.getLocation(), 100, 1, 2, 1, 0.5);
+        target.getWorld().spawnParticle(Particle.ENCHANT, target.getLocation(), 100, 1, 2, 1, 0.5);
         
-        // Таймер возврата
         new BukkitRunnable() {
             @Override
             public void run() {

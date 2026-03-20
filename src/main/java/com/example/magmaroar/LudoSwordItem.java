@@ -16,7 +16,7 @@ public class LudoSwordItem {
 
         if (meta != null) {
             meta.displayName(Component.text("§5§lЛудо-меч"));
-            meta.setCustomModelData(1004);
+            meta.setCustomModelData(1004);  // ← ЭТО МОДЕЛЬКА!
 
             List<Component> lore = new ArrayList<>();
             lore.add(Component.text("§7Урон: 14"));

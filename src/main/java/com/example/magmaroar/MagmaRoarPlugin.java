@@ -226,7 +226,7 @@ public class MagmaRoarPlugin extends JavaPlugin {
             return true;
         });
         
-        // ЛУДО-МЕЧ (ИСПРАВЛЕНО - ИСПОЛЬЗУЕМ createSword)
+        // ЛУДО-МЕЧ - РАБОЧАЯ ВЕРСИЯ
         getCommand("ludo").setExecutor((sender, command, label, args) -> {
             if (sender instanceof org.bukkit.entity.Player) {
                 org.bukkit.entity.Player player = (org.bukkit.entity.Player) sender;

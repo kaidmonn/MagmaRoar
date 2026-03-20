@@ -9,7 +9,6 @@ import org.bukkit.event.EventHandler;
 import org.bukkit.event.Listener;
 import org.bukkit.event.block.Action;
 import org.bukkit.event.player.PlayerInteractEvent;
-import org.bukkit.event.player.PlayerItemHeldEvent;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.inventory.meta.ItemMeta;
 import org.bukkit.scheduler.BukkitRunnable;
@@ -230,14 +229,13 @@ public class LudoSwordHandler implements Listener {
         
         LudoMode mode = playerStats.currentMode;
         
-        if (playerStats.originalItem != null) {
-            player.getInventory().setItem(playerStats.slot, playerStats.originalItem);
-            player.sendMessage("§c" + MODE_NAMES.get(mode) + " исчез. Лудо-меч вернулся!");
-        }
+        // ВОЗВРАЩАЕМ ЧЕРЕЗ КОМАНДУ!
+        LudoSwordItem.giveLudoSword(player);
         
         playerStats.currentMode = null;
         playerStats.cooldownEndTime = System.currentTimeMillis() + (COOLDOWN_DURATION * 1000L);
         
+        player.sendMessage("§c" + MODE_NAMES.get(mode) + " исчез. Лудо-меч вернулся!");
         player.sendMessage("§6Лудо-меч перезаряжается " + COOLDOWN_DURATION + " секунд.");
     }
 

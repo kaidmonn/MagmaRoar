@@ -75,6 +75,9 @@ commands:
   ludo:
     description: Дает Лудо-меч
     usage: /ludo
+  mirror:
+    description: Дает Зеркальный меч
+    usage: /mirror
   timeclock:
     description: Дает Часы времени
     usage: /timeclock

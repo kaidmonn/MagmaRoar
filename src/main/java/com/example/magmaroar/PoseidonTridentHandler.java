@@ -18,7 +18,6 @@ import java.util.*;
 public class PoseidonTridentHandler implements Listener {
 
     private final Map<UUID, Long> dashCooldowns = new HashMap<>();
-    private final Random random = new Random();
 
     private static final long DASH_COOLDOWN = 8 * 1000; // 8 секунд
 
@@ -87,8 +86,9 @@ public class PoseidonTridentHandler implements Listener {
 
         world.playSound(loc, Sound.ENTITY_GENERIC_EXPLODE, 1.0f, 0.8f);
         world.spawnParticle(Particle.EXPLOSION, loc, 20, 2, 1, 2, 0);
-        // Используем PARTICLE_WATER_SPLASH или просто WATER
-        world.spawnParticle(Particle.WATER_SPLASH, loc, 50, 2, 1, 2, 0.2);
+        // Заменяем WATER_SPLASH на существующие частицы
+        world.spawnParticle(Particle.WATER_DROP, loc, 100, 2, 1, 2, 0.1);
+        world.spawnParticle(Particle.SPLASH, loc, 30, 2, 1, 2, 0.2);
 
         for (Entity entity : world.getNearbyEntities(loc, 4, 2, 4)) {
             if (entity instanceof LivingEntity && !entity.equals(player)) {

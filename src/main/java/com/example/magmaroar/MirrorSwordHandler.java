@@ -8,7 +8,7 @@ import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.Listener;
 import org.bukkit.event.block.Action;
-import org.bukkit.event.entity.EntityDamageEvent;
+import org.bukkit.event.entity.PlayerDeathEvent;
 import org.bukkit.event.inventory.InventoryClickEvent;
 import org.bukkit.event.player.PlayerDropItemEvent;
 import org.bukkit.event.player.PlayerInteractEntityEvent;
@@ -24,12 +24,11 @@ import java.util.*;
 public class MirrorSwordHandler implements Listener {
 
     private final Map<UUID, MirrorData> owners = new HashMap<>();
-    private final Map<UUID, UUID> copyToOwner = new HashMap<>(); // копия → владелец
-    private final Random random = new Random();
+    private final Map<UUID, UUID> copyToOwner = new HashMap<>();
     
     private static final int MAX_COPIES = 5;
-    private static final long BUFF_COOLDOWN = 60 * 1000; // 60 секунд
-    private static final int BUFF_DURATION = 20 * 20; // 20 секунд в тиках
+    private static final long BUFF_COOLDOWN = 60 * 1000;
+    private static final int BUFF_DURATION = 20 * 20;
 
     private static class MirrorData {
         int copiesLeft = MAX_COPIES;
@@ -45,8 +44,8 @@ public class MirrorSwordHandler implements Listener {
 
         if (!isMirrorSword(item)) return;
 
-        // ПКМ - бафф
-        if (event.getAction() == Action.RIGHT_CLICK_AIR || event.getAction() == Action.RIGHT_CLICK_BLOCK) {
+        // ПКМ - бафф (без шифта)
+        if ((event.getAction() == Action.RIGHT_CLICK_AIR || event.getAction() == Action.RIGHT_CLICK_BLOCK) && !player.isSneaking()) {
             MirrorData data = owners.get(player.getUniqueId());
             if (data == null) {
                 data = new MirrorData();
@@ -94,7 +93,6 @@ public class MirrorSwordHandler implements Listener {
         
         Player target = (Player) event.getRightClicked();
         
-        // Проверка расстояния
         if (owner.getLocation().distance(target.getLocation()) > 5) {
             owner.sendMessage("§cЦель слишком далеко!");
             return;
@@ -107,21 +105,17 @@ public class MirrorSwordHandler implements Listener {
             owners.put(owner.getUniqueId(), data);
         }
         
-        // Проверка лимита копий
         if (data.copiesLeft <= 0) {
             owner.sendMessage("§cВы не можете выдать больше " + MAX_COPIES + " копий!");
             return;
         }
         
-        // Проверка, что у цели нет копии
         if (copyToOwner.containsKey(target.getUniqueId())) {
             owner.sendMessage("§cУ этого игрока уже есть копия!");
             return;
         }
         
-        // Проверка свободного слота
         if (hasFreeSlot(target)) {
-            // Создаём копию (без способностей)
             ItemStack copy = MirrorSwordItem.createSword();
             ItemMeta meta = copy.getItemMeta();
             if (meta != null) {
@@ -134,7 +128,6 @@ public class MirrorSwordHandler implements Listener {
             
             target.getInventory().addItem(copy);
             
-            // Обновляем данные
             data.copiesLeft--;
             data.copyHolders.add(target.getUniqueId());
             copyToOwner.put(target.getUniqueId(), owner.getUniqueId());
@@ -150,26 +143,73 @@ public class MirrorSwordHandler implements Listener {
     }
 
     @EventHandler
+    public void onPlayerDeath(PlayerDeathEvent event) {
+        Player dead = event.getEntity();
+        
+        // Если умер владелец
+        if (owners.containsKey(dead.getUniqueId())) {
+            MirrorData data = owners.get(dead.getUniqueId());
+            
+            // Оригинальный меч должен выпасть
+            for (ItemStack item : dead.getInventory().getContents()) {
+                if (item != null && isMirrorSword(item)) {
+                    event.getDrops().add(item);
+                    dead.getInventory().remove(item);
+                    break;
+                }
+            }
+            
+            // Все копии исчезают
+            for (UUID holderId : data.copyHolders) {
+                Player holder = Bukkit.getPlayer(holderId);
+                if (holder != null && holder.isOnline()) {
+                    for (ItemStack item : holder.getInventory().getContents()) {
+                        if (item != null && isCopySword(item)) {
+                            holder.getInventory().remove(item);
+                            holder.sendMessage("§cВладелец Зеркального меча умер! Ваша копия исчезла.");
+                        }
+                    }
+                    copyToOwner.remove(holderId);
+                }
+            }
+            
+            owners.remove(dead.getUniqueId());
+        }
+        
+        // Если умер владелец копии
+        if (copyToOwner.containsKey(dead.getUniqueId())) {
+            UUID ownerId = copyToOwner.get(dead.getUniqueId());
+            MirrorData data = owners.get(ownerId);
+            
+            if (data != null) {
+                // Копия исчезает (не выпадает)
+                for (ItemStack item : dead.getInventory().getContents()) {
+                    if (item != null && isCopySword(item)) {
+                        dead.getInventory().remove(item);
+                        break;
+                    }
+                }
+                data.copyHolders.remove(dead.getUniqueId());
+                data.copiesLeft++;
+                copyToOwner.remove(dead.getUniqueId());
+            }
+        }
+    }
+
+    @EventHandler
     public void onPlayerDropItem(PlayerDropItemEvent event) {
         Player player = event.getPlayer();
         ItemStack item = event.getItemDrop().getItemStack();
         
-        // Если это копия
-        if (copyToOwner.containsKey(player.getUniqueId())) {
-            UUID ownerId = copyToOwner.get(player.getUniqueId());
-            MirrorData data = owners.get(ownerId);
-            
-            if (data != null) {
-                // Копия просто исчезает
-                event.getItemDrop().remove();
-                copyToOwner.remove(player.getUniqueId());
-                data.copyHolders.remove(player.getUniqueId());
-                data.copiesLeft++;
-                player.sendMessage("§cКопия исчезла. У владельца освободился слот для новой копии.");
-            }
+        // Копию нельзя выбросить
+        if (isCopySword(item)) {
+            event.setCancelled(true);
+            player.sendMessage("§cКопию нельзя выбросить!");
+            return;
         }
-        // Если это оригинал
-        else if (isMirrorSword(item)) {
+        
+        // Если выбросили оригинал
+        if (isMirrorSword(item)) {
             UUID ownerId = player.getUniqueId();
             MirrorData data = owners.get(ownerId);
             
@@ -178,7 +218,6 @@ public class MirrorSwordHandler implements Listener {
                 for (UUID holderId : data.copyHolders) {
                     Player holder = Bukkit.getPlayer(holderId);
                     if (holder != null && holder.isOnline()) {
-                        // Ищем копию в инвентаре
                         for (ItemStack invItem : holder.getInventory().getContents()) {
                             if (invItem != null && isCopySword(invItem)) {
                                 holder.getInventory().removeItem(invItem);
@@ -205,15 +244,6 @@ public class MirrorSwordHandler implements Listener {
             event.setCancelled(true);
             player.sendMessage("§cКопию нельзя выбросить!");
         }
-    }
-
-    @EventHandler
-    public void onEntityDamage(EntityDamageEvent event) {
-        if (!(event.getEntity() instanceof Player)) return;
-        Player player = (Player) event.getEntity();
-        
-        // Копия неуязвима? Нет, копия — просто предмет, у неё нет защиты
-        // Этот метод можно использовать для дополнительных эффектов
     }
 
     private boolean hasFreeSlot(Player player) {

@@ -5,21 +5,20 @@ import org.bukkit.entity.*;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.Listener;
 import org.bukkit.event.block.Action;
-import org.bukkit.event.entity.EntityDamageByEntityEvent;
-import org.bukkit.event.entity.ProjectileHitEvent;
 import org.bukkit.event.player.PlayerInteractEvent;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.inventory.meta.ItemMeta;
 import org.bukkit.scheduler.BukkitRunnable;
-import org.bukkit.util.Vector;
 
 import java.util.*;
 
 public class PoseidonTridentHandler implements Listener {
 
-    private final Map<UUID, Long> dashCooldowns = new HashMap<>();
+    private final Map<UUID, Long> cooldowns = new HashMap<>();
+    private final Map<UUID, UUID> thrownTridents = new HashMap<>();
+    private final Map<UUID, ItemStack> returnItems = new HashMap<>();
 
-    private static final long DASH_COOLDOWN = 8 * 1000; // 8 секунд
+    private static final long COOLDOWN = 30 * 1000; // 30 секунд
 
     @EventHandler
     public void onPlayerInteract(PlayerInteractEvent event) {
@@ -31,17 +30,17 @@ public class PoseidonTridentHandler implements Listener {
         // Shift+ПКМ - Рывок Посейдона
         if (player.isSneaking() && (event.getAction() == Action.RIGHT_CLICK_AIR || event.getAction() == Action.RIGHT_CLICK_BLOCK)) {
             event.setCancelled(true);
-            performDash(player);
+            performRiptide(player, item);
             return;
         }
     }
 
-    private void performDash(Player player) {
+    private void performRiptide(Player player, ItemStack tridentItem) {
         UUID uuid = player.getUniqueId();
         long now = System.currentTimeMillis();
 
-        if (dashCooldowns.containsKey(uuid) && now - dashCooldowns.get(uuid) < DASH_COOLDOWN) {
-            long secondsLeft = (DASH_COOLDOWN - (now - dashCooldowns.get(uuid))) / 1000;
+        if (cooldowns.containsKey(uuid) && now - cooldowns.get(uuid) < COOLDOWN) {
+            long secondsLeft = (COOLDOWN - (now - cooldowns.get(uuid))) / 1000;
             player.sendMessage("§cРывок перезаряжается! Осталось: " + secondsLeft + " сек.");
             return;
         }
@@ -49,12 +48,12 @@ public class PoseidonTridentHandler implements Listener {
         Location loc = player.getLocation();
         World world = player.getWorld();
 
-        // Ставим воду на 1 тик для активации Riptide
+        returnItems.put(uuid, tridentItem.clone());
+
         loc.getBlock().setType(Material.WATER);
 
         player.sendMessage("§b§lРЫВОК ПОСЕЙДОНА!");
 
-        // Убираем воду через 1 тик
         new BukkitRunnable() {
             @Override
             public void run() {
@@ -64,38 +63,58 @@ public class PoseidonTridentHandler implements Listener {
             }
         }.runTaskLater(MagmaRoarPlugin.getInstance(), 1L);
 
-        dashCooldowns.put(uuid, now);
+        cooldowns.put(uuid, now);
 
-        // Запускаем проверку на приземление
         new BukkitRunnable() {
-            boolean wasInAir = true;
             @Override
             public void run() {
-                if (player.isOnGround() && wasInAir) {
-                    createShockwave(player);
-                    this.cancel();
+                for (Entity e : world.getEntities()) {
+                    if (e instanceof Trident) {
+                        Trident trident = (Trident) e;
+                        if (trident.getShooter() instanceof Player && ((Player) trident.getShooter()).equals(player)) {
+                            thrownTridents.put(trident.getUniqueId(), uuid);
+                            
+                            new BukkitRunnable() {
+                                @Override
+                                public void run() {
+                                    if (trident.isDead() || trident.isOnGround()) {
+                                        returnTrident(player, trident.getLocation());
+                                        this.cancel();
+                                    }
+                                }
+                            }.runTaskTimer(MagmaRoarPlugin.getInstance(), 0L, 1L);
+                            
+                            this.cancel();
+                            return;
+                        }
+                    }
                 }
-                wasInAir = !player.isOnGround();
             }
-        }.runTaskTimer(MagmaRoarPlugin.getInstance(), 0L, 1L);
+        }.runTaskLater(MagmaRoarPlugin.getInstance(), 2L);
     }
 
-    private void createShockwave(Player player) {
+    private void returnTrident(Player player, Location hitLoc) {
+        UUID uuid = player.getUniqueId();
+        
         World world = player.getWorld();
-        Location loc = player.getLocation();
-
-        world.playSound(loc, Sound.ENTITY_GENERIC_EXPLODE, 1.0f, 0.8f);
-        world.spawnParticle(Particle.EXPLOSION, loc, 20, 2, 1, 2, 0);
-
-        for (Entity entity : world.getNearbyEntities(loc, 4, 2, 4)) {
+        world.playSound(hitLoc, Sound.ENTITY_GENERIC_EXPLODE, 1.0f, 0.8f);
+        world.spawnParticle(Particle.EXPLOSION, hitLoc, 20, 2, 1, 2, 0);
+        
+        for (Entity entity : world.getNearbyEntities(hitLoc, 4, 2, 4)) {
             if (entity instanceof LivingEntity && !entity.equals(player)) {
-                LivingEntity target = (LivingEntity) entity;
-                target.damage(5.0, player);
-                target.setVelocity(target.getVelocity().add(new Vector(0, 1, 0)));
+                ((LivingEntity) entity).damage(5.0, player);
             }
         }
-
+        
         player.sendMessage("§b§lУДАРНАЯ ВОЛНА!");
+        
+        ItemStack returnItem = returnItems.remove(uuid);
+        if (returnItem != null) {
+            player.getInventory().addItem(returnItem);
+            player.sendMessage("§aТрезубец Посейдона вернулся!");
+        }
+        
+        thrownTridents.values().remove(uuid);
     }
 
     private boolean isPoseidonTrident(ItemStack item) {

@@ -311,12 +311,11 @@ public class MagmaRoarPlugin extends JavaPlugin {
             return true;
         });
         
-        // Рандомные команды
+        // Рандомные команды - БЕЗ BLOODSWORD
         getCommand("randomweapon1").setExecutor((sender, command, label, args) -> {
             if (!(sender instanceof org.bukkit.entity.Player)) return true;
             
             List<ItemStack> weapons = Arrays.asList(
-                BloodSwordItem.createBloodSword(),
                 FrostSwordItem.createFrostSword(),
                 ShadowSwordItem.createShadowSword(),
                 SpiderBladeItem.createBlade(),
@@ -360,7 +359,6 @@ public class MagmaRoarPlugin extends JavaPlugin {
         
         getCommand("randomweaponall1").setExecutor((sender, command, label, args) -> {
             List<ItemStack> weapons = Arrays.asList(
-                BloodSwordItem.createBloodSword(),
                 FrostSwordItem.createFrostSword(),
                 ShadowSwordItem.createShadowSword(),
                 SpiderBladeItem.createBlade(),

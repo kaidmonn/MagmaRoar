@@ -35,8 +35,6 @@ public class PoseidonTridentHandler implements Listener {
             performDash(player);
             return;
         }
-
-        // Обычный бросок - ничего не отменяем
     }
 
     private void performDash(Player player) {
@@ -75,7 +73,6 @@ public class PoseidonTridentHandler implements Listener {
             @Override
             public void run() {
                 if (player.isOnGround() && wasInAir) {
-                    // Ударная волна при приземлении
                     createShockwave(player);
                     this.cancel();
                 }
@@ -90,13 +87,14 @@ public class PoseidonTridentHandler implements Listener {
 
         world.playSound(loc, Sound.ENTITY_GENERIC_EXPLODE, 1.0f, 0.8f);
         world.spawnParticle(Particle.EXPLOSION, loc, 20, 2, 1, 2, 0);
+        // Используем PARTICLE_WATER_SPLASH или просто WATER
         world.spawnParticle(Particle.WATER_SPLASH, loc, 50, 2, 1, 2, 0.2);
 
         for (Entity entity : world.getNearbyEntities(loc, 4, 2, 4)) {
             if (entity instanceof LivingEntity && !entity.equals(player)) {
                 LivingEntity target = (LivingEntity) entity;
-                target.damage(5.0, player); // 5♥ урона
-                target.setVelocity(target.getVelocity().add(new Vector(0, 1, 0))); // подбрасывание
+                target.damage(5.0, player);
+                target.setVelocity(target.getVelocity().add(new Vector(0, 1, 0)));
             }
         }
 

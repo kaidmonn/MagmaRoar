@@ -55,58 +55,41 @@ public class LudoSwordHandler implements Listener {
 
     @EventHandler
     public void onPlayerInteract(PlayerInteractEvent event) {
+        if (event.getAction() != Action.RIGHT_CLICK_AIR && event.getAction() != Action.RIGHT_CLICK_BLOCK) return;
+        
         Player player = event.getPlayer();
         ItemStack item = event.getItem();
-        
-        // ========== ДИАГНОСТИКА ==========
-        if (item != null && item.hasItemMeta()) {
-            player.sendMessage("§e[DEBUG] Предмет: " + item.getType());
-            player.sendMessage("§e[DEBUG] Название: " + item.getItemMeta().getDisplayName());
-        } else {
-            player.sendMessage("§e[DEBUG] Предмета нет в руке");
-        }
-        // ========== КОНЕЦ ДИАГНОСТИКИ ==========
 
-        if (!isLudoSword(item)) {
-            if (item != null && item.hasItemMeta()) {
-                player.sendMessage("§c[DEBUG] Не Лудо-меч!");
-            }
+        if (!isLudoSword(item)) return;
+
+        long now = System.currentTimeMillis();
+        LudoStats playerStats = stats.computeIfAbsent(player.getUniqueId(), k -> new LudoStats());
+        
+        if (playerStats.cooldownEndTime > now) {
+            long secondsLeft = (playerStats.cooldownEndTime - now) / 1000;
+            player.sendMessage("§cЛудо-меч перезаряжается! Осталось: " + secondsLeft + " сек.");
+            event.setCancelled(true);
             return;
         }
         
-        player.sendMessage("§a[DEBUG] Лудо-меч опознан!");
-
-        if (event.getAction() == Action.RIGHT_CLICK_AIR || event.getAction() == Action.RIGHT_CLICK_BLOCK) {
-            
-            long now = System.currentTimeMillis();
-            LudoStats playerStats = stats.computeIfAbsent(player.getUniqueId(), k -> new LudoStats());
-            
-            if (playerStats.cooldownEndTime > now) {
-                long secondsLeft = (playerStats.cooldownEndTime - now) / 1000;
-                player.sendMessage("§cЛудо-меч перезаряжается! Осталось: " + secondsLeft + " сек.");
-                event.setCancelled(true);
-                return;
-            }
-            
-            if (playerStats.currentMode != null) {
-                player.sendMessage("§cУ вас уже есть активный предмет!");
-                event.setCancelled(true);
-                return;
-            }
-            
-            if (playerStats.isRolling) {
-                player.sendMessage("§cРулетка уже крутится!");
-                event.setCancelled(true);
-                return;
-            }
-            
-            playerStats.slot = player.getInventory().getHeldItemSlot();
-            playerStats.originalItem = item.clone();
-            playerStats.isRolling = true;
-            
-            startRoulette(player);
+        if (playerStats.currentMode != null) {
+            player.sendMessage("§cУ вас уже есть активный предмет!");
             event.setCancelled(true);
+            return;
         }
+        
+        if (playerStats.isRolling) {
+            player.sendMessage("§cРулетка уже крутится!");
+            event.setCancelled(true);
+            return;
+        }
+        
+        playerStats.slot = player.getInventory().getHeldItemSlot();
+        playerStats.originalItem = item.clone();
+        playerStats.isRolling = true;
+        
+        startRoulette(player);
+        event.setCancelled(true);
     }
 
     private void startRoulette(Player player) {
@@ -130,7 +113,8 @@ public class LudoSwordHandler implements Listener {
                     player.sendMessage("§6§l  ВЫПАЛО: " + MODE_NAMES.get(selected));
                     player.sendMessage("§6§l═══════════════════════");
                     
-                    playModeSound(player, selected);
+                    player.playSound(player.getLocation(), Sound.ENTITY_PLAYER_LEVELUP, 1.0f, 1.0f);
+                    
                     giveOriginalItem(player, selected);
                     
                     this.cancel();
@@ -168,15 +152,6 @@ public class LudoSwordHandler implements Listener {
     private LudoMode getRandomMode() {
         LudoMode[] modes = LudoMode.values();
         return modes[random.nextInt(modes.length)];
-    }
-
-    private void playModeSound(Player player, LudoMode mode) {
-        if (mode == LudoMode.JACKPOT) {
-            player.getWorld().playSound(player.getLocation(), Sound.UI_TOAST_CHALLENGE_COMPLETE, 2.0f, 1.0f);
-            player.getWorld().playSound(player.getLocation(), Sound.ENTITY_FIREWORK_ROCKET_TWINKLE, 2.0f, 1.2f);
-        } else {
-            player.getWorld().playSound(player.getLocation(), Sound.ENTITY_PLAYER_LEVELUP, 1.0f, 1.0f);
-        }
     }
 
     private void giveOriginalItem(Player player, LudoMode mode) {
@@ -245,8 +220,8 @@ public class LudoSwordHandler implements Listener {
         
         LudoMode mode = playerStats.currentMode;
         
-        // ВОЗВРАЩАЕМ ЧЕРЕЗ КОМАНДУ
-        LudoSwordItem.giveLudoSword(player);
+        player.getInventory().setItem(playerStats.slot, null);
+        player.getInventory().addItem(LudoSwordItem.createSword());
         
         playerStats.currentMode = null;
         playerStats.cooldownEndTime = System.currentTimeMillis() + (COOLDOWN_DURATION * 1000L);
@@ -263,6 +238,6 @@ public class LudoSwordHandler implements Listener {
         if (meta == null || !meta.hasDisplayName()) return false;
         
         String name = ChatColor.stripColor(meta.getDisplayName());
-        return name.contains("Лудо-меч") || name.contains("Лудо");
+        return name.contains("Лудо-меч");
     }
 }

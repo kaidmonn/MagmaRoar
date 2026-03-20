@@ -81,6 +81,9 @@ commands:
   shrinker:
     description: Дает Уменьшитель
     usage: /shrinker
+  poseidon:
+    description: Дает Трезубец Посейдона
+    usage: /poseidon
   timeclock:
     description: Дает Часы времени
     usage: /timeclock
@@ -120,7 +123,3 @@ permissions:
   magma.admin:
     description: Права администратора MagmaRoar
     default: op
-
- poseidon:
-    description: Дает Трезубец Посейдона
-    usage: /poseidon

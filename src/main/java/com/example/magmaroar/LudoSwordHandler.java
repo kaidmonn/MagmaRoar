@@ -28,7 +28,7 @@ public class LudoSwordHandler implements Listener {
     private static final long COOLDOWN_TIME = 35 * 1000;
     private static final int ACTIVE_TIME = 30;
     
-    private final String[] ITEMS = {
+    private final String[] COMMANDS = {
         "frost", "shadow", "spider", "mjolnir", "scythe",
         "storm", "reaper", "katana", "excalibur", "mace",
         "jackpot"
@@ -60,14 +60,12 @@ public class LudoSwordHandler implements Listener {
         UUID uuid = player.getUniqueId();
         long now = System.currentTimeMillis();
         
-        // Защита от спама во время анимации
         if (rollingPlayers.contains(uuid)) {
             player.sendMessage("§cРулетка уже крутится!");
             event.setCancelled(true);
             return;
         }
         
-        // Проверка кулдауна (после возврата)
         if (cooldowns.containsKey(uuid) && now < cooldowns.get(uuid)) {
             long secondsLeft = (cooldowns.get(uuid) - now) / 1000;
             player.sendMessage("§cЛудо-меч перезаряжается! Осталось: " + secondsLeft + " сек.");
@@ -75,19 +73,16 @@ public class LudoSwordHandler implements Listener {
             return;
         }
         
-        // Проверка активности
         if (isActive.getOrDefault(uuid, false)) {
             player.sendMessage("§cУ вас уже есть активный предмет!");
             event.setCancelled(true);
             return;
         }
         
-        // Запоминаем слот и БЛОКИРУЕМ его
         int slot = player.getInventory().getHeldItemSlot();
         itemSlot.put(uuid, slot);
         lockedSlots.add(uuid);
         
-        // Запускаем рулетку
         startRoulette(player);
         event.setCancelled(true);
     }
@@ -115,34 +110,34 @@ public class LudoSwordHandler implements Listener {
                     
                     rollingPlayers.remove(uuid);
                     
-                    int index = random.nextInt(ITEMS.length);
-                    String selectedItem = ITEMS[index];
-                    String selectedName = ITEM_NAMES[index];
+                    int index = random.nextInt(COMMANDS.length);
+                    String command = COMMANDS[index];
+                    String itemName = ITEM_NAMES[index];
                     
                     player.sendMessage("§6§l═══════════════════════");
-                    player.sendMessage("§6§l  ВЫПАЛО: " + selectedName);
+                    player.sendMessage("§6§l  ВЫПАЛО: " + itemName);
                     player.sendMessage("§6§l═══════════════════════");
                     
                     player.playSound(player.getLocation(), Sound.ENTITY_PLAYER_LEVELUP, 1.0f, 1.0f);
                     
-                    // Удаляем Лудо-меч из руки
+                    // Удаляем Лудо-меч
                     player.getInventory().setItemInMainHand(null);
                     
-                    // Выдаём выпавший предмет
-                    giveRandomItem(player, selectedItem, selectedName);
+                    // ВЫЗЫВАЕМ КОМАНДУ ПРЕДМЕТА
+                    Bukkit.dispatchCommand(Bukkit.getConsoleSender(), command + " " + player.getName());
                     
-                    // Активность включена
                     isActive.put(uuid, true);
-                    
-                    // Разблокируем слот
                     lockedSlots.remove(uuid);
+                    
+                    // Запускаем таймер возврата
+                    startReturnTimer(player);
                     
                     this.cancel();
                     return;
                 }
                 
                 if (ticks % 4 == 0) {
-                    int randomIndex = random.nextInt(ITEMS.length);
+                    int randomIndex = random.nextInt(COMMANDS.length);
                     player.sendMessage("§8> " + ITEM_NAMES[randomIndex]);
                 }
                 
@@ -153,86 +148,6 @@ public class LudoSwordHandler implements Listener {
                 ticks++;
             }
         }.runTaskTimer(MagmaRoarPlugin.getInstance(), 0L, 1L);
-    }
-
-    private void giveRandomItem(Player player, String itemName, String displayName) {
-        String command = "";
-        
-        switch (itemName) {
-            case "frost":
-                command = "give " + player.getName() + " minecraft:netherite_sword[" +
-                    "custom_model_data={strings:[\"1005\"]}," +
-                    "item_name='{\"text\":\"Морозный меч\",\"color\":\"aqua\",\"bold\":true}'" +
-                    "] 1";
-                break;
-            case "shadow":
-                command = "give " + player.getName() + " minecraft:netherite_sword[" +
-                    "custom_model_data={strings:[\"1006\"]}," +
-                    "item_name='{\"text\":\"Теневой меч\",\"color\":\"dark_gray\",\"bold\":true}'" +
-                    "] 1";
-                break;
-            case "spider":
-                command = "give " + player.getName() + " minecraft:netherite_sword[" +
-                    "custom_model_data={strings:[\"1007\"]}," +
-                    "item_name='{\"text\":\"Паучий клинок\",\"color\":\"dark_green\",\"bold\":true}'" +
-                    "] 1";
-                break;
-            case "mjolnir":
-                command = "give " + player.getName() + " minecraft:iron_axe[" +
-                    "custom_model_data={strings:[\"1008\"]}," +
-                    "item_name='{\"text\":\"Мьёльнир\",\"color\":\"yellow\",\"bold\":true}'" +
-                    "] 1";
-                break;
-            case "scythe":
-                command = "give " + player.getName() + " minecraft:netherite_hoe[" +
-                    "custom_model_data={strings:[\"1009\"]}," +
-                    "item_name='{\"text\":\"Коса смерти\",\"color\":\"red\",\"bold\":true}'" +
-                    "] 1";
-                break;
-            case "storm":
-                command = "give " + player.getName() + " minecraft:netherite_sword[" +
-                    "custom_model_data={strings:[\"1010\"]}," +
-                    "item_name='{\"text\":\"Клинок бури\",\"color\":\"blue\",\"bold\":true}'" +
-                    "] 1";
-                break;
-            case "reaper":
-                command = "give " + player.getName() + " minecraft:netherite_hoe[" +
-                    "custom_model_data={strings:[\"1011\"]}," +
-                    "item_name='{\"text\":\"Коса жнеца\",\"color\":\"dark_purple\",\"bold\":true}'" +
-                    "] 1";
-                break;
-            case "katana":
-                command = "give " + player.getName() + " minecraft:netherite_sword[" +
-                    "custom_model_data={strings:[\"1012\"]}," +
-                    "item_name='{\"text\":\"Катана дракона\",\"color\":\"light_purple\",\"bold\":true}'" +
-                    "] 1";
-                break;
-            case "excalibur":
-                command = "give " + player.getName() + " minecraft:netherite_sword[" +
-                    "custom_model_data={strings:[\"1013\"]}," +
-                    "item_name='{\"text\":\"Экскалибур\",\"color\":\"gold\",\"bold\":true}'" +
-                    "] 1";
-                break;
-            case "mace":
-                command = "give " + player.getName() + " minecraft:mace[" +
-                    "custom_model_data={strings:[\"1014\"]}," +
-                    "item_name='{\"text\":\"Легкая булава\",\"color\":\"white\",\"bold\":true}'" +
-                    "] 1";
-                break;
-            case "jackpot":
-                command = "give " + player.getName() + " minecraft:netherite_sword[" +
-                    "custom_model_data={strings:[\"1015\"]}," +
-                    "item_name='{\"text\":\"ДЖЕКПОТ\",\"color\":\"light_purple\",\"bold\":true}'" +
-                    "] 1";
-                break;
-        }
-        
-        if (!command.isEmpty()) {
-            Bukkit.dispatchCommand(Bukkit.getConsoleSender(), command);
-        }
-        
-        // Запускаем таймер возврата
-        startReturnTimer(player);
     }
 
     private void startReturnTimer(Player player) {
@@ -246,13 +161,11 @@ public class LudoSwordHandler implements Listener {
                 // Очищаем слот
                 player.getInventory().setItem(slot, null);
                 
-                // Даём новый Лудо-меч
-                ItemStack ludo = LudoSwordItem.createSword();
-                player.getInventory().setItem(slot, ludo);
+                // Возвращаем Лудо-меч
+                LudoSwordItem.giveLudoSword(player);
                 
                 player.sendMessage("§cВыпавший предмет исчез. Лудо-меч вернулся!");
                 
-                // СТАВИМ КУЛДАУН НА 35 СЕКУНД ПОСЛЕ ВОЗВРАТА
                 cooldowns.put(uuid, System.currentTimeMillis() + COOLDOWN_TIME);
                 isActive.put(uuid, false);
                 itemSlot.remove(uuid);

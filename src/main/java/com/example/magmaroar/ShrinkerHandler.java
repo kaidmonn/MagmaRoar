@@ -2,7 +2,6 @@ package com.example.magmaroar;
 
 import org.bukkit.Bukkit;
 import org.bukkit.ChatColor;
-import org.bukkit.Location;
 import org.bukkit.Material;
 import org.bukkit.Particle;
 import org.bukkit.Sound;
@@ -29,9 +28,11 @@ public class ShrinkerHandler implements Listener {
     private final Map<UUID, Double> originalScale = new HashMap<>();
     private final Map<UUID, Double> originalMaxHealth = new HashMap<>();
     private final Map<UUID, Boolean> enlargedPlayers = new HashMap<>();
+    private final Map<UUID, Boolean> aimingPlayers = new HashMap<>();
 
     private static final long COOLDOWN = 45 * 1000;
     private static final int DURATION = 30 * 20;
+    private static final int AIM_TIME = 60; // 3 секунды (20 тиков * 3)
 
     @EventHandler
     public void onPlayerInteract(PlayerInteractEvent event) {
@@ -47,7 +48,7 @@ public class ShrinkerHandler implements Listener {
             return;
         }
 
-        // Зажатый ПКМ - увеличение врага
+        // ПКМ - начало прицеливания (зажатие)
         if (event.getAction() == Action.RIGHT_CLICK_AIR || event.getAction() == Action.RIGHT_CLICK_BLOCK) {
             startAiming(player);
             event.setCancelled(true);
@@ -71,7 +72,6 @@ public class ShrinkerHandler implements Listener {
 
         originalScale.put(uuid, 1.0);
         shrunkPlayers.put(uuid, true);
-        cooldowns.put(uuid, now + COOLDOWN);
 
         Bukkit.dispatchCommand(Bukkit.getConsoleSender(), 
             "attribute " + player.getName() + " minecraft:scale base set 0.5");
@@ -80,6 +80,7 @@ public class ShrinkerHandler implements Listener {
         player.playSound(player.getLocation(), Sound.ENTITY_ENDERMAN_TELEPORT, 1.0f, 1.0f);
         player.getWorld().spawnParticle(Particle.SMOKE, player.getLocation(), 50, 0.5, 1, 0.5, 0.1);
 
+        // Таймер возврата
         new BukkitRunnable() {
             @Override
             public void run() {
@@ -90,6 +91,9 @@ public class ShrinkerHandler implements Listener {
                     originalScale.remove(uuid);
                     player.sendMessage("§cВы вернулись к нормальному размеру!");
                     player.playSound(player.getLocation(), Sound.ENTITY_ENDERMAN_TELEPORT, 1.0f, 0.5f);
+                    
+                    // КУЛДАУН ПОСЛЕ ВОЗВРАТА
+                    cooldowns.put(uuid, System.currentTimeMillis() + COOLDOWN);
                 }
             }
         }.runTaskLater(MagmaRoarPlugin.getInstance(), DURATION);
@@ -105,8 +109,16 @@ public class ShrinkerHandler implements Listener {
             return;
         }
 
-        player.sendMessage("§eПрицельтесь в игрока и отпустите ПКМ...");
+        if (aimingPlayers.containsKey(uuid)) {
+            player.sendMessage("§cВы уже прицеливаетесь!");
+            return;
+        }
+
+        player.sendMessage("§eЗажмите ПКМ на 3 секунды, прицелившись в игрока...");
         
+        aimingPlayers.put(uuid, true);
+        
+        // Запускаем таймер на 3 секунды
         new BukkitRunnable() {
             int ticks = 0;
             boolean released = false;
@@ -115,25 +127,40 @@ public class ShrinkerHandler implements Listener {
             public void run() {
                 ticks++;
                 
+                // Проверяем, отпустил ли игрок ПКМ
                 if (!player.isSneaking() && !player.isBlocking()) {
                     if (!released) {
                         released = true;
-                        Player target = getTargetPlayer(player, 15);
+                        aimingPlayers.remove(uuid);
                         
-                        if (target != null && !target.equals(player)) {
-                            enlargeTarget(player, target);
+                        if (ticks >= AIM_TIME) {
+                            // Успешное прицеливание (прожал 3 секунды)
+                            Player target = getTargetPlayer(player, 15);
+                            if (target != null && !target.equals(player)) {
+                                enlargeTarget(player, target);
+                            } else {
+                                player.sendMessage("§cНет цели в прицеле!");
+                            }
                         } else {
-                            cooldowns.put(player.getUniqueId(), System.currentTimeMillis() + COOLDOWN);
-                            player.sendMessage("§cПромах! Уменьшитель перезарядится через 45 сек.");
+                            // Отпустил раньше времени
+                            player.sendMessage("§cВы отпустили ПКМ раньше времени! Нужно держать 3 секунды.");
                         }
                         this.cancel();
                         return;
                     }
                 }
                 
-                if (ticks >= 60) {
-                    cooldowns.put(player.getUniqueId(), System.currentTimeMillis() + COOLDOWN);
-                    player.sendMessage("§cВремя вышло! Уменьшитель перезарядится через 45 сек.");
+                // Если прошло 3 секунды и всё ещё зажат
+                if (ticks >= AIM_TIME && !released) {
+                    released = true;
+                    aimingPlayers.remove(uuid);
+                    
+                    Player target = getTargetPlayer(player, 15);
+                    if (target != null && !target.equals(player)) {
+                        enlargeTarget(player, target);
+                    } else {
+                        player.sendMessage("§cНет цели в прицеле!");
+                    }
                     this.cancel();
                 }
             }
@@ -166,25 +193,28 @@ public class ShrinkerHandler implements Listener {
         originalScale.put(targetId, 1.0);
         originalMaxHealth.put(targetId, target.getAttribute(Attribute.MAX_HEALTH).getValue());
         enlargedPlayers.put(targetId, true);
-        cooldowns.put(owner.getUniqueId(), System.currentTimeMillis() + COOLDOWN);
-        
+
+        // Увеличиваем до 4 блоков (scale 2.0)
         Bukkit.dispatchCommand(Bukkit.getConsoleSender(), 
-            "attribute " + target.getName() + " minecraft:scale base set 3.0");
+            "attribute " + target.getName() + " minecraft:scale base set 2.0");
         
+        // Устанавливаем 8 сердец (16 HP)
         target.getAttribute(Attribute.MAX_HEALTH).setBaseValue(16);
         if (target.getHealth() > 16) {
             target.setHealth(16);
         }
         
+        // Замедление
         target.addPotionEffect(new PotionEffect(PotionEffectType.SLOWNESS, DURATION, 2));
         
-        target.sendMessage("§c§lВЫ УВЕЛИЧЕНЫ ДО 3 БЛОКОВ! (30 сек)");
+        target.sendMessage("§c§lВЫ УВЕЛИЧЕНЫ ДО 4 БЛОКОВ! (30 сек)");
         target.sendMessage("§cВаше здоровье: 8❤, вы сильно медленнее!");
         owner.sendMessage("§aВы увеличили " + target.getName() + "!");
         
         target.playSound(target.getLocation(), Sound.ENTITY_IRON_GOLEM_DAMAGE, 1.0f, 0.5f);
         target.getWorld().spawnParticle(Particle.ENCHANT, target.getLocation(), 100, 1, 2, 1, 0.5);
         
+        // Таймер возврата
         new BukkitRunnable() {
             @Override
             public void run() {
@@ -201,6 +231,9 @@ public class ShrinkerHandler implements Listener {
                     originalMaxHealth.remove(targetId);
                     target.sendMessage("§aВы вернулись к нормальному размеру!");
                     target.playSound(target.getLocation(), Sound.ENTITY_IRON_GOLEM_REPAIR, 1.0f, 1.0f);
+                    
+                    // КУЛДАУН ПОСЛЕ ВОЗВРАТА
+                    cooldowns.put(owner.getUniqueId(), System.currentTimeMillis() + COOLDOWN);
                 }
             }
         }.runTaskLater(MagmaRoarPlugin.getInstance(), DURATION);

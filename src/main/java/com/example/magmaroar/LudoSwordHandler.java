@@ -19,23 +19,23 @@ public class LudoSwordHandler implements Listener {
     private final Map<UUID, LudoStats> stats = new HashMap<>();
     private final Random random = new Random();
     
-    private static final int ITEM_DURATION = 30; 
-    private static final int COOLDOWN_DURATION = 35; 
-    
+    private static final int ITEM_DURATION = 30; // 30 секунд
+    private static final int COOLDOWN_DURATION = 35; // 35 секунд
+
     private enum LudoMode {
         FROST, SHADOW, SPIDER, MJOLNIR, DEATH_SCYTHE,
         STORM, REAPER, DRAGON, EXCALIBUR, LIGHT_MACE, JACKPOT
     }
-    
+
     private static class LudoStats {
         LudoMode currentMode = null;
         long cooldownEndTime = 0;
         boolean isRolling = false;
         int slot = -1;
     }
-    
+
     private static final Map<LudoMode, String> MODE_NAMES = new HashMap<>();
-    
+
     static {
         MODE_NAMES.put(LudoMode.FROST, "§bМорозный меч");
         MODE_NAMES.put(LudoMode.SHADOW, "§8Теневой меч");
@@ -55,24 +55,24 @@ public class LudoSwordHandler implements Listener {
         Player player = event.getPlayer();
         ItemStack item = event.getItem();
 
-        // Проверка через CustomModelData 1004
+        // Проверка: это Лудо-меч с моделью 1004?
         if (!isLudoSword(item)) return;
 
         if (event.getAction() == Action.RIGHT_CLICK_AIR || event.getAction() == Action.RIGHT_CLICK_BLOCK) {
-            long now = System.currentTimeMillis();
             LudoStats playerStats = stats.computeIfAbsent(player.getUniqueId(), k -> new LudoStats());
-            
+            long now = System.currentTimeMillis();
+
             if (playerStats.cooldownEndTime > now) {
-                player.sendMessage("§cКулдаун: " + (playerStats.cooldownEndTime - now) / 1000 + " сек.");
+                player.sendMessage("§cЛудо-меч перезаряжается! Осталось: " + (playerStats.cooldownEndTime - now) / 1000 + " сек.");
                 event.setCancelled(true);
                 return;
             }
-            
+
             if (playerStats.currentMode != null || playerStats.isRolling) {
                 event.setCancelled(true);
                 return;
             }
-            
+
             playerStats.slot = player.getInventory().getHeldItemSlot();
             playerStats.isRolling = true;
             
@@ -82,7 +82,7 @@ public class LudoSwordHandler implements Listener {
     }
 
     private void startRoulette(Player player) {
-        player.sendMessage("§6§l🔄 РУЛЕТКА КРУТИТСЯ...");
+        player.sendMessage("§6§l🔄 ЛУДО-МЕЧ: КРУТИТСЯ РУЛЕТКА...");
         player.playSound(player.getLocation(), Sound.BLOCK_NOTE_BLOCK_BIT, 1.0f, 1.0f);
         
         new BukkitRunnable() {
@@ -90,25 +90,28 @@ public class LudoSwordHandler implements Listener {
             @Override
             public void run() {
                 if (ticks >= 40) {
-                    LudoStats ps = stats.get(player.getUniqueId());
-                    if (ps != null) ps.isRolling = false;
+                    LudoStats playerStats = stats.get(player.getUniqueId());
+                    playerStats.isRolling = false;
                     
                     LudoMode selected = selectRandomMode();
                     giveOriginalItem(player, selected);
                     this.cancel();
                     return;
                 }
-                if (ticks % 5 == 0) player.playSound(player.getLocation(), Sound.BLOCK_NOTE_BLOCK_HAT, 0.5f, 1.5f);
+                
+                if (ticks % 5 == 0) {
+                    player.playSound(player.getLocation(), Sound.BLOCK_NOTE_BLOCK_HAT, 0.5f, 1.5f);
+                }
                 ticks++;
             }
         }.runTaskTimer(MagmaRoarPlugin.getInstance(), 0L, 1L);
     }
 
     private void giveOriginalItem(Player player, LudoMode mode) {
-        LudoStats ps = stats.get(player.getUniqueId());
-        ps.currentMode = mode;
+        LudoStats playerStats = stats.get(player.getUniqueId());
+        playerStats.currentMode = mode;
         
-        ItemStack newItem = null;
+        ItemStack newItem;
         switch (mode) {
             case FROST: newItem = FrostSwordItem.createFrostSword(); break;
             case SHADOW: newItem = ShadowSwordItem.createShadowSword(); break;
@@ -126,12 +129,12 @@ public class LudoSwordHandler implements Listener {
                 m.displayName(Component.text("§d§lДЖЕКПОТ"));
                 newItem.setItemMeta(m);
                 break;
+            default: newItem = new ItemStack(Material.AIR);
         }
-        
-        if (newItem != null) {
-            player.getInventory().setItem(ps.slot, newItem);
-            player.sendMessage("§aВыпало: " + MODE_NAMES.get(mode));
-        }
+
+        player.getInventory().setItem(playerStats.slot, newItem);
+        player.sendMessage("§a§lВЫПАЛО: " + MODE_NAMES.get(mode));
+        player.playSound(player.getLocation(), Sound.ENTITY_PLAYER_LEVELUP, 1f, 1f);
 
         new BukkitRunnable() {
             @Override
@@ -142,26 +145,29 @@ public class LudoSwordHandler implements Listener {
     }
 
     private void returnToLudoSword(Player player) {
-        LudoStats ps = stats.get(player.getUniqueId());
-        if (ps == null || ps.currentMode == null) return;
-        
-        // Возвращаем предмет с моделью 1004
-        player.getInventory().setItem(ps.slot, LudoSwordItem.createSword());
-        player.sendMessage("§cЛудо-меч вернулся!");
-        
-        ps.currentMode = null;
-        ps.cooldownEndTime = System.currentTimeMillis() + (COOLDOWN_DURATION * 1000L);
+        LudoStats playerStats = stats.get(player.getUniqueId());
+        if (playerStats == null || playerStats.currentMode == null) return;
+
+        // Возвращаем именно твой предмет с моделью 1004
+        player.getInventory().setItem(playerStats.slot, LudoSwordItem.createSword());
+        player.sendMessage("§cДействие предмета окончено. Лудо-меч вернулся!");
+
+        playerStats.currentMode = null;
+        playerStats.cooldownEndTime = System.currentTimeMillis() + (COOLDOWN_DURATION * 1000L);
     }
 
     private boolean isLudoSword(ItemStack item) {
         if (item == null || !item.hasItemMeta()) return false;
         ItemMeta meta = item.getItemMeta();
-        // ПРОВЕРКА ПО МОДЕЛИ 1004
+        
+        // Самая важная правка: проверяем кастомную модель
         return meta.hasCustomModelData() && meta.getCustomModelData() == 1004;
     }
 
     private LudoMode selectRandomMode() {
+        double r = random.nextDouble() * 100;
+        if (r < 5) return LudoMode.JACKPOT;
         LudoMode[] modes = LudoMode.values();
-        return modes[random.nextInt(modes.length)];
+        return modes[random.nextInt(modes.length - 1)];
     }
 }

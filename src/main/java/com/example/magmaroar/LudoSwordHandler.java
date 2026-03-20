@@ -123,7 +123,7 @@ public class LudoSwordHandler implements Listener {
                     // Удаляем Лудо-меч
                     player.getInventory().setItemInMainHand(null);
                     
-                    // ВЫЗЫВАЕМ КОМАНДУ ПРЕДМЕТА
+                    // Вызываем команду предмета
                     Bukkit.dispatchCommand(Bukkit.getConsoleSender(), command + " " + player.getName());
                     
                     isActive.put(uuid, true);
@@ -161,8 +161,8 @@ public class LudoSwordHandler implements Listener {
                 // Очищаем слот
                 player.getInventory().setItem(slot, null);
                 
-                // Возвращаем Лудо-меч
-                LudoSwordItem.giveLudoSword(player);
+                // Возвращаем Лудо-меч (ИСПРАВЛЕНО!)
+                player.getInventory().addItem(LudoSwordItem.createSword());
                 
                 player.sendMessage("§cВыпавший предмет исчез. Лудо-меч вернулся!");
                 

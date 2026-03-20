@@ -86,9 +86,8 @@ public class PoseidonTridentHandler implements Listener {
 
         world.playSound(loc, Sound.ENTITY_GENERIC_EXPLODE, 1.0f, 0.8f);
         world.spawnParticle(Particle.EXPLOSION, loc, 20, 2, 1, 2, 0);
-        // Заменяем WATER_SPLASH на существующие частицы
-        world.spawnParticle(Particle.WATER_DROP, loc, 100, 2, 1, 2, 0.1);
-        world.spawnParticle(Particle.SPLASH, loc, 30, 2, 1, 2, 0.2);
+        // Простые водяные частицы
+        world.spawnParticle(Particle.WATER_SPLASH, loc, 50, 2, 1, 2, 0.2);
 
         for (Entity entity : world.getNearbyEntities(loc, 4, 2, 4)) {
             if (entity instanceof LivingEntity && !entity.equals(player)) {

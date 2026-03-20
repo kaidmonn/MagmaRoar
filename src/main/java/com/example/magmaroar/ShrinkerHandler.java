@@ -23,7 +23,7 @@ import java.util.*;
 
 public class ShrinkerHandler implements Listener {
 
-    private final Map<UUID, Long> cooldowns = new HashMap<>(); // ОБЩИЙ кулдаун
+    private final Map<UUID, Long> cooldowns = new HashMap<>();
     private final Map<UUID, Boolean> shrunkPlayers = new HashMap<>();
     private final Map<UUID, Double> originalScale = new HashMap<>();
     private final Map<UUID, Double> originalMaxHealth = new HashMap<>();
@@ -41,13 +41,12 @@ public class ShrinkerHandler implements Listener {
 
         if (!isShrinker(item)) return;
 
-        // Отменяем стандартное использование трубы
         event.setCancelled(true);
 
         UUID uuid = player.getUniqueId();
         long now = System.currentTimeMillis();
 
-        // ОБЩАЯ ПРОВЕРКА КУЛДАУНА
+        // Проверка кулдауна (после окончания эффектов)
         if (cooldowns.containsKey(uuid) && now < cooldowns.get(uuid)) {
             long secondsLeft = (cooldowns.get(uuid) - now) / 1000;
             player.sendMessage("§cУменьшитель перезаряжается! Осталось: " + secondsLeft + " сек.");
@@ -60,7 +59,7 @@ public class ShrinkerHandler implements Listener {
             return;
         }
 
-        // ПКМ - начало прицеливания (увеличение врага)
+        // ПКМ - начало прицеливания
         if (event.getAction() == Action.RIGHT_CLICK_AIR || event.getAction() == Action.RIGHT_CLICK_BLOCK) {
             startAiming(player);
         }
@@ -84,10 +83,7 @@ public class ShrinkerHandler implements Listener {
         player.playSound(player.getLocation(), Sound.ENTITY_ENDERMAN_TELEPORT, 1.0f, 1.0f);
         player.getWorld().spawnParticle(Particle.SMOKE, player.getLocation(), 50, 0.5, 1, 0.5, 0.1);
 
-        // КУЛДАУН СТАВИТСЯ СРАЗУ, НО ОН БУДЕТ ОБНОВЛЁН ПОСЛЕ ВОЗВРАТА
-        // Пока ставим временный, чтобы нельзя было использовать другой режим
-        cooldowns.put(uuid, System.currentTimeMillis() + COOLDOWN);
-
+        // КУЛДАУН СТАВИТСЯ ПОСЛЕ ВОЗВРАТА
         new BukkitRunnable() {
             @Override
             public void run() {
@@ -99,7 +95,9 @@ public class ShrinkerHandler implements Listener {
                     player.sendMessage("§cВы вернулись к нормальному размеру!");
                     player.playSound(player.getLocation(), Sound.ENTITY_ENDERMAN_TELEPORT, 1.0f, 0.5f);
                     
-                    // КУЛДАУН УЖЕ СТОИТ, НЕ МЕНЯЕМ
+                    // КУЛДАУН НАЧИНАЕТСЯ ПОСЛЕ ВОЗВРАТА
+                    cooldowns.put(uuid, System.currentTimeMillis() + COOLDOWN);
+                    player.sendMessage("§6Уменьшитель перезаряжается 45 секунд.");
                 }
             }
         }.runTaskLater(MagmaRoarPlugin.getInstance(), DURATION);
@@ -109,7 +107,7 @@ public class ShrinkerHandler implements Listener {
         UUID uuid = player.getUniqueId();
 
         if (aimingTicks.containsKey(uuid)) {
-            return; // уже прицеливается
+            return;
         }
 
         player.sendMessage("§eПрицельтесь в игрока и держите ПКМ 3 секунды...");
@@ -126,7 +124,6 @@ public class ShrinkerHandler implements Listener {
                 
                 int ticks = aimingTicks.get(uuid);
                 
-                // Проверяем, держит ли игрок ПКМ
                 if (!player.isSneaking() && !player.isBlocking()) {
                     ticks++;
                     aimingTicks.put(uuid, ticks);
@@ -147,7 +144,6 @@ public class ShrinkerHandler implements Listener {
                         this.cancel();
                     }
                 } else {
-                    // Отпустил ПКМ раньше времени
                     aimingTicks.remove(uuid);
                     player.sendMessage("§cПрицеливание прервано!");
                     this.cancel();
@@ -189,9 +185,6 @@ public class ShrinkerHandler implements Listener {
         originalMaxHealth.put(targetId, target.getAttribute(Attribute.MAX_HEALTH).getValue());
         enlargedPlayers.put(targetId, true);
 
-        // СТАВИМ КУЛДАУН СРАЗУ
-        cooldowns.put(ownerId, System.currentTimeMillis() + COOLDOWN);
-
         Bukkit.dispatchCommand(Bukkit.getConsoleSender(), 
             "attribute " + target.getName() + " minecraft:scale base set 2.0");
         
@@ -209,6 +202,7 @@ public class ShrinkerHandler implements Listener {
         target.playSound(target.getLocation(), Sound.ENTITY_IRON_GOLEM_DAMAGE, 1.0f, 0.5f);
         target.getWorld().spawnParticle(Particle.ENCHANT, target.getLocation(), 100, 1, 2, 1, 0.5);
         
+        // КУЛДАУН ПОСЛЕ ВОЗВРАТА
         new BukkitRunnable() {
             @Override
             public void run() {
@@ -226,7 +220,9 @@ public class ShrinkerHandler implements Listener {
                     target.sendMessage("§aВы вернулись к нормальному размеру!");
                     target.playSound(target.getLocation(), Sound.ENTITY_IRON_GOLEM_REPAIR, 1.0f, 1.0f);
                     
-                    // КУЛДАУН УЖЕ СТОИТ
+                    // КУЛДАУН НАЧИНАЕТСЯ ПОСЛЕ ВОЗВРАТА
+                    cooldowns.put(ownerId, System.currentTimeMillis() + COOLDOWN);
+                    owner.sendMessage("§6Уменьшитель перезаряжается 45 секунд.");
                 }
             }
         }.runTaskLater(MagmaRoarPlugin.getInstance(), DURATION);

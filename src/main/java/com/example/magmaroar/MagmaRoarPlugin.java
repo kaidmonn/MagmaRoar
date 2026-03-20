@@ -55,6 +55,7 @@ public class MagmaRoarPlugin extends JavaPlugin {
         getServer().getPluginManager().registerEvents(new ReaperScytheHandler(), this);
         getServer().getPluginManager().registerEvents(new LudoSwordHandler(), this);
         getServer().getPluginManager().registerEvents(new MirrorSwordHandler(), this);
+        getServer().getPluginManager().registerEvents(new ShrinkerHandler(), this);
         getServer().getPluginManager().registerEvents(new TimeClockHandler(), this);
         getServer().getPluginManager().registerEvents(new TimeBowHandler(), this);
         getServer().getPluginManager().registerEvents(new ArtemisBowHandler(), this);
@@ -85,7 +86,6 @@ public class MagmaRoarPlugin extends JavaPlugin {
             return true;
         });
         
-        // КРОВАВЫЙ МЕЧ
         getCommand("blood").setExecutor((sender, command, label, args) -> {
             if (sender instanceof org.bukkit.entity.Player) {
                 org.bukkit.entity.Player player = (org.bukkit.entity.Player) sender;
@@ -227,7 +227,6 @@ public class MagmaRoarPlugin extends JavaPlugin {
             return true;
         });
         
-        // ЛУДО-МЕЧ
         getCommand("ludo").setExecutor((sender, command, label, args) -> {
             if (sender instanceof org.bukkit.entity.Player) {
                 org.bukkit.entity.Player player = (org.bukkit.entity.Player) sender;
@@ -237,12 +236,20 @@ public class MagmaRoarPlugin extends JavaPlugin {
             return true;
         });
         
-        // ЗЕРКАЛЬНЫЙ МЕЧ
         getCommand("mirror").setExecutor((sender, command, label, args) -> {
             if (sender instanceof org.bukkit.entity.Player) {
                 org.bukkit.entity.Player player = (org.bukkit.entity.Player) sender;
                 player.getInventory().addItem(MirrorSwordItem.createSword());
                 player.sendMessage("§aВы получили Зеркальный меч!");
+            }
+            return true;
+        });
+        
+        getCommand("shrinker").setExecutor((sender, command, label, args) -> {
+            if (sender instanceof org.bukkit.entity.Player) {
+                org.bukkit.entity.Player player = (org.bukkit.entity.Player) sender;
+                player.getInventory().addItem(ShrinkerItem.createShrinker());
+                player.sendMessage("§aВы получили Уменьшитель!");
             }
             return true;
         });
@@ -291,7 +298,6 @@ public class MagmaRoarPlugin extends JavaPlugin {
             return true;
         });
         
-        // КОМАНДА ДЛЯ ВЫДАЧИ КРУТОК
         getCommand("giveroll").setExecutor((sender, command, label, args) -> {
             if (!sender.hasPermission("magma.admin")) {
                 sender.sendMessage("§cУ вас нет прав!");

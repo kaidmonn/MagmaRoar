@@ -78,6 +78,9 @@ commands:
   mirror:
     description: Дает Зеркальный меч
     usage: /mirror
+  shrinker:
+    description: Дает Уменьшитель
+    usage: /shrinker
   timeclock:
     description: Дает Часы времени
     usage: /timeclock

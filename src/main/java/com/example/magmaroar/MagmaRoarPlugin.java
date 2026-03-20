@@ -56,6 +56,7 @@ public class MagmaRoarPlugin extends JavaPlugin {
         getServer().getPluginManager().registerEvents(new LudoSwordHandler(), this);
         getServer().getPluginManager().registerEvents(new MirrorSwordHandler(), this);
         getServer().getPluginManager().registerEvents(new ShrinkerHandler(), this);
+        getServer().getPluginManager().registerEvents(new PoseidonTridentHandler(), this);
         getServer().getPluginManager().registerEvents(new TimeClockHandler(), this);
         getServer().getPluginManager().registerEvents(new TimeBowHandler(), this);
         getServer().getPluginManager().registerEvents(new ArtemisBowHandler(), this);
@@ -250,6 +251,15 @@ public class MagmaRoarPlugin extends JavaPlugin {
                 org.bukkit.entity.Player player = (org.bukkit.entity.Player) sender;
                 player.getInventory().addItem(ShrinkerItem.createShrinker());
                 player.sendMessage("§aВы получили Уменьшитель!");
+            }
+            return true;
+        });
+        
+        getCommand("poseidon").setExecutor((sender, command, label, args) -> {
+            if (sender instanceof org.bukkit.entity.Player) {
+                org.bukkit.entity.Player player = (org.bukkit.entity.Player) sender;
+                player.getInventory().addItem(PoseidonTridentItem.createTrident());
+                player.sendMessage("§aВы получили Трезубец Посейдона!");
             }
             return true;
         });

@@ -57,8 +57,24 @@ public class LudoSwordHandler implements Listener {
     public void onPlayerInteract(PlayerInteractEvent event) {
         Player player = event.getPlayer();
         ItemStack item = event.getItem();
+        
+        // ========== ДИАГНОСТИКА ==========
+        if (item != null && item.hasItemMeta()) {
+            player.sendMessage("§e[DEBUG] Предмет: " + item.getType());
+            player.sendMessage("§e[DEBUG] Название: " + item.getItemMeta().getDisplayName());
+        } else {
+            player.sendMessage("§e[DEBUG] Предмета нет в руке");
+        }
+        // ========== КОНЕЦ ДИАГНОСТИКИ ==========
 
-        if (!isLudoSword(item)) return;
+        if (!isLudoSword(item)) {
+            if (item != null && item.hasItemMeta()) {
+                player.sendMessage("§c[DEBUG] Не Лудо-меч!");
+            }
+            return;
+        }
+        
+        player.sendMessage("§a[DEBUG] Лудо-меч опознан!");
 
         if (event.getAction() == Action.RIGHT_CLICK_AIR || event.getAction() == Action.RIGHT_CLICK_BLOCK) {
             
@@ -229,7 +245,7 @@ public class LudoSwordHandler implements Listener {
         
         LudoMode mode = playerStats.currentMode;
         
-        // ВОЗВРАЩАЕМ ЧЕРЕЗ КОМАНДУ!
+        // ВОЗВРАЩАЕМ ЧЕРЕЗ КОМАНДУ
         LudoSwordItem.giveLudoSword(player);
         
         playerStats.currentMode = null;
@@ -240,9 +256,13 @@ public class LudoSwordHandler implements Listener {
     }
 
     private boolean isLudoSword(ItemStack item) {
-        if (item == null || item.getType() != Material.NETHERITE_SWORD || !item.hasItemMeta()) return false;
+        if (item == null || item.getType() != Material.NETHERITE_SWORD) return false;
+        if (!item.hasItemMeta()) return false;
+        
         ItemMeta meta = item.getItemMeta();
-        return meta != null && meta.displayName() != null &&
-               meta.displayName().toString().contains("Лудо-меч");
+        if (meta == null || !meta.hasDisplayName()) return false;
+        
+        String name = ChatColor.stripColor(meta.getDisplayName());
+        return name.contains("Лудо-меч") || name.contains("Лудо");
     }
 }

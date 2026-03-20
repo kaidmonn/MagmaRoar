@@ -84,6 +84,7 @@ public class MagmaRoarPlugin extends JavaPlugin {
             return true;
         });
         
+        // КРОВАВЫЙ МЕЧ
         getCommand("blood").setExecutor((sender, command, label, args) -> {
             if (sender instanceof org.bukkit.entity.Player) {
                 org.bukkit.entity.Player player = (org.bukkit.entity.Player) sender;
@@ -225,7 +226,7 @@ public class MagmaRoarPlugin extends JavaPlugin {
             return true;
         });
         
-        // ЛУДО-МЕЧ (ИСПРАВЛЕНО НА ВЫДАЧУ ЧЕРЕЗ LudoSwordItem)
+        // ЛУДО-МЕЧ (ИСПРАВЛЕНО!)
         getCommand("ludo").setExecutor((sender, command, label, args) -> {
             if (sender instanceof org.bukkit.entity.Player) {
                 org.bukkit.entity.Player player = (org.bukkit.entity.Player) sender;
@@ -312,7 +313,7 @@ public class MagmaRoarPlugin extends JavaPlugin {
             return true;
         });
         
-        // Рандомные команды
+        // Рандомные команды - ВРЕМЕННО БЕЗ BLOODSWORD
         getCommand("randomweapon1").setExecutor((sender, command, label, args) -> {
             if (!(sender instanceof org.bukkit.entity.Player)) return true;
             
@@ -417,7 +418,7 @@ public class MagmaRoarPlugin extends JavaPlugin {
         if (npcManager != null) {
             npcManager.removeAllNPCs();
         }
-        getLogger().info("§cMagmaRoarPlugin выключён!");
+        getLogger().info("§cMagmaRoarPlugin выключěn!");
     }
 
     public static MagmaRoarPlugin getInstance() {

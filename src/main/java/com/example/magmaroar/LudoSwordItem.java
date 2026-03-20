@@ -24,7 +24,9 @@ public class LudoSwordItem {
             lore.add(Component.text("§711 предметов"));
             meta.lore(lore);
 
-            meta.setCustomModelData(1004);
+            // УСТАНАВЛИВАЕМ ТВОЮ МОДЕЛЬ 1004
+            meta.setCustomModelData(1004); 
+            
             sword.setItemMeta(meta);
         }
         return sword;

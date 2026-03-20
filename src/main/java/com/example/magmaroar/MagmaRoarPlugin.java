@@ -23,6 +23,7 @@ public class MagmaRoarPlugin extends JavaPlugin {
     public void onEnable() {
         instance = this;
         
+        // Инициализация менеджеров
         itemManager = new ItemManager(this);
         npcManager = new NPCManager(this);
         queueManager = new QueueManager(this);
@@ -30,400 +31,143 @@ public class MagmaRoarPlugin extends JavaPlugin {
         kitManager = new KitManager(this);
         animationChest = new AnimationChest(this);
         
-        // Регистрация обработчиков
-        getServer().getPluginManager().registerEvents(new StaffEvents(), this);
-        getServer().getPluginManager().registerEvents(new LightMaceHandler(), this);
-        getServer().getPluginManager().registerEvents(new FlamingCrossbowHandler(), this);
-        getServer().getPluginManager().registerEvents(new BloodSwordHandler(), this);
-        getServer().getPluginManager().registerEvents(new TestZombieHandler(), this);
-        getServer().getPluginManager().registerEvents(new FrostSwordHandler(), this);
-        getServer().getPluginManager().registerEvents(new ShadowSwordHandler(), this);
-        getServer().getPluginManager().registerEvents(new OrbitalCannonHandler(), this);
-        getServer().getPluginManager().registerEvents(new SculkCrossbowHandler(), this);
-        getServer().getPluginManager().registerEvents(new VillagerStaffHandler(), this);
-        getServer().getPluginManager().registerEvents(new ExplosivePotionHandler(), this);
-        getServer().getPluginManager().registerEvents(new SpiderBladeHandler(), this);
-        getServer().getPluginManager().registerEvents(new MjolnirHandler(), this);
-        getServer().getPluginManager().registerEvents(new HypnosisStaffHandler(), this);
-        getServer().getPluginManager().registerEvents(new DeathScytheHandler(), this);
-        getServer().getPluginManager().registerEvents(new RavagerHornHandler(), this);
-        getServer().getPluginManager().registerEvents(new HellMeteorHandler(), this);
-        getServer().getPluginManager().registerEvents(new LaserHandler(), this);
-        getServer().getPluginManager().registerEvents(new StormBladeHandler(), this);
-        getServer().getPluginManager().registerEvents(new ExcaliburHandler(), this);
-        getServer().getPluginManager().registerEvents(new KatanaHandler(), this);
-        getServer().getPluginManager().registerEvents(new ReaperScytheHandler(), this);
-        getServer().getPluginManager().registerEvents(new LudoSwordHandler(), this);
-        getServer().getPluginManager().registerEvents(new TimeClockHandler(), this);
-        getServer().getPluginManager().registerEvents(new TimeBowHandler(), this);
-        getServer().getPluginManager().registerEvents(new ArtemisBowHandler(), this);
-        getServer().getPluginManager().registerEvents(new CreationBowHandler(), this);
-        getServer().getPluginManager().registerEvents(new FossilSwordHandler(), this);
-        getServer().getPluginManager().registerEvents(new EventListener(this), this);
-        getServer().getPluginManager().registerEvents(animationChest, this);
+        // Регистрация всех обработчиков событий (Handlers)
+        registerAllEvents();
         
-        // Команды для предметов
-        getCommand("roar").setExecutor((sender, command, label, args) -> {
-            if (sender instanceof org.bukkit.entity.Player) {
-                ((org.bukkit.entity.Player) sender).getInventory().addItem(MagmaHornItem.createHorn());
-            }
-            return true;
-        });
+        // Регистрация команд
+        registerCommands();
         
-        getCommand("mace").setExecutor((sender, command, label, args) -> {
-            if (sender instanceof org.bukkit.entity.Player) {
-                ((org.bukkit.entity.Player) sender).getInventory().addItem(LightMaceItem.createMace());
-            }
-            return true;
-        });
-        
-        getCommand("flamingbow").setExecutor((sender, command, label, args) -> {
-            if (sender instanceof org.bukkit.entity.Player) {
-                ((org.bukkit.entity.Player) sender).getInventory().addItem(FlamingCrossbowItem.createCrossbow());
-            }
-            return true;
-        });
-        
-        // КРОВАВЫЙ МЕЧ
-        getCommand("blood").setExecutor((sender, command, label, args) -> {
-            if (sender instanceof org.bukkit.entity.Player) {
-                org.bukkit.entity.Player player = (org.bukkit.entity.Player) sender;
-                BloodSwordItem.giveBloodSword(player);
-            }
-            return true;
-        });
-        
-        getCommand("zombietotem").setExecutor((sender, command, label, args) -> {
-            if (sender instanceof org.bukkit.entity.Player) {
-                ((org.bukkit.entity.Player) sender).getInventory().addItem(TestZombieItem.createZombieEgg(true));
-            }
-            return true;
-        });
-        
-        getCommand("zombieshield").setExecutor((sender, command, label, args) -> {
-            if (sender instanceof org.bukkit.entity.Player) {
-                ((org.bukkit.entity.Player) sender).getInventory().addItem(TestZombieItem.createZombieEgg(false));
-            }
-            return true;
-        });
-        
-        getCommand("frost").setExecutor((sender, command, label, args) -> {
-            if (sender instanceof org.bukkit.entity.Player) {
-                ((org.bukkit.entity.Player) sender).getInventory().addItem(FrostSwordItem.createFrostSword());
-            }
-            return true;
-        });
-        
-        getCommand("shadow").setExecutor((sender, command, label, args) -> {
-            if (sender instanceof org.bukkit.entity.Player) {
-                ((org.bukkit.entity.Player) sender).getInventory().addItem(ShadowSwordItem.createShadowSword());
-            }
-            return true;
-        });
-        
-        getCommand("orbital").setExecutor((sender, command, label, args) -> {
-            if (sender instanceof org.bukkit.entity.Player) {
-                ((org.bukkit.entity.Player) sender).getInventory().addItem(OrbitalCannonItem.createCannon());
-            }
-            return true;
-        });
-        
-        getCommand("sculkbow").setExecutor((sender, command, label, args) -> {
-            if (sender instanceof org.bukkit.entity.Player) {
-                ((org.bukkit.entity.Player) sender).getInventory().addItem(SculkCrossbowItem.createCrossbow());
-            }
-            return true;
-        });
-        
-        getCommand("villagerstaff").setExecutor((sender, command, label, args) -> {
-            if (sender instanceof org.bukkit.entity.Player) {
-                ((org.bukkit.entity.Player) sender).getInventory().addItem(VillagerStaffItem.createStaff());
-            }
-            return true;
-        });
-        
-        getCommand("explosivepotion").setExecutor((sender, command, label, args) -> {
-            if (sender instanceof org.bukkit.entity.Player) {
-                ((org.bukkit.entity.Player) sender).getInventory().addItem(ExplosivePotionItem.createPotion());
-            }
-            return true;
-        });
-        
-        getCommand("spider").setExecutor((sender, command, label, args) -> {
-            if (sender instanceof org.bukkit.entity.Player) {
-                ((org.bukkit.entity.Player) sender).getInventory().addItem(SpiderBladeItem.createBlade());
-            }
-            return true;
-        });
-        
-        getCommand("mjolnir").setExecutor((sender, command, label, args) -> {
-            if (sender instanceof org.bukkit.entity.Player) {
-                ((org.bukkit.entity.Player) sender).getInventory().addItem(MjolnirItem.createMjolnir());
-            }
-            return true;
-        });
-        
-        getCommand("hypnosis").setExecutor((sender, command, label, args) -> {
-            if (sender instanceof org.bukkit.entity.Player) {
-                ((org.bukkit.entity.Player) sender).getInventory().addItem(HypnosisStaffItem.createStaff());
-            }
-            return true;
-        });
-        
-        getCommand("scythe").setExecutor((sender, command, label, args) -> {
-            if (sender instanceof org.bukkit.entity.Player) {
-                ((org.bukkit.entity.Player) sender).getInventory().addItem(DeathScytheItem.createScythe());
-            }
-            return true;
-        });
-        
-        getCommand("ravager").setExecutor((sender, command, label, args) -> {
-            if (sender instanceof org.bukkit.entity.Player) {
-                ((org.bukkit.entity.Player) sender).getInventory().addItem(RavagerHornItem.createHorn());
-            }
-            return true;
-        });
-        
-        getCommand("meteor").setExecutor((sender, command, label, args) -> {
-            if (sender instanceof org.bukkit.entity.Player) {
-                ((org.bukkit.entity.Player) sender).getInventory().addItem(HellMeteorItem.createMeteor());
-            }
-            return true;
-        });
-        
-        getCommand("laser").setExecutor((sender, command, label, args) -> {
-            if (sender instanceof org.bukkit.entity.Player) {
-                ((org.bukkit.entity.Player) sender).getInventory().addItem(LaserItem.createLaser());
-            }
-            return true;
-        });
-        
-        getCommand("storm").setExecutor((sender, command, label, args) -> {
-            if (sender instanceof org.bukkit.entity.Player) {
-                ((org.bukkit.entity.Player) sender).getInventory().addItem(StormBladeItem.createBlade());
-            }
-            return true;
-        });
-        
-        getCommand("excalibur").setExecutor((sender, command, label, args) -> {
-            if (sender instanceof org.bukkit.entity.Player) {
-                ((org.bukkit.entity.Player) sender).getInventory().addItem(ExcaliburItem.createExcalibur());
-            }
-            return true;
-        });
-        
-        getCommand("katana").setExecutor((sender, command, label, args) -> {
-            if (sender instanceof org.bukkit.entity.Player) {
-                ((org.bukkit.entity.Player) sender).getInventory().addItem(KatanaItem.createKatana());
-            }
-            return true;
-        });
-        
-        getCommand("reaper").setExecutor((sender, command, label, args) -> {
-            if (sender instanceof org.bukkit.entity.Player) {
-                ((org.bukkit.entity.Player) sender).getInventory().addItem(ReaperScytheItem.createScythe());
-            }
-            return true;
-        });
-        
-        // ЛУДО-МЕЧ (ИСПРАВЛЕНО!)
+        getLogger().info("§aMagmaRoarPlugin включён! Модель Лудо-меча (1004) активна.");
+    }
+
+    private void registerAllEvents() {
+        var pm = getServer().getPluginManager();
+        pm.registerEvents(new StaffEvents(), this);
+        pm.registerEvents(new LightMaceHandler(), this);
+        pm.registerEvents(new FlamingCrossbowHandler(), this);
+        pm.registerEvents(new BloodSwordHandler(), this);
+        pm.registerEvents(new TestZombieHandler(), this);
+        pm.registerEvents(new FrostSwordHandler(), this);
+        pm.registerEvents(new ShadowSwordHandler(), this);
+        pm.registerEvents(new OrbitalCannonHandler(), this);
+        pm.registerEvents(new SculkCrossbowHandler(), this);
+        pm.registerEvents(new VillagerStaffHandler(), this);
+        pm.registerEvents(new ExplosivePotionHandler(), this);
+        pm.registerEvents(new SpiderBladeHandler(), this);
+        pm.registerEvents(new MjolnirHandler(), this);
+        pm.registerEvents(new HypnosisStaffHandler(), this);
+        pm.registerEvents(new DeathScytheHandler(), this);
+        pm.registerEvents(new RavagerHornHandler(), this);
+        pm.registerEvents(new HellMeteorHandler(), this);
+        pm.registerEvents(new LaserHandler(), this);
+        pm.registerEvents(new StormBladeHandler(), this);
+        pm.registerEvents(new ExcaliburHandler(), this);
+        pm.registerEvents(new KatanaHandler(), this);
+        pm.registerEvents(new ReaperScytheHandler(), this);
+        pm.registerEvents(new LudoSwordHandler(), this); // Тот самый обработчик
+        pm.registerEvents(new TimeClockHandler(), this);
+        pm.registerEvents(new TimeBowHandler(), this);
+        pm.registerEvents(new ArtemisBowHandler(), this);
+        pm.registerEvents(new CreationBowHandler(), this);
+        pm.registerEvents(new FossilSwordHandler(), this);
+        pm.registerEvents(new EventListener(this), this);
+        pm.registerEvents(animationChest, this);
+    }
+
+    private void registerCommands() {
+        // Команда для получения Лудо-меча (с моделью 1004)
         getCommand("ludo").setExecutor((sender, command, label, args) -> {
-            if (sender instanceof org.bukkit.entity.Player) {
-                org.bukkit.entity.Player player = (org.bukkit.entity.Player) sender;
+            if (sender instanceof Player player) {
                 player.getInventory().addItem(LudoSwordItem.createSword());
-                player.sendMessage("§aВы получили Лудо-меч!");
+                player.sendMessage("§a§l[!] §fВы получили §5§lЛудо-меч §7(Model: 1004)");
             }
             return true;
         });
-        
-        getCommand("timeclock").setExecutor((sender, command, label, args) -> {
-            if (sender instanceof org.bukkit.entity.Player) {
-                ((org.bukkit.entity.Player) sender).getInventory().addItem(TimeClockItem.createClock());
-            }
+
+        // Остальные команды предметов
+        getCommand("roar").setExecutor((sender, command, label, args) -> {
+            if (sender instanceof Player p) p.getInventory().addItem(MagmaHornItem.createHorn());
             return true;
         });
-        
-        getCommand("timebow").setExecutor((sender, command, label, args) -> {
-            if (sender instanceof org.bukkit.entity.Player) {
-                ((org.bukkit.entity.Player) sender).getInventory().addItem(TimeBowItem.createBow());
-            }
+
+        getCommand("mace").setExecutor((sender, command, label, args) -> {
+            if (sender instanceof Player p) p.getInventory().addItem(LightMaceItem.createMace());
             return true;
         });
-        
-        getCommand("artemis").setExecutor((sender, command, label, args) -> {
-            if (sender instanceof org.bukkit.entity.Player) {
-                ((org.bukkit.entity.Player) sender).getInventory().addItem(ArtemisBowItem.createBow());
-            }
+
+        getCommand("frost").setExecutor((sender, command, label, args) -> {
+            if (sender instanceof Player p) p.getInventory().addItem(FrostSwordItem.createFrostSword());
             return true;
         });
-        
-        getCommand("creationbow").setExecutor((sender, command, label, args) -> {
-            if (sender instanceof org.bukkit.entity.Player) {
-                ((org.bukkit.entity.Player) sender).getInventory().addItem(CreationBowItem.createBow());
-            }
+
+        getCommand("shadow").setExecutor((sender, command, label, args) -> {
+            if (sender instanceof Player p) p.getInventory().addItem(ShadowSwordItem.createShadowSword());
             return true;
         });
-        
-        getCommand("fossil").setExecutor((sender, command, label, args) -> {
-            if (sender instanceof org.bukkit.entity.Player) {
-                ((org.bukkit.entity.Player) sender).getInventory().addItem(FossilSwordItem.createSword());
-            }
+
+        getCommand("spider").setExecutor((sender, command, label, args) -> {
+            if (sender instanceof Player p) p.getInventory().addItem(SpiderBladeItem.createBlade());
             return true;
         });
-        
+
+        getCommand("mjolnir").setExecutor((sender, command, label, args) -> {
+            if (sender instanceof Player p) p.getInventory().addItem(MjolnirItem.createMjolnir());
+            return true;
+        });
+
+        getCommand("scythe").setExecutor((sender, command, label, args) -> {
+            if (sender instanceof Player p) p.getInventory().addItem(DeathScytheItem.createScythe());
+            return true;
+        });
+
+        getCommand("storm").setExecutor((sender, command, label, args) -> {
+            if (sender instanceof Player p) p.getInventory().addItem(StormBladeItem.createBlade());
+            return true;
+        });
+
+        getCommand("excalibur").setExecutor((sender, command, label, args) -> {
+            if (sender instanceof Player p) p.getInventory().addItem(ExcaliburItem.createExcalibur());
+            return true;
+        });
+
+        getCommand("katana").setExecutor((sender, command, label, args) -> {
+            if (sender instanceof Player p) p.getInventory().addItem(KatanaItem.createKatana());
+            return true;
+        });
+
+        getCommand("reaper").setExecutor((sender, command, label, args) -> {
+            if (sender instanceof Player p) p.getInventory().addItem(ReaperScytheItem.createScythe());
+            return true;
+        });
+
         getCommand("mitapy").setExecutor((sender, command, label, args) -> {
-            if (sender instanceof org.bukkit.entity.Player) {
-                org.bukkit.entity.Player player = (org.bukkit.entity.Player) sender;
+            if (sender instanceof Player player) {
                 npcManager.spawnNPC(player.getLocation());
                 player.sendMessage("§aNPC Митапы призван!");
             }
             return true;
         });
-        
-        // КОМАНДА ДЛЯ ВЫДАЧИ КРУТОК
+
+        // Команда для выдачи круток
         getCommand("giveroll").setExecutor((sender, command, label, args) -> {
-            if (!sender.hasPermission("magma.admin")) {
-                sender.sendMessage("§cУ вас нет прав!");
-                return true;
-            }
-            
-            if (args.length < 1) {
-                sender.sendMessage("§cИспользование: /giveroll <игрок> [количество]");
-                return true;
-            }
-            
+            if (!sender.hasPermission("magma.admin")) return true;
+            if (args.length < 1) return true;
             Player target = Bukkit.getPlayer(args[0]);
-            if (target == null) {
-                sender.sendMessage("§cИгрок не найден!");
-                return true;
-            }
-            
-            int amount = 1;
-            if (args.length >= 2) {
-                try {
-                    amount = Integer.parseInt(args[1]);
-                } catch (NumberFormatException e) {
-                    sender.sendMessage("§cНеверное количество!");
-                    return true;
-                }
-            }
-            
+            if (target == null) return true;
+            int amount = (args.length >= 2) ? Integer.parseInt(args[1]) : 1;
             animationChest.giveRoll(target, amount);
             sender.sendMessage("§aВыдано " + amount + " круток игроку " + target.getName());
             return true;
         });
-        
-        // Рандомные команды - ВРЕМЕННО БЕЗ BLOODSWORD
-        getCommand("randomweapon1").setExecutor((sender, command, label, args) -> {
-            if (!(sender instanceof org.bukkit.entity.Player)) return true;
-            
-            List<ItemStack> weapons = Arrays.asList(
-                FrostSwordItem.createFrostSword(),
-                ShadowSwordItem.createShadowSword(),
-                SpiderBladeItem.createBlade(),
-                MjolnirItem.createMjolnir(),
-                StormBladeItem.createBlade(),
-                ExcaliburItem.createExcalibur(),
-                KatanaItem.createKatana(),
-                LudoSwordItem.createSword(),
-                FossilSwordItem.createSword()
-            );
-            
-            Random random = new Random();
-            ItemStack randomWeapon = weapons.get(random.nextInt(weapons.size())).clone();
-            ((org.bukkit.entity.Player) sender).getInventory().addItem(randomWeapon);
-            ((org.bukkit.entity.Player) sender).sendMessage("§aВы получили рандомное оружие!");
-            return true;
-        });
-        
-        getCommand("randomweapon2").setExecutor((sender, command, label, args) -> {
-            if (!(sender instanceof org.bukkit.entity.Player)) return true;
-            
-            List<ItemStack> weapons = Arrays.asList(
-                LightMaceItem.createMace(),
-                OrbitalCannonItem.createCannon(),
-                SculkCrossbowItem.createCrossbow(),
-                VillagerStaffItem.createStaff(),
-                DeathScytheItem.createScythe(),
-                HellMeteorItem.createMeteor(),
-                ReaperScytheItem.createScythe(),
-                TimeClockItem.createClock(),
-                TimeBowItem.createBow(),
-                ArtemisBowItem.createBow()
-            );
-            
-            Random random = new Random();
-            ItemStack randomWeapon = weapons.get(random.nextInt(weapons.size())).clone();
-            ((org.bukkit.entity.Player) sender).getInventory().addItem(randomWeapon);
-            ((org.bukkit.entity.Player) sender).sendMessage("§aВы получили рандомное оружие!");
-            return true;
-        });
-        
-        getCommand("randomweaponall1").setExecutor((sender, command, label, args) -> {
-            List<ItemStack> weapons = Arrays.asList(
-                FrostSwordItem.createFrostSword(),
-                ShadowSwordItem.createShadowSword(),
-                SpiderBladeItem.createBlade(),
-                MjolnirItem.createMjolnir(),
-                StormBladeItem.createBlade(),
-                ExcaliburItem.createExcalibur(),
-                KatanaItem.createKatana(),
-                LudoSwordItem.createSword(),
-                FossilSwordItem.createSword()
-            );
-            
-            Random random = new Random();
-            
-            for (org.bukkit.entity.Player player : getServer().getOnlinePlayers()) {
-                ItemStack randomWeapon = weapons.get(random.nextInt(weapons.size())).clone();
-                player.getInventory().addItem(randomWeapon);
-                player.sendMessage("§aВы получили рандомное оружие!");
-            }
-            
-            sender.sendMessage("§aРандомное оружие выдано всем игрокам!");
-            return true;
-        });
-        
-        getCommand("randomweaponall2").setExecutor((sender, command, label, args) -> {
-            List<ItemStack> weapons = Arrays.asList(
-                LightMaceItem.createMace(),
-                OrbitalCannonItem.createCannon(),
-                SculkCrossbowItem.createCrossbow(),
-                VillagerStaffItem.createStaff(),
-                DeathScytheItem.createScythe(),
-                HellMeteorItem.createMeteor(),
-                ReaperScytheItem.createScythe(),
-                TimeClockItem.createClock(),
-                TimeBowItem.createBow(),
-                ArtemisBowItem.createBow()
-            );
-            
-            Random random = new Random();
-            
-            for (org.bukkit.entity.Player player : getServer().getOnlinePlayers()) {
-                ItemStack randomWeapon = weapons.get(random.nextInt(weapons.size())).clone();
-                player.getInventory().addItem(randomWeapon);
-                player.sendMessage("§aВы получили рандомное оружие!");
-            }
-            
-            sender.sendMessage("§aРандомное оружие выдано всем игрокам!");
-            return true;
-        });
-        
-        getLogger().info("§aMagmaRoarPlugin включён! Загружено 30+ предметов, NPC Митапы и Сундук-рулетка");
     }
 
     @Override
     public void onDisable() {
-        if (npcManager != null) {
-            npcManager.removeAllNPCs();
-        }
+        if (npcManager != null) npcManager.removeAllNPCs();
         getLogger().info("§cMagmaRoarPlugin выключён!");
     }
 
-    public static MagmaRoarPlugin getInstance() {
-        return instance;
-    }
+    public static MagmaRoarPlugin getInstance() { return instance; }
     
     public NPCManager getNPCManager() { return npcManager; }
     public QueueManager getQueueManager() { return queueManager; }

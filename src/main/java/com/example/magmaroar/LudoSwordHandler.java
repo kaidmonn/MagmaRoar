@@ -9,6 +9,7 @@ import org.bukkit.event.EventHandler;
 import org.bukkit.event.Listener;
 import org.bukkit.event.block.Action;
 import org.bukkit.event.player.PlayerInteractEvent;
+import org.bukkit.event.player.PlayerItemHeldEvent;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.inventory.meta.ItemMeta;
 import org.bukkit.scheduler.BukkitRunnable;
@@ -21,6 +22,7 @@ public class LudoSwordHandler implements Listener {
     private final Map<UUID, Boolean> isActive = new HashMap<>();
     private final Map<UUID, Integer> itemSlot = new HashMap<>();
     private final Set<UUID> rollingPlayers = new HashSet<>();
+    private final Set<UUID> lockedSlots = new HashSet<>();
     private final Random random = new Random();
     
     private static final long COOLDOWN_TIME = 35 * 1000;
@@ -48,13 +50,11 @@ public class LudoSwordHandler implements Listener {
 
     @EventHandler
     public void onPlayerInteract(PlayerInteractEvent event) {
-        // Только ПКМ
         if (event.getAction() != Action.RIGHT_CLICK_AIR && event.getAction() != Action.RIGHT_CLICK_BLOCK) return;
         
         Player player = event.getPlayer();
         ItemStack item = event.getItem();
 
-        // Проверка: это Лудо-меч?
         if (!isLudoSword(item)) return;
 
         UUID uuid = player.getUniqueId();
@@ -67,9 +67,9 @@ public class LudoSwordHandler implements Listener {
             return;
         }
         
-        // Проверка кулдауна
-        if (cooldowns.containsKey(uuid) && now - cooldowns.get(uuid) < COOLDOWN_TIME) {
-            long secondsLeft = (COOLDOWN_TIME - (now - cooldowns.get(uuid))) / 1000;
+        // Проверка кулдауна (после возврата)
+        if (cooldowns.containsKey(uuid) && now < cooldowns.get(uuid)) {
+            long secondsLeft = (cooldowns.get(uuid) - now) / 1000;
             player.sendMessage("§cЛудо-меч перезаряжается! Осталось: " + secondsLeft + " сек.");
             event.setCancelled(true);
             return;
@@ -82,12 +82,21 @@ public class LudoSwordHandler implements Listener {
             return;
         }
         
-        // Запоминаем слот
-        itemSlot.put(uuid, player.getInventory().getHeldItemSlot());
+        // Запоминаем слот и БЛОКИРУЕМ его
+        int slot = player.getInventory().getHeldItemSlot();
+        itemSlot.put(uuid, slot);
+        lockedSlots.add(uuid);
         
         // Запускаем рулетку
         startRoulette(player);
         event.setCancelled(true);
+    }
+
+    @EventHandler
+    public void onPlayerItemHeld(PlayerItemHeldEvent event) {
+        if (lockedSlots.contains(event.getPlayer().getUniqueId())) {
+            event.setCancelled(true);
+        }
     }
 
     private void startRoulette(Player player) {
@@ -102,7 +111,7 @@ public class LudoSwordHandler implements Listener {
             
             @Override
             public void run() {
-                if (ticks >= 40) { // 2 секунды
+                if (ticks >= 40) {
                     
                     rollingPlayers.remove(uuid);
                     
@@ -122,9 +131,11 @@ public class LudoSwordHandler implements Listener {
                     // Выдаём выпавший предмет
                     giveRandomItem(player, selectedItem, selectedName);
                     
-                    // Ставим кулдаун и активность
-                    cooldowns.put(uuid, System.currentTimeMillis());
+                    // Активность включена
                     isActive.put(uuid, true);
+                    
+                    // Разблокируем слот
+                    lockedSlots.remove(uuid);
                     
                     this.cancel();
                     return;
@@ -231,10 +242,18 @@ public class LudoSwordHandler implements Listener {
             @Override
             public void run() {
                 int slot = itemSlot.getOrDefault(uuid, 0);
+                
+                // Очищаем слот
                 player.getInventory().setItem(slot, null);
-                player.getInventory().addItem(LudoSwordItem.createSword());
+                
+                // Даём новый Лудо-меч
+                ItemStack ludo = LudoSwordItem.createSword();
+                player.getInventory().setItem(slot, ludo);
+                
                 player.sendMessage("§cВыпавший предмет исчез. Лудо-меч вернулся!");
                 
+                // СТАВИМ КУЛДАУН НА 35 СЕКУНД ПОСЛЕ ВОЗВРАТА
+                cooldowns.put(uuid, System.currentTimeMillis() + COOLDOWN_TIME);
                 isActive.put(uuid, false);
                 itemSlot.remove(uuid);
             }
@@ -248,7 +267,6 @@ public class LudoSwordHandler implements Listener {
         ItemMeta meta = item.getItemMeta();
         if (meta == null || !meta.hasDisplayName()) return false;
         
-        // Убираем цвет для проверки
         String name = ChatColor.stripColor(meta.getDisplayName());
         return name.contains("Лудо-меч") || name.contains("Лудо");
     }

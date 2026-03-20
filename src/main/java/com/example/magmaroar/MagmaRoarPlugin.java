@@ -54,6 +54,7 @@ public class MagmaRoarPlugin extends JavaPlugin {
         getServer().getPluginManager().registerEvents(new KatanaHandler(), this);
         getServer().getPluginManager().registerEvents(new ReaperScytheHandler(), this);
         getServer().getPluginManager().registerEvents(new LudoSwordHandler(), this);
+        getServer().getPluginManager().registerEvents(new MirrorSwordHandler(), this);
         getServer().getPluginManager().registerEvents(new TimeClockHandler(), this);
         getServer().getPluginManager().registerEvents(new TimeBowHandler(), this);
         getServer().getPluginManager().registerEvents(new ArtemisBowHandler(), this);
@@ -226,12 +227,22 @@ public class MagmaRoarPlugin extends JavaPlugin {
             return true;
         });
         
-        // ЛУДО-МЕЧ - РАБОЧАЯ ВЕРСИЯ
+        // ЛУДО-МЕЧ
         getCommand("ludo").setExecutor((sender, command, label, args) -> {
             if (sender instanceof org.bukkit.entity.Player) {
                 org.bukkit.entity.Player player = (org.bukkit.entity.Player) sender;
                 player.getInventory().addItem(LudoSwordItem.createSword());
                 player.sendMessage("§aВы получили Лудо-меч!");
+            }
+            return true;
+        });
+        
+        // ЗЕРКАЛЬНЫЙ МЕЧ
+        getCommand("mirror").setExecutor((sender, command, label, args) -> {
+            if (sender instanceof org.bukkit.entity.Player) {
+                org.bukkit.entity.Player player = (org.bukkit.entity.Player) sender;
+                player.getInventory().addItem(MirrorSwordItem.createSword());
+                player.sendMessage("§aВы получили Зеркальный меч!");
             }
             return true;
         });
@@ -326,6 +337,7 @@ public class MagmaRoarPlugin extends JavaPlugin {
                 ExcaliburItem.createExcalibur(),
                 KatanaItem.createKatana(),
                 LudoSwordItem.createSword(),
+                MirrorSwordItem.createSword(),
                 FossilSwordItem.createSword()
             );
             
@@ -369,6 +381,7 @@ public class MagmaRoarPlugin extends JavaPlugin {
                 ExcaliburItem.createExcalibur(),
                 KatanaItem.createKatana(),
                 LudoSwordItem.createSword(),
+                MirrorSwordItem.createSword(),
                 FossilSwordItem.createSword()
             );
             

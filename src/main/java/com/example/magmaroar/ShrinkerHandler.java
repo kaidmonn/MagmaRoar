@@ -8,7 +8,6 @@ import org.bukkit.Particle;
 import org.bukkit.Sound;
 import org.bukkit.attribute.Attribute;
 import org.bukkit.entity.Entity;
-import org.bukkit.entity.LivingEntity;
 import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.Listener;
@@ -27,12 +26,12 @@ public class ShrinkerHandler implements Listener {
 
     private final Map<UUID, Long> cooldowns = new HashMap<>();
     private final Map<UUID, Boolean> shrunkPlayers = new HashMap<>();
-    private final Map<UUID, Double> originalScales = new HashMap<>();
+    private final Map<UUID, Double> originalScale = new HashMap<>();
     private final Map<UUID, Double> originalMaxHealth = new HashMap<>();
     private final Map<UUID, Boolean> enlargedPlayers = new HashMap<>();
 
     private static final long COOLDOWN = 45 * 1000;
-    private static final int DURATION = 30 * 20; // 30 секунд в тиках
+    private static final int DURATION = 30 * 20;
 
     @EventHandler
     public void onPlayerInteract(PlayerInteractEvent event) {
@@ -50,7 +49,6 @@ public class ShrinkerHandler implements Listener {
 
         // Зажатый ПКМ - увеличение врага
         if (event.getAction() == Action.RIGHT_CLICK_AIR || event.getAction() == Action.RIGHT_CLICK_BLOCK) {
-            // Запускаем задачу на прицеливание
             startAiming(player);
             event.setCancelled(true);
         }
@@ -71,14 +69,16 @@ public class ShrinkerHandler implements Listener {
             return;
         }
 
-        // Сохраняем оригинальный масштаб
-        originalScales.put(uuid, player.getScale());
+        // Сохраняем оригинальный размер
+        originalScale.put(uuid, 1.0);
         shrunkPlayers.put(uuid, true);
         cooldowns.put(uuid, now + COOLDOWN);
 
-        // Уменьшаем
-        player.setScale(0.5);
-        player.sendMessage("§aВы уменьшились! (30 сек)");
+        // Уменьшаем через команду /attribute
+        Bukkit.dispatchCommand(Bukkit.getConsoleSender(), 
+            "attribute " + player.getName() + " minecraft:scale base set 0.5");
+
+        player.sendMessage("§aВы уменьшились до 0.5 блока! (30 сек)");
         player.playSound(player.getLocation(), Sound.ENTITY_ENDERMAN_TELEPORT, 1.0f, 1.0f);
         player.getWorld().spawnParticle(Particle.SMOKE, player.getLocation(), 50, 0.5, 1, 0.5, 0.1);
 
@@ -87,9 +87,10 @@ public class ShrinkerHandler implements Listener {
             @Override
             public void run() {
                 if (shrunkPlayers.containsKey(uuid)) {
-                    player.setScale(originalScales.getOrDefault(uuid, 1.0));
+                    Bukkit.dispatchCommand(Bukkit.getConsoleSender(), 
+                        "attribute " + player.getName() + " minecraft:scale base set 1.0");
                     shrunkPlayers.remove(uuid);
-                    originalScales.remove(uuid);
+                    originalScale.remove(uuid);
                     player.sendMessage("§cВы вернулись к нормальному размеру!");
                     player.playSound(player.getLocation(), Sound.ENTITY_ENDERMAN_TELEPORT, 1.0f, 0.5f);
                 }
@@ -117,9 +118,7 @@ public class ShrinkerHandler implements Listener {
             public void run() {
                 ticks++;
                 
-                // Проверяем, держит ли игрок ПКМ
                 if (!player.isSneaking() && !player.isBlocking()) {
-                    // Если отпустили
                     if (!released) {
                         released = true;
                         Player target = getTargetPlayer(player, 15);
@@ -127,7 +126,6 @@ public class ShrinkerHandler implements Listener {
                         if (target != null && !target.equals(player)) {
                             enlargeTarget(player, target);
                         } else {
-                            // Промах — кулдаун всё равно
                             cooldowns.put(player.getUniqueId(), System.currentTimeMillis() + COOLDOWN);
                             player.sendMessage("§cПромах! Уменьшитель перезарядится через 45 сек.");
                         }
@@ -136,7 +134,6 @@ public class ShrinkerHandler implements Listener {
                     }
                 }
                 
-                // Если прошло 3 секунды и не отпустили
                 if (ticks >= 60) {
                     cooldowns.put(player.getUniqueId(), System.currentTimeMillis() + COOLDOWN);
                     player.sendMessage("§cВремя вышло! Уменьшитель перезарядится через 45 сек.");
@@ -150,7 +147,6 @@ public class ShrinkerHandler implements Listener {
         for (Entity entity : player.getNearbyEntities(range, range, range)) {
             if (entity instanceof Player) {
                 Player target = (Player) entity;
-                // Проверяем, смотрит ли игрок на цель
                 Vector toTarget = target.getLocation().toVector().subtract(player.getEyeLocation().toVector());
                 Vector direction = player.getEyeLocation().getDirection();
                 
@@ -171,14 +167,14 @@ public class ShrinkerHandler implements Listener {
         }
         
         // Сохраняем оригинальные параметры
-        originalScales.put(targetId, target.getScale());
+        originalScale.put(targetId, 1.0);
         originalMaxHealth.put(targetId, target.getAttribute(Attribute.MAX_HEALTH).getValue());
-        
         enlargedPlayers.put(targetId, true);
         cooldowns.put(owner.getUniqueId(), System.currentTimeMillis() + COOLDOWN);
         
-        // Увеличиваем
-        target.setScale(3.0);
+        // Увеличиваем через команду /attribute
+        Bukkit.dispatchCommand(Bukkit.getConsoleSender(), 
+            "attribute " + target.getName() + " minecraft:scale base set 3.0");
         
         // Устанавливаем 8 сердец (16 HP)
         target.getAttribute(Attribute.MAX_HEALTH).setBaseValue(16);
@@ -187,28 +183,29 @@ public class ShrinkerHandler implements Listener {
         }
         
         // Замедление
-        target.addPotionEffect(new PotionEffect(PotionEffectType.SLOWNESS, DURATION, 1));
+        target.addPotionEffect(new PotionEffect(PotionEffectType.SLOWNESS, DURATION, 2));
         
-        target.sendMessage("§c§lВЫ УВЕЛИЧЕНЫ! (30 сек)");
-        target.sendMessage("§cВаше здоровье: 8❤, вы медленнее!");
+        target.sendMessage("§c§lВЫ УВЕЛИЧЕНЫ ДО 3 БЛОКОВ! (30 сек)");
+        target.sendMessage("§cВаше здоровье: 8❤, вы сильно медленнее!");
         owner.sendMessage("§aВы увеличили " + target.getName() + "!");
         
         target.playSound(target.getLocation(), Sound.ENTITY_IRON_GOLEM_DAMAGE, 1.0f, 0.5f);
-        target.getWorld().spawnParticle(Particle.SPELL_WITCH, target.getLocation(), 50, 1, 2, 1, 0.1);
+        target.getWorld().spawnParticle(Particle.ENCHANTMENT_TABLE, target.getLocation(), 100, 1, 2, 1, 0.5);
         
         // Таймер возврата
         new BukkitRunnable() {
             @Override
             public void run() {
                 if (enlargedPlayers.containsKey(targetId)) {
-                    target.setScale(originalScales.getOrDefault(targetId, 1.0));
+                    Bukkit.dispatchCommand(Bukkit.getConsoleSender(), 
+                        "attribute " + target.getName() + " minecraft:scale base set 1.0");
                     target.getAttribute(Attribute.MAX_HEALTH).setBaseValue(originalMaxHealth.getOrDefault(targetId, 20.0));
                     if (target.getHealth() > target.getAttribute(Attribute.MAX_HEALTH).getValue()) {
                         target.setHealth(target.getAttribute(Attribute.MAX_HEALTH).getValue());
                     }
                     target.removePotionEffect(PotionEffectType.SLOWNESS);
                     enlargedPlayers.remove(targetId);
-                    originalScales.remove(targetId);
+                    originalScale.remove(targetId);
                     originalMaxHealth.remove(targetId);
                     target.sendMessage("§aВы вернулись к нормальному размеру!");
                     target.playSound(target.getLocation(), Sound.ENTITY_IRON_GOLEM_REPAIR, 1.0f, 1.0f);

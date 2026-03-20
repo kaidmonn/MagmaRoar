@@ -225,11 +225,12 @@ public class MagmaRoarPlugin extends JavaPlugin {
             return true;
         });
         
-        // ЛУДО-МЕЧ - ИСПРАВЛЕНО!
+        // ЛУДО-МЕЧ
         getCommand("ludo").setExecutor((sender, command, label, args) -> {
             if (sender instanceof org.bukkit.entity.Player) {
                 org.bukkit.entity.Player player = (org.bukkit.entity.Player) sender;
                 player.getInventory().addItem(LudoSwordItem.createSword());
+                player.sendMessage("§aВы получили Лудо-меч!");
             }
             return true;
         });

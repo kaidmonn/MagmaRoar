@@ -1,18 +1,37 @@
 package com.example.magmaroar;
 
-import org.bukkit.Bukkit;
-import org.bukkit.entity.Player;
+import net.kyori.adventure.text.Component;
+import net.kyori.adventure.text.format.TextColor;
+import org.bukkit.Material;
+import org.bukkit.inventory.ItemStack;
+import org.bukkit.inventory.meta.ItemMeta;
+
+import java.util.ArrayList;
+import java.util.List;
 
 public class LudoSwordItem {
 
-    public static void giveLudoSword(Player player) {
-        String command = "give " + player.getName() + " minecraft:netherite_sword[" +
-            "custom_model_data={strings:[\"1004\"]}," +
-            "item_name='{\"text\":\"Лудо-меч\",\"color\":\"light_purple\",\"bold\":true}'," +
-            "lore=['{\"text\":\"ПКМ: запустить рулетку\",\"color\":\"gray\"}']" +
-            "] 1";
-        
-        Bukkit.dispatchCommand(Bukkit.getConsoleSender(), command);
-        player.sendMessage("§aВы получили Лудо-меч!");
+    public static ItemStack createSword() {
+        ItemStack sword = new ItemStack(Material.NETHERITE_SWORD);
+        ItemMeta meta = sword.getItemMeta();
+
+        if (meta != null) {
+            meta.displayName(Component.text("§5§lЛудо-меч"));
+
+            List<Component> lore = new ArrayList<>();
+            lore.add(Component.text("§7Урон: 14"));
+            lore.add(Component.text("§7ПКМ: Крутить рулетку (2 сек)"));
+            lore.add(Component.text("§7Шанс джекпота: 5%"));
+            lore.add(Component.text("§711 предметов: морозный, теневой, паучий, мьёльнир,"));
+            lore.add(Component.text("§7коса смерти, клинок бури, коса жнеца, катана,"));
+            lore.add(Component.text("§7экскалибур, легкая булава, ДЖЕКПОТ"));
+            meta.lore(lore);
+
+            // ВАЖНО: custom_model_data для модели
+            meta.setCustomModelData(1004);
+
+            sword.setItemMeta(meta);
+        }
+        return sword;
     }
 }

@@ -2,6 +2,7 @@ package com.example.magmaroar;
 
 import net.kyori.adventure.text.Component;
 import org.bukkit.Material;
+import org.bukkit.entity.Player;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.inventory.meta.ItemMeta;
 
@@ -16,7 +17,7 @@ public class VillagerStaffItem {
 
         if (meta != null) {
             meta.displayName(Component.text("§aПосох жителя"));
-            meta.setCustomModelData(1016);  // ← ДОБАВЛЯЕМ МОДЕЛЬ!
+            meta.setCustomModelData(1016);  // ← ЧИСЛО!
 
             List<Component> lore = new ArrayList<>();
             lore.add(Component.text("§7ПКМ: Создает мощный взрыв через 2 секунды"));
@@ -29,5 +30,10 @@ public class VillagerStaffItem {
             staff.setItemMeta(meta);
         }
         return staff;
+    }
+    
+    public static void giveStaff(Player player) {
+        player.getInventory().addItem(createStaff());
+        player.sendMessage("§aВы получили Посох жителя!");
     }
 }

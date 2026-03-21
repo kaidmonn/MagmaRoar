@@ -137,9 +137,11 @@ public class MagmaRoarPlugin extends JavaPlugin {
             return true;
         });
         
+        // ПОСОХ ЖИТЕЛЯ (НОВАЯ КОМАНДА)
         getCommand("villagerstaff").setExecutor((sender, command, label, args) -> {
             if (sender instanceof org.bukkit.entity.Player) {
-                ((org.bukkit.entity.Player) sender).getInventory().addItem(VillagerStaffItem.createStaff());
+                org.bukkit.entity.Player player = (org.bukkit.entity.Player) sender;
+                VillagerStaffItem.giveStaff(player);
             }
             return true;
         });
@@ -345,6 +347,7 @@ public class MagmaRoarPlugin extends JavaPlugin {
             if (!(sender instanceof org.bukkit.entity.Player)) return true;
             
             List<ItemStack> weapons = Arrays.asList(
+                BloodSwordItem.createBloodSword(),
                 FrostSwordItem.createFrostSword(),
                 ShadowSwordItem.createShadowSword(),
                 SpiderBladeItem.createBlade(),
@@ -389,6 +392,7 @@ public class MagmaRoarPlugin extends JavaPlugin {
         
         getCommand("randomweaponall1").setExecutor((sender, command, label, args) -> {
             List<ItemStack> weapons = Arrays.asList(
+                BloodSwordItem.createBloodSword(),
                 FrostSwordItem.createFrostSword(),
                 ShadowSwordItem.createShadowSword(),
                 SpiderBladeItem.createBlade(),

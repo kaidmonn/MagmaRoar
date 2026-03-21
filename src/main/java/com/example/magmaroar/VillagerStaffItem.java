@@ -2,6 +2,7 @@ package com.example.magmaroar;
 
 import net.kyori.adventure.text.Component;
 import org.bukkit.Material;
+import org.bukkit.NamespacedKey;
 import org.bukkit.entity.Player;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.inventory.meta.ItemMeta;
@@ -17,7 +18,10 @@ public class VillagerStaffItem {
 
         if (meta != null) {
             meta.displayName(Component.text("§aПосох жителя"));
-            meta.setCustomModelData(1016);  // ← ЧИСЛО!
+            
+            // Устанавливаем кастомный ID предмета
+            NamespacedKey key = new NamespacedKey(MagmaRoarPlugin.getInstance(), "villager_staff");
+            meta.setItemModel(key);
 
             List<Component> lore = new ArrayList<>();
             lore.add(Component.text("§7ПКМ: Создает мощный взрыв через 2 секунды"));

@@ -20,7 +20,7 @@ public class VillagerStaffItem {
             meta.displayName(Component.text("§aПосох жителя"));
             
             // Устанавливаем кастомный ID предмета
-            NamespacedKey key = new NamespacedKey(MagmaRoarPlugin.getInstance(), "villager_staff");
+            NamespacedKey key = new NamespacedKey(MagmaRoarPlugin.getInstance(), "village_staff");
             meta.setItemModel(key);
 
             List<Component> lore = new ArrayList<>();

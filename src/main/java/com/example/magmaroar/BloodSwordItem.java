@@ -1,20 +1,39 @@
 package com.example.magmaroar;
 
-import org.bukkit.Bukkit;
+import net.kyori.adventure.text.Component;
+import org.bukkit.Material;
 import org.bukkit.entity.Player;
+import org.bukkit.inventory.ItemStack;
+import org.bukkit.inventory.meta.ItemMeta;
+
+import java.util.ArrayList;
+import java.util.List;
 
 public class BloodSwordItem {
 
+    // Метод для создания ItemStack (для рандомных команд)
+    public static ItemStack createBloodSword() {
+        ItemStack sword = new ItemStack(Material.NETHERITE_SWORD);
+        ItemMeta meta = sword.getItemMeta();
+
+        if (meta != null) {
+            meta.displayName(Component.text("§cКровавый меч"));
+            meta.setCustomModelData(1001);  // ← ЧИСЛО!
+
+            List<Component> lore = new ArrayList<>();
+            lore.add(Component.text("§7Урон: 14"));
+            lore.add(Component.text("§7Shift+ПКМ: переключение режима"));
+            lore.add(Component.text("§7Режимы: Меч → Трезубец → Булава"));
+            meta.lore(lore);
+
+            sword.setItemMeta(meta);
+        }
+        return sword;
+    }
+    
+    // Метод для выдачи игроку
     public static void giveBloodSword(Player player) {
-        // Твоя рабочая команда
-        String command = "give " + player.getName() + " minecraft:netherite_sword[" +
-            "custom_model_data={strings:[\"1001\"]}," +
-            "item_name='{\"text\":\"Кровавый меч\",\"color\":\"red\",\"bold\":true}'," +
-            "lore=['{\"text\":\"Урон: 14\",\"color\":\"gray\"}'," +
-                  "'{\"text\":\"Shift+ПКМ: переключение режима\",\"color\":\"gray\"}'," +
-                  "'{\"text\":\"Режимы: Меч → Трезубец → Булава\",\"color\":\"gray\"}']" +
-            "] 1";
-        
-        Bukkit.dispatchCommand(Bukkit.getConsoleSender(), command);
+        player.getInventory().addItem(createBloodSword());
+        player.sendMessage("§aВы получили Кровавый меч!");
     }
 }

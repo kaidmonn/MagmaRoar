@@ -16,6 +16,7 @@ public class VillagerStaffItem {
 
         if (meta != null) {
             meta.displayName(Component.text("§aПосох жителя"));
+            meta.setCustomModelData(1016);  // ← ДОБАВЛЯЕМ МОДЕЛЬ!
 
             List<Component> lore = new ArrayList<>();
             lore.add(Component.text("§7ПКМ: Создает мощный взрыв через 2 секунды"));

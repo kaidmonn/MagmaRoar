@@ -1,35 +1,21 @@
-<<<<<<< HEAD
 name: MagmaRoar
 version: 1.0
 main: me.kaidmonn.magmaroar.MagmaRoar
-api-version: 1.21
-commands:
-  team:
-    description: Управление командами
-    usage: /team <create|join|invite|leave|disband>
-  magmagive:
-    description: Выдача предметов
-    permission: magmaroar.admin
-=======
-name: UltimateItems
-version: 1.0
-main: me.yourname.ultimateitems.UltimateItems
 api-version: '1.21'
-author: YourName
-description: Плагин на уникальные команды и 14 видов магического оружия.
+author: kaidmonngrief
+description: Плагин на систему команд и 14 видов уникального оружия.
 
 commands:
   team:
     description: Основная команда управления системой команд.
-    usage: /team <create|join|invite|leave|disband|newleader> [аргумент]
-    aliases: [t, tm]
-  uitems:
+    usage: /team <create|join|invite|leave|disband|newleader|accept|deny>
+    aliases: [t]
+  magma:
     description: Административная команда для выдачи предметов.
-    permission: ultimateitems.admin
-    usage: /uitems <giveall|randomall>
+    permission: magmaroar.admin
+    usage: /magma <all|randomall>
 
 permissions:
-  ultimateitems.admin:
-    description: Позволяет выдавать ультимативные предметы.
+  magmaroar.admin:
+    description: Позволяет использовать команду выдачи оружия.
     default: op
->>>>>>> 173ffc957b560e7333805760da25ee2d844061d5

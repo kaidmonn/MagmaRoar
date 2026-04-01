@@ -1,0 +1,21 @@
+name: UltimateItems
+version: 1.0
+main: me.yourname.ultimateitems.UltimateItems
+api-version: '1.21'
+author: YourName
+description: Плагин на уникальные команды и 14 видов магического оружия.
+
+commands:
+  team:
+    description: Основная команда управления системой команд.
+    usage: /team <create|join|invite|leave|disband|newleader> [аргумент]
+    aliases: [t, tm]
+  uitems:
+    description: Административная команда для выдачи предметов.
+    permission: ultimateitems.admin
+    usage: /uitems <giveall|randomall>
+
+permissions:
+  ultimateitems.admin:
+    description: Позволяет выдавать ультимативные предметы.
+    default: op

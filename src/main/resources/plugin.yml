@@ -1,0 +1,11 @@
+name: MagmaRoar
+version: 1.0
+main: me.kaidmonn.magmaroar.MagmaRoar
+api-version: 1.21
+commands:
+  team:
+    description: Управление командами
+    usage: /team <create|join|invite|leave|disband>
+  magmagive:
+    description: Выдача предметов
+    permission: magmaroar.admin

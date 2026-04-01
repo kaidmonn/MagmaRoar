@@ -24,7 +24,7 @@ public class MidasSword206Item {
         
         // Урон как у алмазного меча (7.0)
         // Базовый урон золотого меча 4.0, добавляем 3.0
-        meta.addAttributeModifier(Attribute.GENERIC_ATTACK_DAMAGE, 
+        meta.addAttributeModifier(Attribute.ATTACK_DAMAGE, 
             new AttributeModifier(UUID.randomUUID(), "midas_base_damage", 3.0, 
             AttributeModifier.Operation.ADD_NUMBER, EquipmentSlot.HAND));
 

@@ -21,12 +21,12 @@ public class Katana105Item {
         meta.setUnbreakable(true);
         
         // Урон 14 (База 8 + Модификатор 6)
-        meta.addAttributeModifier(Attribute.GENERIC_ATTACK_DAMAGE, 
+        meta.addAttributeModifier(Attribute.ATTACK_DAMAGE, 
             new AttributeModifier(UUID.randomUUID(), "katana_damage", 6.0, 
             AttributeModifier.Operation.ADD_NUMBER, EquipmentSlot.HAND));
             
         // Скорость +10%
-        meta.addAttributeModifier(Attribute.GENERIC_MOVEMENT_SPEED, 
+        meta.addAttributeModifier(Attribute.MOVEMENT_SPEED, 
             new AttributeModifier(UUID.randomUUID(), "katana_speed", 0.1, 
             AttributeModifier.Operation.ADD_SCALAR, EquipmentSlot.HAND));
 

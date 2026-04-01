@@ -20,12 +20,12 @@ public class Trident109Item {
         meta.setUnbreakable(true);
         
         // Урон 14 (База трезубца 9, добавляем 5)
-        meta.addAttributeModifier(Attribute.GENERIC_ATTACK_DAMAGE, 
+        meta.addAttributeModifier(Attribute.ATTACK_DAMAGE, 
             new AttributeModifier(UUID.randomUUID(), "trident_damage", 5.0, 
             AttributeModifier.Operation.ADD_NUMBER, EquipmentSlot.HAND));
 
         // Скорость атаки 1.6 (База ~1.1, добавляем 0.5)
-        meta.addAttributeModifier(Attribute.GENERIC_ATTACK_SPEED, 
+        meta.addAttributeModifier(Attribute.ATTACK_SPEED, 
             new AttributeModifier(UUID.randomUUID(), "trident_speed", 0.5, 
             AttributeModifier.Operation.ADD_NUMBER, EquipmentSlot.HAND));
 

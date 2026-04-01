@@ -17,29 +17,42 @@ public final class MagmaRoar extends JavaPlugin {
         teamManager = new TeamManager();
 
         // Регистрация команд
-        getCommand("team").setExecutor(new TeamCommand(teamManager));
-        getCommand("magmagive").setExecutor(new ItemsCommand());
+        if (getCommand("team") != null) {
+            getCommand("team").setExecutor(new TeamCommand(teamManager));
+        }
+        if (getCommand("magmagive") != null) {
+            getCommand("magmagive").setExecutor(new ItemsCommand());
+        }
 
-        // Регистрация всех 14 обработчиков оружия
+        // Регистрация всех обработчиков (названия исправлены согласно логам компиляции)
         var pm = getServer().getPluginManager();
-        pm.registerEvents(new Reaper101Handler(), this); // Коса 1
-        pm.registerEvents(new Reaper102Handler(), this); // Коса 2
+        
+        // 101-109
+        pm.registerEvents(new Scythe101Handler(), this);
+        pm.registerEvents(new Scythe102Handler(), this);
         pm.registerEvents(new Mjolnir103Handler(), this);
-        pm.registerEvents(new SculkCrossbow104Handler(), this);
-        pm.registerEvents(new DragonKatana105Handler(), this);
+        pm.registerEvents(new Crossbow104Handler(), this);
+        pm.registerEvents(new Katana105Handler(), this);
         pm.registerEvents(new Mace106Handler(), this);
         pm.registerEvents(new ShadowBlade107Handler(), this);
         pm.registerEvents(new VillagerStaff108Handler(), this);
         pm.registerEvents(new Trident109Handler(), this);
-        pm.registerEvents(new BloodSword201Handler(), this); // Меч/Трезубец/Булава
+        
+        // 201-207
+        pm.registerEvents(new BloodSword201Handler(), this);
         pm.registerEvents(new Excalibur204Handler(), this);
         pm.registerEvents(new EmeraldBlade205Handler(), this);
         pm.registerEvents(new MidasSword206Handler(), this);
         pm.registerEvents(new TimeBow207Handler(), this);
 
-        getLogger().info("MagmaRoar запущен!");
+        getLogger().info("MagmaRoar успешно запущен!");
     }
 
-    public static MagmaRoar getInstance() { return instance; }
-    public static TeamManager getTeamManager() { return teamManager; }
+    public static MagmaRoar getInstance() {
+        return instance;
+    }
+
+    public static TeamManager getTeamManager() {
+        return teamManager;
+    }
 }

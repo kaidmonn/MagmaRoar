@@ -20,7 +20,7 @@ public class Excalibur204Item {
         meta.setUnbreakable(true);
         
         // Урон 14
-        meta.addAttributeModifier(Attribute.GENERIC_ATTACK_DAMAGE, 
+        meta.addAttributeModifier(Attribute.ATTACK_DAMAGE, 
             new AttributeModifier(UUID.randomUUID(), "excalibur_damage", 6.0, 
             AttributeModifier.Operation.ADD_NUMBER, EquipmentSlot.HAND));
 

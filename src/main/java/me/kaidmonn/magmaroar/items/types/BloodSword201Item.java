@@ -18,7 +18,7 @@ public class BloodSword201Item {
         meta.setCustomModelData(201);
         meta.setUnbreakable(true);
         
-        meta.addAttributeModifier(Attribute.GENERIC_ATTACK_DAMAGE, 
+        meta.addAttributeModifier(Attribute.ATTACK_DAMAGE, 
             new AttributeModifier(UUID.randomUUID(), "blood_damage", 6.0, 
             AttributeModifier.Operation.ADD_NUMBER, EquipmentSlot.HAND));
 

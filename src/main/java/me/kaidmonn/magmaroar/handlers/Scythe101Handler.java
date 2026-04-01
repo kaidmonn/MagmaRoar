@@ -1,45 +1,45 @@
 package me.kaidmonn.magmaroar.handlers;
 
 import me.kaidmonn.magmaroar.MagmaRoar;
-import org.bukkit.Bukkit;
 import org.bukkit.Material;
-import org.bukkit.entity.LivingEntity;
 import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.Listener;
 import org.bukkit.event.entity.EntityDamageByEntityEvent;
-import org.bukkit.inventory.ItemStack;
 import org.bukkit.potion.PotionEffect;
 
 public class Scythe101Handler implements Listener {
 
     @EventHandler
     public void onHit(EntityDamageByEntityEvent e) {
-        if (!(e.getDamager() instanceof Player attacker)) return;
-        if (!(e.getEntity() instanceof LivingEntity victim)) return;
+        if (!(e.getDamager() instanceof Player damager) || !(e.getEntity() instanceof Player victim)) return;
 
-        ItemStack item = attacker.getInventory().getItemInMainHand();
+        var item = damager.getInventory().getItemInMainHand();
         if (item.getType() != Material.NETHERITE_HOE || !item.hasItemMeta() || item.getItemMeta().getCustomModelData() != 101) return;
 
-        // Отмена урона по своим
-        if (victim instanceof Player vicP && MagmaRoar.getInstance().getTeamManager().isTeammate(attacker, vicP)) {
+        // Проверка кулдауна (шторка)
+        if (damager.hasCooldown(Material.NETHERITE_HOE)) return;
+
+        // Не работает на тимейтах
+        if (MagmaRoar.getTeamManager().isTeammate(damager, victim)) {
             e.setCancelled(true);
             return;
         }
 
-        if (attacker.getCooldown(Material.NETHERITE_HOE) > 0) return;
+        boolean stolen = false;
+        var team = MagmaRoar.getTeamManager().getTeamMembers(damager);
 
-        // Логика кражи эффектов
         for (PotionEffect effect : victim.getActivePotionEffects()) {
-            attacker.addPotionEffect(effect);
-            // Раздаем тимейтам
-            MagmaRoar.getInstance().getTeamManager().getTeamMembers(attacker).forEach(uuid -> {
-                Player teammate = Bukkit.getPlayer(uuid);
-                if (teammate != null) teammate.addPotionEffect(effect);
-            });
+            for (Player member : team) {
+                member.addPotionEffect(effect);
+            }
             victim.removePotionEffect(effect.getType());
+            stolen = true;
         }
 
-        attacker.setCooldown(Material.NETHERITE_HOE, 1300); // 65 секунд
+        if (stolen) {
+            // Установка кулдауна 65 секунд
+            damager.setCooldown(Material.NETHERITE_HOE, 65 * 20);
+        }
     }
 }

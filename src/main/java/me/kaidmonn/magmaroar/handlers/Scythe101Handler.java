@@ -8,17 +8,16 @@ import org.bukkit.event.Listener;
 import org.bukkit.event.entity.EntityDamageByEntityEvent;
 import org.bukkit.potion.PotionEffect;
 
+import java.util.List;
+
 public class Scythe101Handler implements Listener {
 
     @EventHandler
     public void onHit(EntityDamageByEntityEvent e) {
         if (!(e.getDamager() instanceof Player damager) || !(e.getEntity() instanceof Player victim)) return;
 
-        var item = damager.getInventory().getItemInMainHand();
+        ItemStack item = damager.getInventory().getItemInMainHand();
         if (item.getType() != Material.NETHERITE_HOE || !item.hasItemMeta() || item.getItemMeta().getCustomModelData() != 101) return;
-
-        // Проверка кулдауна (шторка)
-        if (damager.hasCooldown(Material.NETHERITE_HOE)) return;
 
         // Не работает на тимейтах
         if (MagmaRoar.getTeamManager().isTeammate(damager, victim)) {
@@ -26,8 +25,10 @@ public class Scythe101Handler implements Listener {
             return;
         }
 
+        if (damager.hasCooldown(Material.NETHERITE_HOE)) return;
+
         boolean stolen = false;
-        var team = MagmaRoar.getTeamManager().getTeamMembers(damager);
+        List<Player> team = MagmaRoar.getTeamManager().getTeamMembers(damager);
 
         for (PotionEffect effect : victim.getActivePotionEffects()) {
             for (Player member : team) {
@@ -38,8 +39,7 @@ public class Scythe101Handler implements Listener {
         }
 
         if (stolen) {
-            // Установка кулдауна 65 секунд
-            damager.setCooldown(Material.NETHERITE_HOE, 65 * 20);
+            damager.setCooldown(Material.NETHERITE_HOE, 65 * 20); // Шторка 65 сек
         }
     }
 }

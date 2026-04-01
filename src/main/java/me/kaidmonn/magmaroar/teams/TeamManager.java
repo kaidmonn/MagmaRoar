@@ -1,10 +1,12 @@
 package me.kaidmonn.magmaroar.managers;
 
+import net.kyori.adventure.text.Component;
+import net.kyori.adventure.text.format.NamedTextColor;
 import org.bukkit.Bukkit;
 import org.bukkit.entity.Player;
 import org.bukkit.scoreboard.Scoreboard;
 import org.bukkit.scoreboard.Team;
-import net.kyori.adventure.text.Component;
+
 import java.util.*;
 
 public class TeamManager {
@@ -22,28 +24,25 @@ public class TeamManager {
     public List<Player> getTeamMembers(Player player) {
         Integer id = playerTeam.get(player.getUniqueId());
         if (id == null) return Collections.singletonList(player);
+        
         List<Player> members = new ArrayList<>();
-        for (UUID uuid : teams.get(id)) {
+        for (UUID uuid : teams.getOrDefault(id, new ArrayList<>())) {
             Player p = Bukkit.getPlayer(uuid);
             if (p != null && p.isOnline()) members.add(p);
         }
         return members;
     }
 
-    public void createTeam(int id, Player owner) {
-        if (playerTeam.containsKey(owner.getUniqueId())) return;
-        teams.put(id, new ArrayList<>(List.of(owner.getUniqueId())));
-        playerTeam.put(owner.getUniqueId(), id);
-        teamOwners.put(id, owner.getUniqueId());
-        updateScoreboard(owner, id);
-    }
-
     public void addPlayer(int id, Player player) {
-        if (teams.containsKey(id) && teams.get(id).size() < 3) {
-            teams.get(id).add(player.getUniqueId());
-            playerTeam.put(player.getUniqueId(), id);
-            updateScoreboard(player, id);
+        if (!teams.containsKey(id)) {
+            teams.put(id, new ArrayList<>());
         }
+        
+        if (teams.get(id).size() >= 3) return; // Лимит 3 человека
+        
+        teams.get(id).add(player.getUniqueId());
+        playerTeam.put(player.getUniqueId(), id);
+        updateScoreboard(player, id);
     }
 
     private void updateScoreboard(Player p, int id) {
@@ -51,13 +50,14 @@ public class TeamManager {
         Team t = scoreboard.getTeam(name);
         if (t == null) {
             t = scoreboard.registerNewTeam(name);
+            t.color(NamedTextColor.values()[id % 15]);
             t.prefix(Component.text("[" + id + "] "));
         }
         t.addEntry(p.getName());
+        p.playerListName(Component.text("[" + id + "] " + p.getName()));
     }
 
-    public Integer getTeamId(UUID uuid) { return playerTeam.get(uuid); }
+    public void setOwner(int id, UUID owner) { teamOwners.put(id, owner); }
     public UUID getOwner(int id) { return teamOwners.get(id); }
-    public void leaveTeam(Player p) { /* Логика удаления */ }
-    public void disband(int id) { /* Логика роспуска */ }
+    public Integer getTeamId(UUID uuid) { return playerTeam.get(uuid); }
 }

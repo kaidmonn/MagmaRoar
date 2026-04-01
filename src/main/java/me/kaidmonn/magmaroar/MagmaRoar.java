@@ -16,29 +16,21 @@ public final class MagmaRoar extends JavaPlugin {
         instance = this;
         teamManager = new TeamManager();
 
-        // Регистрация команд
-        if (getCommand("team") != null) {
-            getCommand("team").setExecutor(new TeamCommand(teamManager));
-        }
-        if (getCommand("magmagive") != null) {
-            getCommand("magmagive").setExecutor(new ItemsCommand());
-        }
+        if (getCommand("team") != null) getCommand("team").setExecutor(new TeamCommand(teamManager));
+        if (getCommand("magmagive") != null) getCommand("magmagive").setExecutor(new ItemsCommand());
 
-        // Регистрация всех обработчиков (названия исправлены согласно логам компиляции)
         var pm = getServer().getPluginManager();
         
-        // 101-109
+        // Регистрация всех хендлеров (SculkBow104 вместо Crossbow)
         pm.registerEvents(new Scythe101Handler(), this);
         pm.registerEvents(new Scythe102Handler(), this);
         pm.registerEvents(new Mjolnir103Handler(), this);
-        pm.registerEvents(new Crossbow104Handler(), this);
+        pm.registerEvents(new SculkBow104Handler(), this); // ИСПРАВЛЕНО
         pm.registerEvents(new Katana105Handler(), this);
         pm.registerEvents(new Mace106Handler(), this);
         pm.registerEvents(new ShadowBlade107Handler(), this);
         pm.registerEvents(new VillagerStaff108Handler(), this);
         pm.registerEvents(new Trident109Handler(), this);
-        
-        // 201-207
         pm.registerEvents(new BloodSword201Handler(), this);
         pm.registerEvents(new Excalibur204Handler(), this);
         pm.registerEvents(new EmeraldBlade205Handler(), this);
@@ -48,11 +40,6 @@ public final class MagmaRoar extends JavaPlugin {
         getLogger().info("MagmaRoar успешно запущен!");
     }
 
-    public static MagmaRoar getInstance() {
-        return instance;
-    }
-
-    public static TeamManager getTeamManager() {
-        return teamManager;
-    }
+    public static MagmaRoar getInstance() { return instance; }
+    public static TeamManager getTeamManager() { return teamManager; }
 }

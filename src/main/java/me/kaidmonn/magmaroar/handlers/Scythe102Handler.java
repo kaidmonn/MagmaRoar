@@ -1,15 +1,12 @@
 package me.kaidmonn.magmaroar.handlers;
 
 import me.kaidmonn.magmaroar.MagmaRoar;
-import org.bukkit.Bukkit;
 import org.bukkit.Material;
-import org.bukkit.entity.LivingEntity;
+import org.bukkit.attribute.Attribute;
 import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.Listener;
 import org.bukkit.event.entity.EntityDamageByEntityEvent;
-import org.bukkit.event.entity.EntityRegainHealthEvent;
-import org.bukkit.metadata.FixedMetadataValue;
 import org.bukkit.potion.PotionEffect;
 import org.bukkit.potion.PotionEffectType;
 
@@ -17,47 +14,25 @@ public class Scythe102Handler implements Listener {
 
     @EventHandler
     public void onHit(EntityDamageByEntityEvent e) {
-        if (!(e.getDamager() instanceof Player attacker)) return;
-        if (!(e.getEntity() instanceof LivingEntity victim)) return;
+        if (!(e.getDamager() instanceof Player damager) || !(e.getEntity() instanceof Player victim)) return;
 
-        var item = attacker.getInventory().getItemInMainHand();
+        var item = damager.getInventory().getItemInMainHand();
         if (item.getType() != Material.NETHERITE_HOE || !item.hasItemMeta() || item.getItemMeta().getCustomModelData() != 102) return;
+        if (damager.hasCooldown(Material.NETHERITE_HOE)) return;
+        if (MagmaRoar.getTeamManager().isTeammate(damager, victim)) return;
 
-        if (victim instanceof Player vicP && MagmaRoar.getInstance().getTeamManager().isTeammate(attacker, vicP)) {
-            e.setCancelled(true);
-            return;
+        e.setDamage(10.0);
+        double maxH = damager.getAttribute(Attribute.MAX_HEALTH).getValue();
+        damager.setHealth(Math.min(maxH, damager.getHealth() + 10.0));
+
+        // ИСПРАВЛЕНО: Убран лишний getPlayer()
+        for (Player member : MagmaRoar.getTeamManager().getTeamMembers(damager)) {
+            if (member.equals(damager)) continue;
+            double mMaxH = member.getAttribute(Attribute.MAX_HEALTH).getValue();
+            member.setHealth(Math.min(mMaxH, member.getHealth() + 4.0));
         }
 
-        if (attacker.getCooldown(Material.NETHERITE_HOE) > 0) return;
-
-        // Урон и Хил
-        e.setDamage(10.0); // 5 сердец
-        attacker.setHealth(Math.min(attacker.getMaxHealth(), attacker.getHealth() + 10.0));
-        
-        MagmaRoar.getInstance().getTeamManager().getTeamMembers(attacker).forEach(uuid -> {
-            Player t = Bukkit.getPlayer(uuid);
-            if (t != null && t != attacker) t.setHealth(Math.min(t.getMaxHealth(), t.getHealth() + 4.0));
-        });
-
-        // Эффекты
-        victim.addPotionEffect(new PotionEffect(PotionEffectType.WITHER, 100, 1)); // Иссушение 2 (индекс 1)
-        
-        // Кровотечение (через метаданные)
-        victim.setMetadata("bleeding", new FixedMetadataValue(MagmaRoar.getInstance(), true));
-        Bukkit.getScheduler().runTaskLater(MagmaRoar.getInstance(), 
-            () -> victim.removeMetadata("bleeding", MagmaRoar.getInstance()), 300); // 15 сек
-
-        attacker.setCooldown(Material.NETHERITE_HOE, 1500); // 75 секунд
-    }
-
-    @EventHandler
-    public void onRegen(EntityRegainHealthEvent e) {
-        if (e.getEntity().hasMetadata("bleeding")) {
-            // Блокируем только натуральную регенерацию (от еды)
-            if (e.getRegainReason() == EntityRegainHealthEvent.RegainReason.SATIATED || 
-                e.getRegainReason() == EntityRegainHealthEvent.RegainReason.REGEN) {
-                e.setCancelled(true);
-            }
-        }
+        victim.addPotionEffect(new PotionEffect(PotionEffectType.WITHER, 5 * 20, 1));
+        damager.setCooldown(Material.NETHERITE_HOE, 75 * 20);
     }
 }

@@ -1,10 +1,9 @@
 package me.kaidmonn.magmaroar.handlers;
 
 import me.kaidmonn.magmaroar.MagmaRoar;
-import org.bukkit.Location;
 import org.bukkit.Material;
+import org.bukkit.Sound;
 import org.bukkit.block.Block;
-import org.bukkit.entity.AbstractArrow;
 import org.bukkit.entity.Arrow;
 import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;
@@ -12,76 +11,69 @@ import org.bukkit.event.Listener;
 import org.bukkit.event.entity.EntityShootBowEvent;
 import org.bukkit.event.entity.ProjectileHitEvent;
 import org.bukkit.inventory.ItemStack;
-import org.bukkit.metadata.FixedMetadataValue;
 import org.bukkit.util.Vector;
 
-import java.util.Random;
-
 public class SculkBow104Handler implements Listener {
-
-    private final Random random = new Random();
 
     @EventHandler
     public void onShoot(EntityShootBowEvent e) {
         if (!(e.getEntity() instanceof Player p)) return;
-        ItemStack item = e.getBow();
-        if (item == null || !item.hasItemMeta() || item.getItemMeta().getCustomModelData() != 104) return;
+        ItemStack bow = e.getBow();
+        
+        if (bow != null && bow.hasItemMeta() && bow.getItemMeta().getCustomModelData() == 104) {
+            if (p.hasCooldown(Material.CROSSBOW)) {
+                e.setCancelled(true);
+                return;
+            }
 
-        if (p.getCooldown(Material.CROSSBOW) > 0) {
-            e.setCancelled(true);
-            return;
+            // Тройной выстрел
+            Vector velocity = e.getProjectile().getVelocity();
+            spawnExtraArrow(p, velocity, 10);
+            spawnExtraArrow(p, velocity, -10);
+
+            p.setCooldown(Material.CROSSBOW, 105 * 20); // 105 секунд
         }
-
-        // Логика тройного выстрела (как чары, но вручную)
-        Vector baseVelocity = e.getProjectile().getVelocity();
-        spawnSculkArrow(p, baseVelocity.clone().rotateAroundY(Math.toRadians(10)));
-        spawnSculkArrow(p, baseVelocity.clone().rotateAroundY(Math.toRadians(-10)));
-        
-        // Помечаем основную стрелу
-        e.getProjectile().setMetadata("sculk_arrow", new FixedMetadataValue(MagmaRoar.getInstance(), true));
-        
-        p.setCooldown(Material.CROSSBOW, 2100); // 105 сек
     }
 
-    private void spawnSculkArrow(Player p, Vector velocity) {
-        Arrow arrow = p.launchProjectile(Arrow.class, velocity);
-        arrow.setPickupStatus(AbstractArrow.PickupStatus.DISALLOWED);
-        arrow.setMetadata("sculk_arrow", new FixedMetadataValue(MagmaRoar.getInstance(), true));
+    private void spawnExtraArrow(Player p, Vector baseVel, double angle) {
+        Arrow arrow = p.launchProjectile(Arrow.class);
+        double rad = Math.toRadians(angle);
+        double cos = Math.cos(rad);
+        double sin = Math.sin(rad);
+        
+        Vector newVel = new Vector(
+            baseVel.getX() * cos - baseVel.getZ() * sin,
+            baseVel.getY(),
+            baseVel.getX() * sin + baseVel.getZ() * cos
+        );
+        arrow.setVelocity(newVel);
     }
 
     @EventHandler
     public void onHit(ProjectileHitEvent e) {
-        if (!e.getEntity().hasMetadata("sculk_arrow")) return;
-        
-        Location loc = e.getHitBlock() != null ? e.getHitBlock().getLocation() : e.getHitEntity().getLocation();
-        
-        // Взрыв уровня 4
-        loc.getWorld().createExplosion(loc, 4.0f, false, false);
-        
-        // Заражение скалком (имитация 4 убитых мобов)
-        infectWithSculk(loc, 3);
-        
-        e.getEntity().remove(); // Удаляем стрелу после взрыва
-    }
+        if (!(e.getEntity() instanceof Arrow arrow)) return;
+        if (!(arrow.getShooter() instanceof Player shooter)) return;
 
-    private void infectWithSculk(Location center, int radius) {
-        for (int x = -radius; x <= radius; x++) {
-            for (int y = -radius; y <= radius; y++) {
-                for (int z = -radius; z <= radius; z++) {
-                    if (random.nextInt(100) > 40) continue; // Рандомное заполнение
-                    
-                    Block b = center.clone().add(x, y, z).getBlock();
-                    if (b.getType().isSolid() && b.getType() != Material.BEDROCK) {
-                        if (random.nextBoolean()) {
+        ItemStack bow = shooter.getInventory().getItemInMainHand();
+        if (bow.getType() == Material.CROSSBOW && bow.hasItemMeta() && bow.getItemMeta().getCustomModelData() == 104) {
+            
+            Location loc = e.getHitBlock() != null ? e.getHitBlock().getLocation() : e.getHitEntity().getLocation();
+            
+            // Взрыв уровня 4
+            loc.getWorld().createExplosion(loc, 4.0f, false, false, shooter);
+            
+            // Заражение скалком (замена блоков вокруг)
+            for (int x = -2; x <= 2; x++) {
+                for (int y = -1; y <= 1; y++) {
+                    for (int z = -2; z <= 2; z++) {
+                        Block b = loc.clone().add(x, y, z).getBlock();
+                        if (b.getType().isSolid() && Math.random() < 0.6) {
                             b.setType(Material.SCULK);
-                        } else {
-                            // Ставим жилы на поверхности
-                            Block above = b.getRelative(0, 1, 0);
-                            if (above.getType().isAir()) above.setType(Material.SCULK_VEIN);
                         }
                     }
                 }
             }
+            loc.getWorld().playSound(loc, Sound.BLOCK_SCULK_CATALYST_BLOOM, 1f, 0.5f);
         }
     }
 }
